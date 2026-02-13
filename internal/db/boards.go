@@ -289,10 +289,10 @@ func (db *DB) UpdateBoardLastViewed(boardID string) error {
 	})
 }
 
-// UpdateBoardViewMode updates the view_mode for a board (swimlanes or backlog)
+// UpdateBoardViewMode updates the view_mode for a board (swimlanes, backlog, or kanban)
 func (db *DB) UpdateBoardViewMode(boardID, viewMode string) error {
-	if viewMode != "swimlanes" && viewMode != "backlog" {
-		return fmt.Errorf("invalid view mode: %s (must be 'swimlanes' or 'backlog')", viewMode)
+	if viewMode != "swimlanes" && viewMode != "backlog" && viewMode != "kanban" {
+		return fmt.Errorf("invalid view mode: %s (must be 'swimlanes', 'backlog', or 'kanban')", viewMode)
 	}
 	return db.withWriteLock(func() error {
 		_, err := db.conn.Exec(`UPDATE boards SET view_mode = ?, updated_at = ? WHERE id = ?`,
