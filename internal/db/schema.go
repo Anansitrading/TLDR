@@ -1,7 +1,7 @@
 package db
 
 // SchemaVersion is the current database schema version
-const SchemaVersion = 29
+const SchemaVersion = 30
 
 const schema = `
 -- Issues table
@@ -497,6 +497,17 @@ CREATE INDEX IF NOT EXISTS idx_agent_activity_created ON agent_activity(created_
 CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee);
 CREATE INDEX IF NOT EXISTS idx_issues_project_tag ON issues(project_tag);
 CREATE INDEX IF NOT EXISTS idx_issues_linear_id ON issues(linear_id);
+`,
+	},
+	{
+		Version:     30,
+		Description: "Migrate old statuses to Linear-style workflow statuses",
+		SQL: `
+UPDATE issues SET status = 'backlog' WHERE status = 'open';
+UPDATE issues SET status = 'in_flight' WHERE status = 'in_progress';
+UPDATE issues SET status = 'review' WHERE status = 'in_review';
+UPDATE issues SET status = 'shipped' WHERE status = 'closed';
+UPDATE issues SET status = 'backlog' WHERE status = 'blocked';
 `,
 	},
 }
