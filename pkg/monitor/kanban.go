@@ -9,8 +9,16 @@ import (
 	"github.com/marcus/td/internal/models"
 )
 
-// kanbanStatusOrder defines the display order for kanban columns
-var kanbanStatusOrder = []models.Status{
+// kanbanCoreLanes are the 4 lanes that always show (matching Linear's main workflow)
+var kanbanCoreLanes = []models.Status{
+	models.StatusBacklog,
+	models.StatusInFlight,
+	models.StatusReview,
+	models.StatusShipped,
+}
+
+// kanbanAllLanes includes all statuses for when extra lanes are toggled on
+var kanbanAllLanes = []models.Status{
 	models.StatusTriage,
 	models.StatusBacklog,
 	models.StatusPrioritized,
@@ -19,6 +27,18 @@ var kanbanStatusOrder = []models.Status{
 	models.StatusShipped,
 	models.StatusCanceled,
 	models.StatusDuplicate,
+}
+
+// kanbanDisplayNames maps status to human-friendly column headers
+var kanbanDisplayNames = map[models.Status]string{
+	models.StatusTriage:      "Triage",
+	models.StatusBacklog:     "Backlog",
+	models.StatusPrioritized: "Prioritized",
+	models.StatusInFlight:    "In Flight",
+	models.StatusReview:      "Review",
+	models.StatusShipped:     "Shipped",
+	models.StatusCanceled:    "Canceled",
+	models.StatusDuplicate:   "Duplicate",
 }
 
 // rebuildKanbanState rebuilds the kanban column data from current board issues.
@@ -52,10 +72,16 @@ func (m *Model) rebuildKanbanState() {
 		ks.ColumnIssues[status] = append(ks.ColumnIssues[status], biv.Issue)
 	}
 
-	// Build visible statuses in canonical order (skip empty ones)
+	// Build visible statuses: core lanes always show, others only if they have issues
 	ks.VisibleStatuses = nil
-	for _, status := range kanbanStatusOrder {
-		if issues, ok := ks.ColumnIssues[status]; ok && len(issues) > 0 {
+	coreSet := make(map[models.Status]bool)
+	for _, s := range kanbanCoreLanes {
+		coreSet[s] = true
+	}
+	for _, status := range kanbanAllLanes {
+		isCore := coreSet[status]
+		hasIssues := len(ks.ColumnIssues[status]) > 0
+		if isCore || hasIssues {
 			ks.VisibleStatuses = append(ks.VisibleStatuses, status)
 		}
 	}
@@ -266,7 +292,10 @@ func (m Model) renderKanbanColumn(status models.Status, issues []models.Issue, c
 		Width(width - 2). // Subtract border width
 		Align(lipgloss.Center)
 
-	statusName := strings.ToUpper(string(status))
+	statusName, ok2 := kanbanDisplayNames[status]
+	if !ok2 {
+		statusName = strings.ToUpper(string(status))
+	}
 	headerText := fmt.Sprintf(" %s (%d) ", statusName, len(issues))
 	sb.WriteString(headerStyle.Render(headerText))
 	sb.WriteString("\n")
