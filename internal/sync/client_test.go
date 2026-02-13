@@ -73,9 +73,9 @@ func TestGetPendingEvents_Basic(t *testing.T) {
 	db := setupClientDB(t)
 
 	insertActionLog(t, db, "al-00000001", "sess1", "create", "issues", "i1",
-		`{"title":"First","status":"open"}`, `{}`, 0, "")
+		`{"title":"First","status":"backlog"}`, `{}`, 0, "")
 	insertActionLog(t, db, "al-00000002", "sess1", "update", "issues", "i1",
-		`{"title":"Updated","status":"open"}`, `{"title":"First","status":"open"}`, 0, "")
+		`{"title":"Updated","status":"backlog"}`, `{"title":"First","status":"backlog"}`, 0, "")
 	insertActionLog(t, db, "al-00000003", "sess1", "delete", "issues", "i2",
 		`{}`, `{"title":"Gone"}`, 0, "")
 
@@ -246,9 +246,9 @@ func TestGetPendingEvents_EntityTypeNormalization(t *testing.T) {
 	db := setupClientDB(t)
 
 	insertActionLog(t, db, "al-00000001", "sess1", "create", "issue", "i1",
-		`{"title":"Normalized","status":"open"}`, `{}`, 0, "")
+		`{"title":"Normalized","status":"backlog"}`, `{}`, 0, "")
 	insertActionLog(t, db, "al-00000002", "sess1", "create", "issues", "i2",
-		`{"title":"AlreadyCanonical","status":"open"}`, `{}`, 0, "")
+		`{"title":"AlreadyCanonical","status":"backlog"}`, `{}`, 0, "")
 	insertActionLog(t, db, "al-00000003", "sess1", "create", "dependency", "dep1",
 		`{"id":"dep1","issue_id":"i1","depends_on_id":"i2","relation_type":"depends_on"}`, `{}`, 0, "")
 	insertActionLog(t, db, "al-00000004", "sess1", "create", "board_position", "bip1",
@@ -295,21 +295,21 @@ func TestApplyRemoteEvents_Basic(t *testing.T) {
 			ActionType: "create",
 			EntityType: "issues",
 			EntityID:   "i1",
-			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"First","status":"open"},"previous_data":{}}`),
+			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"First","status":"backlog"},"previous_data":{}}`),
 		},
 		{
 			ServerSeq:  2,
 			ActionType: "create",
 			EntityType: "issues",
 			EntityID:   "i2",
-			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Second","status":"open"},"previous_data":{}}`),
+			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Second","status":"backlog"},"previous_data":{}}`),
 		},
 		{
 			ServerSeq:  3,
 			ActionType: "update",
 			EntityType: "issues",
 			EntityID:   "i1",
-			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Updated First","status":"closed"},"previous_data":{"title":"First","status":"open"}}`),
+			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Updated First","status":"shipped"},"previous_data":{"title":"First","status":"backlog"}}`),
 		},
 	}
 
@@ -335,14 +335,14 @@ func TestApplyRemoteEvents_Basic(t *testing.T) {
 	if err := db.QueryRow("SELECT title, status FROM issues WHERE id = ?", "i1").Scan(&title, &status); err != nil {
 		t.Fatalf("query i1: %v", err)
 	}
-	if title != "Updated First" || status != "closed" {
+	if title != "Updated First" || status != "shipped" {
 		t.Errorf("i1: title=%q status=%q", title, status)
 	}
 
 	if err := db.QueryRow("SELECT title, status FROM issues WHERE id = ?", "i2").Scan(&title, &status); err != nil {
 		t.Fatalf("query i2: %v", err)
 	}
-	if title != "Second" || status != "open" {
+	if title != "Second" || status != "backlog" {
 		t.Errorf("i2: title=%q status=%q", title, status)
 	}
 }
@@ -356,7 +356,7 @@ func TestApplyRemoteEvents_PartialFailure(t *testing.T) {
 			ActionType: "create",
 			EntityType: "issues",
 			EntityID:   "i1",
-			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Good","status":"open"},"previous_data":{}}`),
+			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Good","status":"backlog"},"previous_data":{}}`),
 		},
 		{
 			ServerSeq:  2,
@@ -370,7 +370,7 @@ func TestApplyRemoteEvents_PartialFailure(t *testing.T) {
 			ActionType: "create",
 			EntityType: "issues",
 			EntityID:   "i2",
-			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Also Good","status":"open"},"previous_data":{}}`),
+			Payload:    []byte(`{"schema_version":1,"new_data":{"title":"Also Good","status":"backlog"},"previous_data":{}}`),
 		},
 	}
 
@@ -407,7 +407,7 @@ func TestApplyRemoteEvents_ConflictTracking(t *testing.T) {
 
 	// Create initial row
 	tx := beginTx(t, db)
-	p1, _ := json.Marshal(map[string]any{"title": "local", "status": "open"})
+	p1, _ := json.Marshal(map[string]any{"title": "local", "status": "backlog"})
 	if _, err := upsertEntity(tx, "issues", "i1", p1); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -416,7 +416,7 @@ func TestApplyRemoteEvents_ConflictTracking(t *testing.T) {
 	// Apply remote event that overwrites
 	remotePayload, _ := json.Marshal(map[string]any{
 		"schema_version": 1,
-		"new_data":       map[string]any{"title": "remote", "status": "closed"},
+		"new_data":       map[string]any{"title": "remote", "status": "shipped"},
 	})
 	events := []Event{{
 		ServerSeq:  42,
@@ -471,11 +471,11 @@ func TestApplyRemoteEvents_MultipleOverwritesProduceConflicts(t *testing.T) {
 
 	// Seed two local rows
 	tx := beginTx(t, db)
-	p1, _ := json.Marshal(map[string]any{"title": "local-A", "status": "open"})
+	p1, _ := json.Marshal(map[string]any{"title": "local-A", "status": "backlog"})
 	if _, err := upsertEntity(tx, "issues", "i1", p1); err != nil {
 		t.Fatalf("seed i1: %v", err)
 	}
-	p2, _ := json.Marshal(map[string]any{"title": "local-B", "status": "open"})
+	p2, _ := json.Marshal(map[string]any{"title": "local-B", "status": "backlog"})
 	if _, err := upsertEntity(tx, "issues", "i2", p2); err != nil {
 		t.Fatalf("seed i2: %v", err)
 	}
@@ -491,8 +491,8 @@ func TestApplyRemoteEvents_MultipleOverwritesProduceConflicts(t *testing.T) {
 	}
 
 	events := []Event{
-		{ServerSeq: 10, DeviceID: "other", ActionType: "update", EntityType: "issues", EntityID: "i1", Payload: makePayload("remote-A", "closed")},
-		{ServerSeq: 11, DeviceID: "other", ActionType: "update", EntityType: "issues", EntityID: "i2", Payload: makePayload("remote-B", "closed")},
+		{ServerSeq: 10, DeviceID: "other", ActionType: "update", EntityType: "issues", EntityID: "i1", Payload: makePayload("remote-A", "shipped")},
+		{ServerSeq: 11, DeviceID: "other", ActionType: "update", EntityType: "issues", EntityID: "i2", Payload: makePayload("remote-B", "shipped")},
 	}
 
 	tx = beginTx(t, db)
@@ -530,7 +530,7 @@ func TestApplyRemoteEvents_DeleteDoesNotProduceConflict(t *testing.T) {
 
 	// Seed a local row
 	tx := beginTx(t, db)
-	p, _ := json.Marshal(map[string]any{"title": "local", "status": "open"})
+	p, _ := json.Marshal(map[string]any{"title": "local", "status": "backlog"})
 	if _, err := upsertEntity(tx, "issues", "i1", p); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -577,7 +577,7 @@ func TestApplyRemoteEvents_ConflictDataCorrectness(t *testing.T) {
 	tx := beginTx(t, db)
 	localFields, _ := json.Marshal(map[string]any{
 		"title":    "my-local-title",
-		"status":   "in_progress",
+		"status":   "in_flight",
 		"priority": "high",
 	})
 	if _, err := upsertEntity(tx, "issues", "i1", localFields); err != nil {
@@ -588,7 +588,7 @@ func TestApplyRemoteEvents_ConflictDataCorrectness(t *testing.T) {
 	// Remote overwrites with different data
 	remoteFields := map[string]any{
 		"title":    "remote-title",
-		"status":   "closed",
+		"status":   "shipped",
 		"priority": "low",
 	}
 	remotePayload, _ := json.Marshal(map[string]any{
@@ -621,8 +621,8 @@ func TestApplyRemoteEvents_ConflictDataCorrectness(t *testing.T) {
 	if local["title"] != "my-local-title" {
 		t.Errorf("LocalData title=%v, want 'my-local-title'", local["title"])
 	}
-	if local["status"] != "in_progress" {
-		t.Errorf("LocalData status=%v, want 'in_progress'", local["status"])
+	if local["status"] != "in_flight" {
+		t.Errorf("LocalData status=%v, want 'in_flight'", local["status"])
 	}
 
 	// Verify RemoteData has the new values
@@ -633,8 +633,8 @@ func TestApplyRemoteEvents_ConflictDataCorrectness(t *testing.T) {
 	if remote["title"] != "remote-title" {
 		t.Errorf("RemoteData title=%v, want 'remote-title'", remote["title"])
 	}
-	if remote["status"] != "closed" {
-		t.Errorf("RemoteData status=%v, want 'closed'", remote["status"])
+	if remote["status"] != "shipped" {
+		t.Errorf("RemoteData status=%v, want 'shipped'", remote["status"])
 	}
 	if remote["priority"] != "low" {
 		t.Errorf("RemoteData priority=%v, want 'low'", remote["priority"])
@@ -656,7 +656,7 @@ func TestApplyRemoteEvents_NoConflictWhenUnchangedSinceSync(t *testing.T) {
 	tx := beginTx(t, db)
 	oldTime := "2025-01-01T00:00:00Z"
 	_, err := tx.Exec(`INSERT INTO issues (id, title, status, updated_at) VALUES (?, ?, ?, ?)`,
-		"i1", "local", "open", oldTime)
+		"i1", "local", "backlog", oldTime)
 	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -667,7 +667,7 @@ func TestApplyRemoteEvents_NoConflictWhenUnchangedSinceSync(t *testing.T) {
 
 	remotePayload, _ := json.Marshal(map[string]any{
 		"schema_version": 1,
-		"new_data":       map[string]any{"title": "remote", "status": "closed"},
+		"new_data":       map[string]any{"title": "remote", "status": "shipped"},
 	})
 	events := []Event{{
 		ServerSeq: 1, DeviceID: "other", ActionType: "update",
@@ -699,7 +699,7 @@ func TestApplyRemoteEvents_ConflictWhenModifiedAfterSync(t *testing.T) {
 	tx := beginTx(t, db)
 	recentTime := "2025-07-01T00:00:00Z"
 	_, err := tx.Exec(`INSERT INTO issues (id, title, status, updated_at) VALUES (?, ?, ?, ?)`,
-		"i1", "modified-locally", "open", recentTime)
+		"i1", "modified-locally", "backlog", recentTime)
 	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -710,7 +710,7 @@ func TestApplyRemoteEvents_ConflictWhenModifiedAfterSync(t *testing.T) {
 
 	remotePayload, _ := json.Marshal(map[string]any{
 		"schema_version": 1,
-		"new_data":       map[string]any{"title": "remote", "status": "closed"},
+		"new_data":       map[string]any{"title": "remote", "status": "shipped"},
 	})
 	events := []Event{{
 		ServerSeq: 1, DeviceID: "other", ActionType: "update",
@@ -737,7 +737,7 @@ func TestApplyRemoteEvents_NilLastSyncAtSkipsConflicts(t *testing.T) {
 
 	// Seed a local row
 	tx := beginTx(t, db)
-	p, _ := json.Marshal(map[string]any{"title": "local", "status": "open"})
+	p, _ := json.Marshal(map[string]any{"title": "local", "status": "backlog"})
 	if _, err := upsertEntity(tx, "issues", "i1", p); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -746,7 +746,7 @@ func TestApplyRemoteEvents_NilLastSyncAtSkipsConflicts(t *testing.T) {
 	// Apply remote overwrite with nil lastSyncAt (bootstrap scenario)
 	remotePayload, _ := json.Marshal(map[string]any{
 		"schema_version": 1,
-		"new_data":       map[string]any{"title": "remote", "status": "closed"},
+		"new_data":       map[string]any{"title": "remote", "status": "shipped"},
 	})
 	events := []Event{{
 		ServerSeq: 1, DeviceID: "other", ActionType: "update",

@@ -266,9 +266,9 @@ func TestBackfillStaleIssues_SkipsWhenUpToDate(t *testing.T) {
 	db := setupBackfillDB(t)
 
 	now := time.Now().UTC().Format("2006-01-02 15:04:05")
-	_, _ = db.Exec(`INSERT INTO issues (id, title, status, updated_at) VALUES ('td-701', 'Fresh', 'open', ?)`, now)
+	_, _ = db.Exec(`INSERT INTO issues (id, title, status, updated_at) VALUES ('td-701', 'Fresh', 'backlog', ?)`, now)
 	_, _ = db.Exec(`INSERT INTO action_log (id, session_id, action_type, entity_type, entity_id, new_data, timestamp, undone)
-		VALUES ('al-create2', 'ses-old', 'create', 'issue', 'td-701', '{"id":"td-701","status":"open"}', ?, 0)`, now)
+		VALUES ('al-create2', 'ses-old', 'create', 'issue', 'td-701', '{"id":"td-701","status":"backlog"}', ?, 0)`, now)
 
 	tx, _ := db.Begin()
 	n, err := BackfillStaleIssues(tx, "ses-test")

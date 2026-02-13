@@ -275,8 +275,8 @@ func TestStartLogsAction(t *testing.T) {
 		ActionType:   models.ActionStart,
 		EntityType:   "issue",
 		EntityID:     issue.ID,
-		PreviousData: `{"status":"open"}`,
-		NewData:      `{"status":"in_progress"}`,
+		PreviousData: `{"status":"backlog"}`,
+		NewData:      `{"status":"in_flight"}`,
 	}
 	if err := database.LogAction(action); err != nil {
 		t.Fatalf("LogAction failed: %v", err)

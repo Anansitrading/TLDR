@@ -984,11 +984,11 @@ func TestSnapshotEndpoint(t *testing.T) {
 		DeviceID: "dev1", SessionID: "sess1",
 		Events: []EventInput{
 			{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "i_001",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 			{ClientActionID: 2, ActionType: "create", EntityType: "issues", EntityID: "i_002",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"two","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"two","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
 			{ClientActionID: 3, ActionType: "update", EntityType: "issues", EntityID: "i_001",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"updated","status":"closed"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"updated","status":"shipped"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
 		},
 	})
 	if w.Code != http.StatusOK {
@@ -1068,7 +1068,7 @@ func TestSnapshotValidSQLiteWithTables(t *testing.T) {
 		DeviceID: "dev1", SessionID: "sess1",
 		Events: []EventInput{
 			{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "i_001",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 			{ClientActionID: 2, ActionType: "create", EntityType: "boards", EntityID: "b_001",
 				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"name":"board1"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
 		},
@@ -1200,7 +1200,7 @@ func TestSnapshotXSnapshotEventIdHeader(t *testing.T) {
 			ActionType:      "create",
 			EntityType:      "issues",
 			EntityID:        fmt.Sprintf("i_%03d", i+1),
-			Payload:         json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"open"}}`),
+			Payload:         json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"backlog"}}`),
 			ClientTimestamp: "2025-01-01T00:00:00Z",
 		}
 	}
@@ -1254,7 +1254,7 @@ func TestSnapshotCaching(t *testing.T) {
 		DeviceID: "dev1", SessionID: "sess1",
 		Events: []EventInput{
 			{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "i_001",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"cache-test","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"cache-test","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 		},
 	})
 	if w.Code != http.StatusOK {

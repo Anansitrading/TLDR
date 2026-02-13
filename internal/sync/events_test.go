@@ -60,7 +60,7 @@ func TestUpsertEntity_Create(t *testing.T) {
 
 	payload, _ := json.Marshal(map[string]any{
 		"title":  "first issue",
-		"status": "open",
+		"status": "backlog",
 	})
 	_, err := upsertEntity(tx, "issues", "i1", payload)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestUpsertEntity_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	if title != "first issue" || status != "open" {
+	if title != "first issue" || status != "backlog" {
 		t.Fatalf("got title=%q status=%q", title, status)
 	}
 }
@@ -83,7 +83,7 @@ func TestUpsertEntity_Update(t *testing.T) {
 
 	// Insert
 	tx := beginTx(t, db)
-	p1, _ := json.Marshal(map[string]any{"title": "old", "status": "open"})
+	p1, _ := json.Marshal(map[string]any{"title": "old", "status": "backlog"})
 	if _, err := upsertEntity(tx, "issues", "i1", p1); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestUpsertEntity_Update(t *testing.T) {
 
 	// Upsert with new title
 	tx = beginTx(t, db)
-	p2, _ := json.Marshal(map[string]any{"title": "new", "status": "closed"})
+	p2, _ := json.Marshal(map[string]any{"title": "new", "status": "shipped"})
 	if _, err := upsertEntity(tx, "issues", "i1", p2); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestUpsertEntity_Update(t *testing.T) {
 
 	var title, status string
 	db.QueryRow("SELECT title, status FROM issues WHERE id = ?", "i1").Scan(&title, &status)
-	if title != "new" || status != "closed" {
+	if title != "new" || status != "shipped" {
 		t.Fatalf("got title=%q status=%q", title, status)
 	}
 }
@@ -109,7 +109,7 @@ func TestUpsertExistingEntity(t *testing.T) {
 
 	// Create with title+status
 	tx := beginTx(t, db)
-	p1, _ := json.Marshal(map[string]any{"title": "orig", "status": "open"})
+	p1, _ := json.Marshal(map[string]any{"title": "orig", "status": "backlog"})
 	if _, err := upsertEntity(tx, "issues", "i1", p1); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestPartialPayloadDropsColumns(t *testing.T) {
 
 	// Create with title+status+priority
 	tx := beginTx(t, db)
-	p1, _ := json.Marshal(map[string]any{"title": "full", "status": "open", "priority": "high"})
+	p1, _ := json.Marshal(map[string]any{"title": "full", "status": "backlog", "priority": "high"})
 	if _, err := upsertEntity(tx, "issues", "i1", p1); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestUpdateDoesNotRecreateAfterDelete(t *testing.T) {
 		ActionType: "create",
 		EntityType: "issues",
 		EntityID:   "i1",
-		Payload:    []byte(`{"title":"old","status":"open"}`),
+		Payload:    []byte(`{"title":"old","status":"backlog"}`),
 	}, testValidator)
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -255,7 +255,7 @@ func TestUpdateDoesNotRecreateAfterDelete(t *testing.T) {
 		ActionType: "update",
 		EntityType: "issues",
 		EntityID:   "i1",
-		Payload:    []byte(`{"title":"resurrected","status":"closed"}`),
+		Payload:    []byte(`{"title":"resurrected","status":"shipped"}`),
 	}, testValidator)
 	if err != nil {
 		t.Fatalf("update: %v", err)
@@ -388,7 +388,7 @@ func TestApplyEvent_Create(t *testing.T) {
 	db := setupDB(t)
 	tx := beginTx(t, db)
 
-	payload, _ := json.Marshal(map[string]any{"title": "via apply", "status": "open"})
+	payload, _ := json.Marshal(map[string]any{"title": "via apply", "status": "backlog"})
 	_, err := ApplyEvent(tx, Event{
 		ActionType: "create",
 		EntityType: "issues",
@@ -412,13 +412,13 @@ func TestApplyEvent_Update(t *testing.T) {
 
 	// Create first
 	tx := beginTx(t, db)
-	p1, _ := json.Marshal(map[string]any{"title": "orig", "status": "open"})
+	p1, _ := json.Marshal(map[string]any{"title": "orig", "status": "backlog"})
 	_, _ = ApplyEvent(tx, Event{ActionType: "create", EntityType: "issues", EntityID: "i1", Payload: p1}, testValidator)
 	tx.Commit()
 
 	// Update
 	tx = beginTx(t, db)
-	p2, _ := json.Marshal(map[string]any{"title": "updated", "status": "closed"})
+	p2, _ := json.Marshal(map[string]any{"title": "updated", "status": "shipped"})
 	_, err := ApplyEvent(tx, Event{ActionType: "update", EntityType: "issues", EntityID: "i1", Payload: p2}, testValidator)
 	if err != nil {
 		t.Fatalf("apply update: %v", err)
@@ -427,7 +427,7 @@ func TestApplyEvent_Update(t *testing.T) {
 
 	var title, status string
 	db.QueryRow("SELECT title, status FROM issues WHERE id = ?", "i1").Scan(&title, &status)
-	if title != "updated" || status != "closed" {
+	if title != "updated" || status != "shipped" {
 		t.Fatalf("got title=%q status=%q", title, status)
 	}
 }
@@ -606,7 +606,7 @@ func TestUpsertEntity_UnknownFieldsIgnored(t *testing.T) {
 	db := setupDB(t)
 	tx := beginTx(t, db)
 
-	payload := []byte(`{"title":"Alien","status":"open","custom_xyz":"should be ignored","another_fake":"also ignored"}`)
+	payload := []byte(`{"title":"Alien","status":"backlog","custom_xyz":"should be ignored","another_fake":"also ignored"}`)
 	_, err := upsertEntity(tx, "issues", "i1", payload)
 	if err != nil {
 		t.Fatalf("upsert with unknown fields: %v", err)
@@ -618,8 +618,8 @@ func TestUpsertEntity_UnknownFieldsIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	if title != "Alien" || status != "open" {
-		t.Fatalf("got title=%q status=%q, want Alien/open", title, status)
+	if title != "Alien" || status != "backlog" {
+		t.Fatalf("got title=%q status=%q, want Alien/backlog", title, status)
 	}
 }
 

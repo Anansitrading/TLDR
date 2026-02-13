@@ -141,8 +141,8 @@ func TestBlockLogsAction(t *testing.T) {
 		ActionType:   models.ActionBlock,
 		EntityType:   "issue",
 		EntityID:     issue.ID,
-		PreviousData: `{"status":"open"}`,
-		NewData:      `{"status":"blocked"}`,
+		PreviousData: `{"status":"backlog"}`,
+		NewData:      `{"status":"canceled"}`,
 	}
 	if err := database.LogAction(action); err != nil {
 		t.Fatalf("LogAction failed: %v", err)

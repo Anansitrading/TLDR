@@ -136,7 +136,7 @@ func setupAutoSyncTestDB(t *testing.T, n int) *db.DB {
 			"issues",
 			fmt.Sprintf("i_%08d", i),
 			"{}",
-			fmt.Sprintf(`{"title":"Issue %d","status":"open"}`, i),
+			fmt.Sprintf(`{"title":"Issue %d","status":"backlog"}`, i),
 			now.Add(time.Duration(i)*time.Millisecond).Format(time.RFC3339Nano),
 		)
 		if err != nil {

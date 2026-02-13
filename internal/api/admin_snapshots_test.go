@@ -70,9 +70,9 @@ func TestAdminSnapshotMeta_WithSnapshot(t *testing.T) {
 		DeviceID: "dev1", SessionID: "sess1",
 		Events: []EventInput{
 			{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "i_001",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 			{ClientActionID: 2, ActionType: "create", EntityType: "issues", EntityID: "i_002",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"two","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"two","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
 		},
 	})
 	if w.Code != http.StatusOK {
@@ -233,7 +233,7 @@ func TestAdminSnapshotQuery_InvalidQuery(t *testing.T) {
 		DeviceID: "dev1", SessionID: "sess1",
 		Events: []EventInput{
 			{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "td-bbb001",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 		},
 	})
 	if w.Code != http.StatusOK {
@@ -379,7 +379,7 @@ func TestAdminSnapshotQuery_LimitClamped(t *testing.T) {
 		DeviceID: "dev1", SessionID: "sess1",
 		Events: []EventInput{
 			{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "td-clamp1",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"open"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"backlog"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 		},
 	})
 	if w.Code != http.StatusOK {

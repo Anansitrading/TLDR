@@ -242,29 +242,29 @@ func TestStatusFilterParsing(t *testing.T) {
 		expectOpen  bool
 	}{
 		{
-			name:        "single status open",
-			statusInput: []string{"open"},
+			name:        "single status backlog",
+			statusInput: []string{"backlog"},
 			allFlag:     false,
 			expectAll:   false,
 			expectOpen:  true,
 		},
 		{
-			name:        "single status closed",
-			statusInput: []string{"closed"},
+			name:        "single status shipped",
+			statusInput: []string{"shipped"},
 			allFlag:     false,
 			expectAll:   false,
 			expectOpen:  false,
 		},
 		{
 			name:        "multiple statuses comma-separated",
-			statusInput: []string{"open,in_progress"},
+			statusInput: []string{"backlog,in_flight"},
 			allFlag:     false,
 			expectAll:   false,
 			expectOpen:  true,
 		},
 		{
 			name:        "multiple status flags",
-			statusInput: []string{"open", "in_review"},
+			statusInput: []string{"backlog", "review"},
 			allFlag:     false,
 			expectAll:   false,
 			expectOpen:  true,
@@ -299,7 +299,7 @@ func TestStatusFilterParsing(t *testing.T) {
 		},
 		{
 			name:        "status all in comma-separated list",
-			statusInput: []string{"open,all,closed"},
+			statusInput: []string{"backlog,all,shipped"},
 			allFlag:     false,
 			expectAll:   true,
 			expectOpen:  false,
@@ -358,7 +358,7 @@ func TestStatusFilterParsing(t *testing.T) {
 					}
 				}
 				if !foundOpen {
-					t.Errorf("Expected StatusOpen in status filter, got %v", opts.Status)
+					t.Errorf("Expected StatusBacklog in status filter, got %v", opts.Status)
 				}
 			}
 		})
@@ -400,7 +400,7 @@ func TestStatusAllIncludesAllStatuses(t *testing.T) {
 		// Verify closed status is not in default
 		for _, s := range opts.Status {
 			if s == models.StatusShipped {
-				t.Error("Expected StatusClosed not to be in default filter")
+				t.Error("Expected StatusShipped not to be in default filter")
 			}
 		}
 
@@ -466,22 +466,22 @@ func TestStatusAllVariations(t *testing.T) {
 		},
 		{
 			name:              "all in comma-separated first position",
-			statusInput:       []string{"all,open"},
+			statusInput:       []string{"all,backlog"},
 			shouldActivateAll: true,
 		},
 		{
 			name:              "all in comma-separated middle position",
-			statusInput:       []string{"open,all,closed"},
+			statusInput:       []string{"backlog,all,shipped"},
 			shouldActivateAll: true,
 		},
 		{
 			name:              "all in comma-separated last position",
-			statusInput:       []string{"open,closed,all"},
+			statusInput:       []string{"backlog,shipped,all"},
 			shouldActivateAll: true,
 		},
 		{
 			name:              "all as separate flag",
-			statusInput:       []string{"open", "all"},
+			statusInput:       []string{"backlog", "all"},
 			shouldActivateAll: true,
 		},
 	}

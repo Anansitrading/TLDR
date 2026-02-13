@@ -98,7 +98,7 @@ func TestDeleteLogsAction(t *testing.T) {
 	database.CreateIssue(issue)
 
 	sessionID := "ses_test123"
-	issueData := `{"id":"` + issue.ID + `","title":"Test Issue","status":"open"}`
+	issueData := `{"id":"` + issue.ID + `","title":"Test Issue","status":"backlog"}`
 
 	// Delete issue
 	database.DeleteIssue(issue.ID)

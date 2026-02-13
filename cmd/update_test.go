@@ -546,7 +546,7 @@ func TestUpdateCmdHasStatusFlag(t *testing.T) {
 	}
 
 	// Test that the flag can be set
-	if err := updateCmd.Flags().Set("status", "open"); err != nil {
+	if err := updateCmd.Flags().Set("status", "backlog"); err != nil {
 		t.Errorf("Failed to set --status flag: %v", err)
 	}
 
@@ -554,8 +554,8 @@ func TestUpdateCmdHasStatusFlag(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to get --status flag value: %v", err)
 	}
-	if statusValue != "open" {
-		t.Errorf("Expected status value 'open', got %s", statusValue)
+	if statusValue != "backlog" {
+		t.Errorf("Expected status value 'backlog', got %s", statusValue)
 	}
 
 	// Reset

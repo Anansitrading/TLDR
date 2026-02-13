@@ -223,11 +223,11 @@ func TestIntegration_SnapshotMeta_WithSnapshot(t *testing.T) {
 	// Push 3 issue-creation events with full payloads
 	h.PushEvents(userToken, pid, []EventInput{
 		{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "td-smws001",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"open","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"one","status":"backlog","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 		{ClientActionID: 2, ActionType: "create", EntityType: "issues", EntityID: "td-smws002",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"two","status":"open","type":"task","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"two","status":"backlog","type":"task","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
 		{ClientActionID: 3, ActionType: "create", EntityType: "issues", EntityID: "td-smws003",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"three","status":"closed","type":"bug","priority":"P3"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"three","status":"shipped","type":"bug","priority":"P3"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
 	})
 
 	// Build the snapshot
@@ -421,7 +421,7 @@ func TestIntegration_SnapshotQuery_InvalidTDQ(t *testing.T) {
 	// Push at least one event so the project has data (otherwise we get snapshot_unavailable)
 	h.PushEvents(userToken, pid, []EventInput{
 		{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "td-sqiq001",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"open","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"backlog","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 	})
 
 	// Send invalid TDQ syntax (double equals is not valid)
@@ -497,7 +497,7 @@ func TestIntegration_ErrorCodes_BadRequest(t *testing.T) {
 	// Push one event so snapshot query does not return snapshot_unavailable
 	h.PushEvents(userToken, pid, []EventInput{
 		{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "td-ecbr001",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"open","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"test","status":"backlog","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 	})
 
 	// Missing required 'q' param for snapshot query returns invalid_query
