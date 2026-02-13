@@ -764,24 +764,30 @@ func TestInProgressRequiredGuard_ErrorMessage(t *testing.T) {
 func TestGuardsIntegration_StrictMode(t *testing.T) {
 	sm := StrictMachine()
 
-	// Test that BlockedGuard is wired up for blocked→in_progress
+	// Test that DifferentReviewerGuard is wired up for review→shipped
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
-		FromStatus: models.StatusCanceled,
-		ToStatus:   models.StatusInFlight,
-		Force:      false,
+		Issue: &models.Issue{
+			ID:                 "test-1",
+			Status:             models.StatusReview,
+			ImplementerSession: "session-1",
+		},
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
+		SessionID:   "session-1",
+		WasInvolved: true,
 	}
 
 	_, err := sm.Validate(ctx)
 	if err == nil {
-		t.Error("Strict mode should block blocked→in_progress without force")
+		t.Error("Strict mode should block self-approval of review→shipped")
 	}
 
-	// With force should pass
-	ctx.Force = true
+	// Different reviewer should pass
+	ctx.SessionID = "session-2"
+	ctx.WasInvolved = false
 	_, err = sm.Validate(ctx)
 	if err != nil {
-		t.Errorf("Strict mode should allow blocked→in_progress with force: %v", err)
+		t.Errorf("Strict mode should allow review→shipped with different reviewer: %v", err)
 	}
 }
 
@@ -819,10 +825,15 @@ func TestGuardsIntegration_LiberalModeSkipsGuards(t *testing.T) {
 
 	// In liberal mode, even guard-failing scenarios should pass
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
-		FromStatus: models.StatusCanceled,
-		ToStatus:   models.StatusInFlight,
-		Force:      false, // Would fail BlockedGuard
+		Issue: &models.Issue{
+			ID:                 "test-1",
+			Status:             models.StatusReview,
+			ImplementerSession: "session-1",
+		},
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
+		SessionID:   "session-1",
+		WasInvolved: true, // Would fail DifferentReviewerGuard
 	}
 
 	results, err := sm.Validate(ctx)
@@ -838,10 +849,15 @@ func TestGuardsIntegration_AdvisoryModeReturnsWarnings(t *testing.T) {
 	sm := AdvisoryMachine()
 
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
-		FromStatus: models.StatusCanceled,
-		ToStatus:   models.StatusInFlight,
-		Force:      false,
+		Issue: &models.Issue{
+			ID:                 "test-1",
+			Status:             models.StatusReview,
+			ImplementerSession: "session-1",
+		},
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
+		SessionID:   "session-1",
+		WasInvolved: true,
 	}
 
 	results, err := sm.Validate(ctx)
@@ -852,15 +868,15 @@ func TestGuardsIntegration_AdvisoryModeReturnsWarnings(t *testing.T) {
 		t.Error("Advisory mode should return guard results")
 	}
 
-	// Should have BlockedGuard failure
+	// Should have DifferentReviewerGuard failure
 	found := false
 	for _, r := range results {
-		if r.Guard == "BlockedGuard" && !r.Passed {
+		if r.Guard == "DifferentReviewerGuard" && !r.Passed {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("Advisory mode should report BlockedGuard failure")
+		t.Error("Advisory mode should report DifferentReviewerGuard failure")
 	}
 }

@@ -8,88 +8,101 @@ import (
 
 // TestIntegrationWorkflowScenarios tests common workflow scenarios
 func TestIntegrationWorkflowScenarios(t *testing.T) {
-	t.Run("typical issue lifecycle", func(t *testing.T) {
+	t.Run("full forward lifecycle", func(t *testing.T) {
 		sm := DefaultMachine()
 
-		// open → in_progress (start)
-		if !sm.IsValidTransition(models.StatusBacklog, models.StatusInFlight) {
-			t.Error("Should allow open → in_progress")
+		// triage → backlog (accept)
+		if !sm.IsValidTransition(models.StatusTriage, models.StatusBacklog) {
+			t.Error("Should allow triage → backlog")
 		}
 
-		// in_progress → in_review (review)
+		// backlog → prioritized (prioritize)
+		if !sm.IsValidTransition(models.StatusBacklog, models.StatusPrioritized) {
+			t.Error("Should allow backlog → prioritized")
+		}
+
+		// prioritized → in_flight (start)
+		if !sm.IsValidTransition(models.StatusPrioritized, models.StatusInFlight) {
+			t.Error("Should allow prioritized → in_flight")
+		}
+
+		// in_flight → review (submit)
 		if !sm.IsValidTransition(models.StatusInFlight, models.StatusReview) {
-			t.Error("Should allow in_progress → in_review")
+			t.Error("Should allow in_flight → review")
 		}
 
-		// in_review → closed (approve)
+		// review → shipped (approve)
 		if !sm.IsValidTransition(models.StatusReview, models.StatusShipped) {
-			t.Error("Should allow in_review → closed")
+			t.Error("Should allow review → shipped")
 		}
 	})
 
-	t.Run("blocked workflow", func(t *testing.T) {
+	t.Run("quick start from backlog", func(t *testing.T) {
 		sm := DefaultMachine()
 
-		// open → blocked
+		// backlog → in_flight (skip prioritized)
+		if !sm.IsValidTransition(models.StatusBacklog, models.StatusInFlight) {
+			t.Error("Should allow backlog → in_flight")
+		}
+	})
+
+	t.Run("cancellation workflow", func(t *testing.T) {
+		sm := DefaultMachine()
+
+		// Cancel from various states
 		if !sm.IsValidTransition(models.StatusBacklog, models.StatusCanceled) {
-			t.Error("Should allow open → blocked")
+			t.Error("Should allow backlog → canceled")
+		}
+		if !sm.IsValidTransition(models.StatusInFlight, models.StatusCanceled) {
+			t.Error("Should allow in_flight → canceled")
+		}
+		if !sm.IsValidTransition(models.StatusReview, models.StatusCanceled) {
+			t.Error("Should allow review → canceled")
 		}
 
-		// blocked → in_progress (with force)
-		if !sm.IsValidTransition(models.StatusCanceled, models.StatusInFlight) {
-			t.Error("Should allow blocked → in_progress")
-		}
-
-		// blocked → open (unblock)
+		// Reopen from canceled
 		if !sm.IsValidTransition(models.StatusCanceled, models.StatusBacklog) {
-			t.Error("Should allow blocked → open")
+			t.Error("Should allow canceled → backlog")
+		}
+		if !sm.IsValidTransition(models.StatusCanceled, models.StatusTriage) {
+			t.Error("Should allow canceled → triage")
 		}
 	})
 
 	t.Run("rejection workflow", func(t *testing.T) {
 		sm := DefaultMachine()
 
-		// in_review → in_progress (reject)
+		// review → in_flight (reject back to work)
 		if !sm.IsValidTransition(models.StatusReview, models.StatusInFlight) {
-			t.Error("Should allow in_review → in_progress")
+			t.Error("Should allow review → in_flight")
 		}
 
-		// in_review → open (reject to open)
+		// review → backlog (reject back to backlog)
 		if !sm.IsValidTransition(models.StatusReview, models.StatusBacklog) {
-			t.Error("Should allow in_review → open")
+			t.Error("Should allow review → backlog")
 		}
 	})
 
 	t.Run("reopen workflow", func(t *testing.T) {
 		sm := DefaultMachine()
 
-		// closed → open (reopen)
+		// shipped → backlog (reopen)
 		if !sm.IsValidTransition(models.StatusShipped, models.StatusBacklog) {
-			t.Error("Should allow closed → open")
+			t.Error("Should allow shipped → backlog")
 		}
 
-		// closed cannot go to anything else
+		// shipped cannot go to anything else
 		if sm.IsValidTransition(models.StatusShipped, models.StatusInFlight) {
-			t.Error("Should not allow closed → in_progress directly")
+			t.Error("Should not allow shipped → in_flight directly")
 		}
 	})
 
-	t.Run("direct close scenarios", func(t *testing.T) {
+	t.Run("direct ship from in_flight", func(t *testing.T) {
 		sm := DefaultMachine()
 
-		// open → closed (admin close)
-		if !sm.IsValidTransition(models.StatusBacklog, models.StatusShipped) {
-			t.Error("Should allow open → closed")
-		}
-
-		// in_progress → closed (close without review)
+		// in_flight → shipped (skip review)
 		if !sm.IsValidTransition(models.StatusInFlight, models.StatusShipped) {
-			t.Error("Should allow in_progress → closed")
-		}
-
-		// blocked → closed (close blocked issue)
-		if !sm.IsValidTransition(models.StatusCanceled, models.StatusShipped) {
-			t.Error("Should allow blocked → closed")
+			t.Error("Should allow in_flight → shipped")
 		}
 	})
 }
@@ -101,16 +114,17 @@ func TestIntegrationGuardBehavior(t *testing.T) {
 
 		issue := &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusCanceled,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		}
 
 		ctx := &TransitionContext{
-			Issue:      issue,
-			FromStatus: models.StatusCanceled,
-			ToStatus:   models.StatusInFlight,
-			SessionID:  "session-1",
-			Force:      false, // Not forcing
+			Issue:       issue,
+			FromStatus:  models.StatusReview,
+			ToStatus:    models.StatusShipped,
+			SessionID:   "session-1",
+			Force:       false,
+			WasInvolved: true,
 		}
 
 		_, err := sm.Validate(ctx)
@@ -124,16 +138,17 @@ func TestIntegrationGuardBehavior(t *testing.T) {
 
 		issue := &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusCanceled,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		}
 
 		ctx := &TransitionContext{
-			Issue:      issue,
-			FromStatus: models.StatusCanceled,
-			ToStatus:   models.StatusInFlight,
-			SessionID:  "session-1",
-			Force:      false,
+			Issue:       issue,
+			FromStatus:  models.StatusReview,
+			ToStatus:    models.StatusShipped,
+			SessionID:   "session-1",
+			Force:       false,
+			WasInvolved: true,
 		}
 
 		results, err := sm.Validate(ctx)
@@ -150,16 +165,17 @@ func TestIntegrationGuardBehavior(t *testing.T) {
 
 		issue := &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusCanceled,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		}
 
 		ctx := &TransitionContext{
-			Issue:      issue,
-			FromStatus: models.StatusCanceled,
-			ToStatus:   models.StatusInFlight,
-			SessionID:  "session-1",
-			Force:      false,
+			Issue:       issue,
+			FromStatus:  models.StatusReview,
+			ToStatus:    models.StatusShipped,
+			SessionID:   "session-1",
+			Force:       false,
+			WasInvolved: true,
 		}
 
 		_, err := sm.Validate(ctx)
@@ -177,16 +193,32 @@ func TestIntegrationInvalidTransitions(t *testing.T) {
 		from models.Status
 		to   models.Status
 	}{
-		// blocked cannot go to in_review
+		// Cannot skip directly to review from backlog
+		{models.StatusBacklog, models.StatusReview},
+		// Cannot ship directly from backlog
+		{models.StatusBacklog, models.StatusShipped},
+
+		// Canceled is terminal — can only reopen to backlog/triage
+		{models.StatusCanceled, models.StatusInFlight},
 		{models.StatusCanceled, models.StatusReview},
+		{models.StatusCanceled, models.StatusShipped},
 
-		// in_review cannot go to blocked
-		{models.StatusReview, models.StatusCanceled},
+		// Duplicate is terminal — can only reopen to backlog/triage
+		{models.StatusDuplicate, models.StatusInFlight},
+		{models.StatusDuplicate, models.StatusReview},
+		{models.StatusDuplicate, models.StatusShipped},
 
-		// closed can only go to open
+		// Shipped can only reopen to backlog
 		{models.StatusShipped, models.StatusInFlight},
 		{models.StatusShipped, models.StatusCanceled},
 		{models.StatusShipped, models.StatusReview},
+		{models.StatusShipped, models.StatusTriage},
+
+		// Triage cannot jump forward past backlog
+		{models.StatusTriage, models.StatusInFlight},
+		{models.StatusTriage, models.StatusReview},
+		{models.StatusTriage, models.StatusShipped},
+		{models.StatusTriage, models.StatusPrioritized},
 	}
 
 	for _, tt := range invalidTransitions {

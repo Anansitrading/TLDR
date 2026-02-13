@@ -15,41 +15,58 @@ func TestIsValidTransition(t *testing.T) {
 		to       models.Status
 		expected bool
 	}{
-		// Valid transitions from open
-		{"open → in_progress", models.StatusBacklog, models.StatusInFlight, true},
-		{"open → blocked", models.StatusBacklog, models.StatusCanceled, true},
-		{"open → in_review", models.StatusBacklog, models.StatusReview, true},
-		{"open → closed", models.StatusBacklog, models.StatusShipped, true},
+		// Valid transitions from triage
+		{"triage → backlog", models.StatusTriage, models.StatusBacklog, true},
+		{"triage → canceled", models.StatusTriage, models.StatusCanceled, true},
+		{"triage → duplicate", models.StatusTriage, models.StatusDuplicate, true},
+		{"triage → in_flight (invalid)", models.StatusTriage, models.StatusInFlight, false},
 
-		// Valid transitions from in_progress
-		{"in_progress → open", models.StatusInFlight, models.StatusBacklog, true},
-		{"in_progress → blocked", models.StatusInFlight, models.StatusCanceled, true},
-		{"in_progress → in_review", models.StatusInFlight, models.StatusReview, true},
-		{"in_progress → closed", models.StatusInFlight, models.StatusShipped, true},
+		// Valid transitions from backlog
+		{"backlog → triage", models.StatusBacklog, models.StatusTriage, true},
+		{"backlog → prioritized", models.StatusBacklog, models.StatusPrioritized, true},
+		{"backlog → in_flight", models.StatusBacklog, models.StatusInFlight, true},
+		{"backlog → canceled", models.StatusBacklog, models.StatusCanceled, true},
+		{"backlog → duplicate", models.StatusBacklog, models.StatusDuplicate, true},
+		{"backlog → review (invalid)", models.StatusBacklog, models.StatusReview, false},
+		{"backlog → shipped (invalid)", models.StatusBacklog, models.StatusShipped, false},
 
-		// Valid transitions from blocked
-		{"blocked → open", models.StatusCanceled, models.StatusBacklog, true},
-		{"blocked → in_progress", models.StatusCanceled, models.StatusInFlight, true},
-		{"blocked → closed", models.StatusCanceled, models.StatusShipped, true},
+		// Valid transitions from prioritized
+		{"prioritized → backlog", models.StatusPrioritized, models.StatusBacklog, true},
+		{"prioritized → in_flight", models.StatusPrioritized, models.StatusInFlight, true},
+		{"prioritized → canceled", models.StatusPrioritized, models.StatusCanceled, true},
+		{"prioritized → duplicate", models.StatusPrioritized, models.StatusDuplicate, true},
+		{"prioritized → review (invalid)", models.StatusPrioritized, models.StatusReview, false},
 
-		// Invalid: blocked cannot go to in_review
-		{"blocked → in_review", models.StatusCanceled, models.StatusReview, false},
+		// Valid transitions from in_flight
+		{"in_flight → review", models.StatusInFlight, models.StatusReview, true},
+		{"in_flight → shipped", models.StatusInFlight, models.StatusShipped, true},
+		{"in_flight → backlog", models.StatusInFlight, models.StatusBacklog, true},
+		{"in_flight → canceled", models.StatusInFlight, models.StatusCanceled, true},
+		{"in_flight → duplicate (invalid)", models.StatusInFlight, models.StatusDuplicate, false},
 
-		// Valid transitions from in_review
-		{"in_review → open", models.StatusReview, models.StatusBacklog, true},
-		{"in_review → in_progress", models.StatusReview, models.StatusInFlight, true},
-		{"in_review → closed", models.StatusReview, models.StatusShipped, true},
+		// Valid transitions from review
+		{"review → shipped", models.StatusReview, models.StatusShipped, true},
+		{"review → in_flight", models.StatusReview, models.StatusInFlight, true},
+		{"review → backlog", models.StatusReview, models.StatusBacklog, true},
+		{"review → canceled", models.StatusReview, models.StatusCanceled, true},
+		{"review → duplicate (invalid)", models.StatusReview, models.StatusDuplicate, false},
 
-		// Invalid: in_review cannot go to blocked
-		{"in_review → blocked", models.StatusReview, models.StatusCanceled, false},
+		// Valid transitions from shipped (terminal — reopen only)
+		{"shipped → backlog", models.StatusShipped, models.StatusBacklog, true},
+		{"shipped → in_flight (invalid)", models.StatusShipped, models.StatusInFlight, false},
+		{"shipped → canceled (invalid)", models.StatusShipped, models.StatusCanceled, false},
+		{"shipped → review (invalid)", models.StatusShipped, models.StatusReview, false},
 
-		// Valid transitions from closed
-		{"closed → open", models.StatusShipped, models.StatusBacklog, true},
+		// Valid transitions from canceled (terminal — reopen only)
+		{"canceled → backlog", models.StatusCanceled, models.StatusBacklog, true},
+		{"canceled → triage", models.StatusCanceled, models.StatusTriage, true},
+		{"canceled → in_flight (invalid)", models.StatusCanceled, models.StatusInFlight, false},
+		{"canceled → review (invalid)", models.StatusCanceled, models.StatusReview, false},
 
-		// Invalid: closed cannot go anywhere else
-		{"closed → in_progress", models.StatusShipped, models.StatusInFlight, false},
-		{"closed → blocked", models.StatusShipped, models.StatusCanceled, false},
-		{"closed → in_review", models.StatusShipped, models.StatusReview, false},
+		// Valid transitions from duplicate (terminal — reopen only)
+		{"duplicate → backlog", models.StatusDuplicate, models.StatusBacklog, true},
+		{"duplicate → triage", models.StatusDuplicate, models.StatusTriage, true},
+		{"duplicate → in_flight (invalid)", models.StatusDuplicate, models.StatusInFlight, false},
 	}
 
 	for _, tt := range tests {
@@ -68,16 +85,17 @@ func TestLiberalModeAllowsAllTransitions(t *testing.T) {
 	// Even with guards, liberal mode should allow all valid transitions
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusCanceled,
+		Status:             models.StatusReview,
 		ImplementerSession: "session-1",
 	}
 
 	ctx := &TransitionContext{
-		Issue:      issue,
-		FromStatus: models.StatusCanceled,
-		ToStatus:   models.StatusInFlight,
-		SessionID:  "session-1",
-		Force:      false, // Not forcing
+		Issue:       issue,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
+		SessionID:   "session-1",
+		Force:       false,
+		WasInvolved: true, // Would normally trigger DifferentReviewerGuard
 	}
 
 	results, err := sm.Validate(ctx)
@@ -94,44 +112,47 @@ func TestStrictModeBlocksGuardFailures(t *testing.T) {
 
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusCanceled,
+		Status:             models.StatusReview,
 		ImplementerSession: "session-1",
 	}
 
 	ctx := &TransitionContext{
-		Issue:      issue,
-		FromStatus: models.StatusCanceled,
-		ToStatus:   models.StatusInFlight,
-		SessionID:  "session-1",
-		Force:      false,
+		Issue:       issue,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
+		SessionID:   "session-1",
+		Force:       false,
+		WasInvolved: true,
 	}
 
 	_, err := sm.Validate(ctx)
 	if err == nil {
-		t.Error("Strict mode should block transition when BlockedGuard fails")
+		t.Error("Strict mode should block transition when DifferentReviewerGuard fails")
 	}
 }
 
-func TestStrictModeAllowsWithForce(t *testing.T) {
+func TestStrictModeAllowsWithMinor(t *testing.T) {
 	sm := StrictMachine()
 
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusCanceled,
+		Status:             models.StatusReview,
 		ImplementerSession: "session-1",
+		Minor:              true,
 	}
 
 	ctx := &TransitionContext{
-		Issue:      issue,
-		FromStatus: models.StatusCanceled,
-		ToStatus:   models.StatusInFlight,
-		SessionID:  "session-1",
-		Force:      true, // Force flag set
+		Issue:       issue,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
+		SessionID:   "session-1",
+		Minor:       true, // Minor flag allows self-approval
+		WasInvolved: true,
 	}
 
 	_, err := sm.Validate(ctx)
 	if err != nil {
-		t.Errorf("Strict mode should allow transition with --force, got: %v", err)
+		t.Errorf("Strict mode should allow self-approval for minor issues, got: %v", err)
 	}
 }
 
@@ -140,16 +161,17 @@ func TestAdvisoryModeReturnsWarnings(t *testing.T) {
 
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusCanceled,
+		Status:             models.StatusReview,
 		ImplementerSession: "session-1",
 	}
 
 	ctx := &TransitionContext{
-		Issue:      issue,
-		FromStatus: models.StatusCanceled,
-		ToStatus:   models.StatusInFlight,
-		SessionID:  "session-1",
-		Force:      false,
+		Issue:       issue,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
+		SessionID:   "session-1",
+		Force:       false,
+		WasInvolved: true,
 	}
 
 	results, err := sm.Validate(ctx)
@@ -278,14 +300,14 @@ func TestGetAllowedTransitions(t *testing.T) {
 		from     models.Status
 		expected int
 	}{
-		{models.StatusTriage, 3},       // backlog, canceled, duplicate
-		{models.StatusBacklog, 6},      // triage, prioritized, in_flight, review, canceled, shipped
-		{models.StatusPrioritized, 3},  // backlog, in_flight, canceled
-		{models.StatusInFlight, 4},     // backlog, review, shipped, canceled
-		{models.StatusReview, 3},       // backlog, in_flight, shipped
-		{models.StatusShipped, 1},      // backlog only
-		{models.StatusCanceled, 3},     // backlog, in_flight, shipped
-		{models.StatusDuplicate, 1},    // backlog only
+		{models.StatusTriage, 3},      // backlog, canceled, duplicate
+		{models.StatusBacklog, 5},     // triage, prioritized, in_flight, canceled, duplicate
+		{models.StatusPrioritized, 4}, // backlog, in_flight, canceled, duplicate
+		{models.StatusInFlight, 4},    // review, shipped, backlog, canceled
+		{models.StatusReview, 4},      // shipped, in_flight, backlog, canceled
+		{models.StatusShipped, 1},     // backlog only
+		{models.StatusCanceled, 2},    // backlog, triage
+		{models.StatusDuplicate, 2},   // backlog, triage
 	}
 
 	for _, tt := range tests {
@@ -300,24 +322,36 @@ func TestGetAllowedTransitions(t *testing.T) {
 
 func TestTransitionName(t *testing.T) {
 	tests := []struct {
+		name     string
 		from     models.Status
 		to       models.Status
 		expected string
 	}{
-		{models.StatusBacklog, models.StatusInFlight, "start"},
-		{models.StatusPrioritized, models.StatusInFlight, "start"},
-		{models.StatusInFlight, models.StatusBacklog, "unstart"},
-		{models.StatusBacklog, models.StatusCanceled, "cancel"},
-		{models.StatusCanceled, models.StatusBacklog, "reopen"},
-		{models.StatusInFlight, models.StatusReview, "review"},
-		{models.StatusReview, models.StatusInFlight, "reject"},
-		{models.StatusReview, models.StatusShipped, "approve"},
-		{models.StatusInFlight, models.StatusShipped, "ship"},
-		{models.StatusShipped, models.StatusBacklog, "reopen"},
+		{"start from backlog", models.StatusBacklog, models.StatusInFlight, "start"},
+		{"start from prioritized", models.StatusPrioritized, models.StatusInFlight, "start"},
+		{"unstart", models.StatusInFlight, models.StatusBacklog, "unstart"},
+		{"cancel from backlog", models.StatusBacklog, models.StatusCanceled, "cancel"},
+		{"cancel from in_flight", models.StatusInFlight, models.StatusCanceled, "cancel"},
+		{"cancel from review", models.StatusReview, models.StatusCanceled, "cancel"},
+		{"duplicate from triage", models.StatusTriage, models.StatusDuplicate, "duplicate"},
+		{"duplicate from backlog", models.StatusBacklog, models.StatusDuplicate, "duplicate"},
+		{"review", models.StatusInFlight, models.StatusReview, "review"},
+		{"reject to in_flight", models.StatusReview, models.StatusInFlight, "reject"},
+		{"reject to backlog", models.StatusReview, models.StatusBacklog, "reject"},
+		{"approve", models.StatusReview, models.StatusShipped, "approve"},
+		{"ship", models.StatusInFlight, models.StatusShipped, "ship"},
+		{"reopen from shipped", models.StatusShipped, models.StatusBacklog, "reopen"},
+		{"reopen from canceled", models.StatusCanceled, models.StatusBacklog, "reopen"},
+		{"reopen canceled to triage", models.StatusCanceled, models.StatusTriage, "reopen"},
+		{"reopen from duplicate", models.StatusDuplicate, models.StatusBacklog, "reopen"},
+		{"reopen duplicate to triage", models.StatusDuplicate, models.StatusTriage, "reopen"},
+		{"prioritize", models.StatusBacklog, models.StatusPrioritized, "prioritize"},
+		{"deprioritize", models.StatusPrioritized, models.StatusBacklog, "deprioritize"},
+		{"triage", models.StatusBacklog, models.StatusTriage, "triage"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			name := TransitionName(tt.from, tt.to)
 			if name != tt.expected {
 				t.Errorf("TransitionName(%s, %s) = %q, want %q", tt.from, tt.to, name, tt.expected)

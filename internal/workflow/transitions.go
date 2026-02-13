@@ -4,85 +4,108 @@ import (
 	"github.com/marcus/td/internal/models"
 )
 
-// AllTransitions returns all valid status transitions
-// This defines the complete workflow state machine
+// AllTransitions returns all valid status transitions.
+// This defines the complete workflow state machine:
+//
+//	Forward flow: Triage → Backlog → Prioritized → InFlight → Review → Shipped
+//	Terminal states: Canceled and Duplicate (reachable from most active states)
+//	Backward transitions: Allowed for corrections (demote, reject, reopen)
 func AllTransitions() []*Transition {
 	return []*Transition{
-		// From triage
+		// From triage — accept into backlog, or discard
 		{From: models.StatusTriage, To: models.StatusBacklog, Guards: nil},
 		{From: models.StatusTriage, To: models.StatusCanceled, Guards: nil},
 		{From: models.StatusTriage, To: models.StatusDuplicate, Guards: nil},
 
-		// From backlog
+		// From backlog — promote forward, or discard
 		{From: models.StatusBacklog, To: models.StatusTriage, Guards: nil},
 		{From: models.StatusBacklog, To: models.StatusPrioritized, Guards: nil},
 		{From: models.StatusBacklog, To: models.StatusInFlight, Guards: nil},
-		{From: models.StatusBacklog, To: models.StatusReview, Guards: nil},
 		{From: models.StatusBacklog, To: models.StatusCanceled, Guards: nil},
-		{From: models.StatusBacklog, To: models.StatusShipped, Guards: nil},
+		{From: models.StatusBacklog, To: models.StatusDuplicate, Guards: nil},
 
-		// From prioritized
+		// From prioritized — start work, demote back, or discard
 		{From: models.StatusPrioritized, To: models.StatusBacklog, Guards: nil},
 		{From: models.StatusPrioritized, To: models.StatusInFlight, Guards: nil},
 		{From: models.StatusPrioritized, To: models.StatusCanceled, Guards: nil},
+		{From: models.StatusPrioritized, To: models.StatusDuplicate, Guards: nil},
 
-		// From in_flight
-		{From: models.StatusInFlight, To: models.StatusBacklog, Guards: nil},
+		// From in_flight — submit for review, ship directly, pause, or discard
 		{From: models.StatusInFlight, To: models.StatusReview, Guards: nil},
 		{From: models.StatusInFlight, To: models.StatusShipped, Guards: nil},
+		{From: models.StatusInFlight, To: models.StatusBacklog, Guards: nil},
 		{From: models.StatusInFlight, To: models.StatusCanceled, Guards: nil},
 
-		// From review
-		{From: models.StatusReview, To: models.StatusBacklog, Guards: nil},
-		{From: models.StatusReview, To: models.StatusInFlight, Guards: nil},
+		// From review — approve, reject back, or discard
 		{From: models.StatusReview, To: models.StatusShipped, Guards: []Guard{&DifferentReviewerGuard{}}},
+		{From: models.StatusReview, To: models.StatusInFlight, Guards: nil},
+		{From: models.StatusReview, To: models.StatusBacklog, Guards: nil},
+		{From: models.StatusReview, To: models.StatusCanceled, Guards: nil},
 
-		// From shipped
+		// From shipped — reopen only
 		{From: models.StatusShipped, To: models.StatusBacklog, Guards: nil},
 
-		// From canceled
+		// From canceled — reopen to backlog or triage
 		{From: models.StatusCanceled, To: models.StatusBacklog, Guards: nil},
-		{From: models.StatusCanceled, To: models.StatusInFlight, Guards: []Guard{&BlockedGuard{}}},
-		{From: models.StatusCanceled, To: models.StatusShipped, Guards: nil},
+		{From: models.StatusCanceled, To: models.StatusTriage, Guards: nil},
 
-		// From duplicate
+		// From duplicate — reopen to backlog or triage
 		{From: models.StatusDuplicate, To: models.StatusBacklog, Guards: nil},
+		{From: models.StatusDuplicate, To: models.StatusTriage, Guards: nil},
 	}
 }
 
 // TransitionName returns a human-readable name for the transition
 func TransitionName(from, to models.Status) string {
 	switch {
+	// Starting work
 	case from == models.StatusBacklog && to == models.StatusInFlight:
 		return "start"
 	case from == models.StatusPrioritized && to == models.StatusInFlight:
 		return "start"
 	case from == models.StatusInFlight && to == models.StatusBacklog:
 		return "unstart"
+
+	// Terminal states
 	case to == models.StatusCanceled:
 		return "cancel"
 	case to == models.StatusDuplicate:
 		return "duplicate"
+
+	// Review flow
 	case to == models.StatusReview:
 		return "review"
 	case from == models.StatusReview && to == models.StatusInFlight:
 		return "reject"
 	case from == models.StatusReview && to == models.StatusShipped:
 		return "approve"
+	case from == models.StatusReview && to == models.StatusBacklog:
+		return "reject"
+
+	// Shipping
 	case to == models.StatusShipped:
 		return "ship"
+
+	// Reopening from terminal/shipped states
 	case from == models.StatusShipped && to == models.StatusBacklog:
 		return "reopen"
 	case from == models.StatusCanceled && to == models.StatusBacklog:
 		return "reopen"
+	case from == models.StatusCanceled && to == models.StatusTriage:
+		return "reopen"
 	case from == models.StatusDuplicate && to == models.StatusBacklog:
 		return "reopen"
+	case from == models.StatusDuplicate && to == models.StatusTriage:
+		return "reopen"
+
+	// Prioritization
 	case to == models.StatusPrioritized:
 		return "prioritize"
 	case to == models.StatusBacklog:
 		return "deprioritize"
 	case to == models.StatusTriage:
 		return "triage"
+
 	default:
 		return string(from) + " → " + string(to)
 	}
