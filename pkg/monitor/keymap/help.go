@@ -235,7 +235,7 @@ func (r *Registry) GenerateTDQHelp() string {
 
 	sb.WriteString("\n" + tdqHeaderStyle.Render("FIELDS:") + "\n")
 	fields := []HelpBinding{
-		{Keys: "status", Description: "open, in_progress, blocked, in_review, closed"},
+		{Keys: "status", Description: "triage, backlog, prioritized, in_flight, review, shipped, canceled, duplicate"},
 		{Keys: "type", Description: "bug, feature, task, epic, chore"},
 		{Keys: "priority", Description: "P0, P1, P2, P3, P4"},
 		{Keys: "points", Description: "1, 2, 3, 5, 8, 13, 21"},
@@ -294,9 +294,9 @@ func (r *Registry) GenerateTDQHelp() string {
 	sb.WriteString("\n" + tdqHeaderStyle.Render("EXAMPLES:") + "\n")
 	examples := []string{
 		`  type = bug AND priority <= P1`,
-		`  status = open AND created >= -7d`,
-		`  sort:-created status = open`,
-		`  implementer = @me AND is(in_progress)`,
+		`  status = backlog AND created >= -7d`,
+		`  sort:-created status = backlog`,
+		`  implementer = @me AND is(in_flight)`,
 		`  log.type = blocker`,
 	}
 	for _, ex := range examples {

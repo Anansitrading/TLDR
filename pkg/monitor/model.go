@@ -55,7 +55,7 @@ type Model struct {
 
 	// Flattened rows for selection
 	TaskListRows    []TaskListRow // Flattened task list for selection
-	CurrentWorkRows []string      // Issue IDs for current work panel (focused + in-progress)
+	CurrentWorkRows []string      // Issue IDs for current work panel (focused + in-flight)
 
 	// Modal stack for stacking modals (empty = no modal open)
 	ModalStack []ModalEntry

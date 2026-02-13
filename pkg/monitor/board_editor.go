@@ -258,7 +258,7 @@ func (m *Model) renderBoardEditorTDQRef(contentWidth int) string {
 	sb.WriteString(headerStyle.Render("TDQ Quick Reference") + "\n")
 	sb.WriteString("─────────────────────────────\n")
 	sb.WriteString("Fields: status, type, priority, labels, title\n")
-	sb.WriteString("Status: open, in_progress, blocked, in_review, closed\n")
+	sb.WriteString("Status: triage, backlog, prioritized, in_flight, review, shipped, canceled, duplicate\n")
 	sb.WriteString("Type:   bug, feature, task, epic, chore\n")
 	sb.WriteString("Ops:    = != ~ < > <= >=\n")
 	sb.WriteString("Logic:  AND OR NOT (grouping)\n")

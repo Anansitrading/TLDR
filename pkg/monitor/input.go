@@ -288,7 +288,7 @@ func (m Model) hitTestSwimlaneRow(relY int) int {
 }
 
 // hitTestCurrentWorkRow maps a y position to a CurrentWorkRows index
-// Accounts for blank line + "IN PROGRESS:" header between focused and in-progress sections
+// Accounts for blank line + "IN FLIGHT:" header between focused and in-flight sections
 func (m Model) hitTestCurrentWorkRow(relY int) int {
 	if len(m.CurrentWorkRows) == 0 {
 		return -1
@@ -305,7 +305,7 @@ func (m Model) hitTestCurrentWorkRow(relY int) int {
 		linePos = 1
 	}
 
-	// Count in-progress issues (excluding focused if duplicate)
+	// Count in-flight issues (excluding focused if duplicate)
 	inProgressCount := len(m.InProgress)
 	if m.FocusedIssue != nil {
 		for _, issue := range m.InProgress {
@@ -330,7 +330,7 @@ func (m Model) hitTestCurrentWorkRow(relY int) int {
 		rowIdx++
 	}
 
-	// "IN PROGRESS:" section header (blank line + margin-top + header = 3 lines)
+	// "IN FLIGHT:" section header (blank line + margin-top + header = 3 lines)
 	// Note: sectionHeader style has MarginTop(1), adding an extra blank line
 	if inProgressCount > 0 {
 		// Only show header if we're past offset or at start
@@ -352,7 +352,7 @@ func (m Model) hitTestCurrentWorkRow(relY int) int {
 			linePos++
 		}
 
-		// In-progress issue rows
+		// In-flight issue rows
 		for i := 0; i < inProgressCount; i++ {
 			if rowIdx >= offset {
 				if relY == linePos {
@@ -437,7 +437,7 @@ func (m *Model) buildCurrentWorkRows() {
 		m.CurrentWorkRows = append(m.CurrentWorkRows, m.FocusedIssue.ID)
 	}
 	for _, issue := range m.InProgress {
-		// Skip focused issue if it's also in progress (avoid duplicate)
+		// Skip focused issue if it's also in flight (avoid duplicate)
 		if m.FocusedIssue != nil && issue.ID == m.FocusedIssue.ID {
 			continue
 		}

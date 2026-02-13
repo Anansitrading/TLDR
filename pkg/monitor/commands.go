@@ -1449,7 +1449,7 @@ func (m Model) exitBoardMode() (Model, tea.Cmd) {
 	return m, m.fetchData()
 }
 
-// toggleBoardClosed toggles the closed status in the board status filter
+// toggleBoardClosed toggles the terminal statuses (shipped/canceled/duplicate) in the board status filter
 func (m Model) toggleBoardClosed() (Model, tea.Cmd) {
 	if m.TaskListMode != TaskListModeBoard || m.BoardMode.Board == nil {
 		return m, nil

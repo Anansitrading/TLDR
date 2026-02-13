@@ -174,7 +174,7 @@ func (m Model) renderCompact() string {
 		s.WriteString(fmt.Sprintf("Focus: %s\n", m.FocusedIssue.ID))
 	}
 
-	s.WriteString(fmt.Sprintf("In Progress: %d\n", len(m.InProgress)))
+	s.WriteString(fmt.Sprintf("In Flight: %d\n", len(m.InProgress)))
 	s.WriteString(fmt.Sprintf("Ready: %d | Review: %d | Rework: %d | Blocked: %d\n",
 		len(m.TaskList.Ready),
 		len(m.TaskList.Reviewable),
@@ -273,20 +273,20 @@ func (m Model) renderCurrentWorkPanel(height int) string {
 		rowIdx++
 	}
 
-	// In-progress issues (skip focused if it's duplicated)
+	// In-flight issues (skip focused if it's duplicated)
 	if len(m.InProgress) > 0 && linesWritten < effectiveMaxLines {
 		// Only show header if in visible range
 		if rowIdx >= offset || (m.FocusedIssue != nil && offset == 0) {
 			if linesWritten < effectiveMaxLines {
 				content.WriteString("\n")
-				content.WriteString(sectionHeader.Render("IN PROGRESS:"))
+				content.WriteString(sectionHeader.Render("IN FLIGHT:"))
 				content.WriteString("\n")
 				linesWritten += 2
 			}
 		}
 
 		for _, issue := range m.InProgress {
-			// Skip focused issue if it's also in progress
+			// Skip focused issue if it's also in flight
 			if m.FocusedIssue != nil && issue.ID == m.FocusedIssue.ID {
 				continue
 			}

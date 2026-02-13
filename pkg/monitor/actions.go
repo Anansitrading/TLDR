@@ -11,7 +11,7 @@ import (
 
 // markForReview marks the selected issue for review
 // Works from modal view, CurrentWork panel, or TaskList panel
-// Accepts both in_progress and open (ready) issues
+// Accepts in_flight, triage, backlog, and prioritized (ready) issues
 func (m Model) markForReview() (tea.Model, tea.Cmd) {
 	var issueID string
 	var issue *models.Issue

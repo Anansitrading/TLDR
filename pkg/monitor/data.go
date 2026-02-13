@@ -46,7 +46,7 @@ func FetchData(database *db.DB, sessionID string, startedAt time.Time, searchQue
 		}
 	}
 
-	// Get in-progress issues
+	// Get in-flight issues
 	inProgress, _ := database.ListIssues(db.ListIssuesOptions{
 		Status: []models.Status{models.StatusInFlight},
 		SortBy: "priority",
@@ -196,7 +196,7 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 	}
 	depStatuses, _ := database.GetIssueStatuses(allDepIDs)
 
-	// Get rejected in_progress issue IDs for "needs rework" detection
+	// Get rejected in_flight issue IDs for "needs rework" detection
 	rejectedIDs, err := database.GetRejectedInProgressIssueIDs()
 	if err != nil {
 		rejectedIDs = make(map[string]bool) // Safe fallback on error
@@ -254,16 +254,17 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 	}
 
 	// Standard search (simple text or when TDQ fails)
-	// Ready issues: open status, not blocked, sorted by priority
+	// Ready issues: triage/backlog/prioritized, not blocked, sorted by priority
+	readyStatuses := []models.Status{models.StatusTriage, models.StatusBacklog, models.StatusPrioritized}
 	var openIssues []models.Issue
 	if searchQuery != "" && !useTDQ {
 		results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
-			Status: []models.Status{models.StatusBacklog},
+			Status: readyStatuses,
 		})
 		openIssues = extractIssues(results)
 	} else if searchQuery == "" {
 		openIssues, _ = database.ListIssues(db.ListIssuesOptions{
-			Status:   []models.Status{models.StatusBacklog},
+			Status:   readyStatuses,
 			SortBy:   sortBy,
 			SortDesc: sortDesc,
 		})
@@ -279,7 +280,7 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 		}
 	}
 
-	// In-progress issues: categorize as Ready or NeedsRework
+	// In-flight issues: categorize as Ready or NeedsRework
 	var inProgressIssues []models.Issue
 	if searchQuery != "" && !useTDQ {
 		results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
@@ -301,7 +302,7 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 		}
 	}
 
-	// Reviewable issues: in_review status, different implementer than current session
+	// Reviewable issues: review status, different implementer than current session
 	if searchQuery != "" && !useTDQ {
 		results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
 			ReviewableBy: sessionID,
@@ -315,33 +316,20 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 		})
 	}
 
-	// Blocked issues: explicit blocked status + issues blocked by dependencies
-	if searchQuery != "" && !useTDQ {
-		results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
-			Status: []models.Status{models.StatusCanceled},
-		})
-		data.Blocked = append(extractIssues(results), blockedByDep...)
-	} else if searchQuery == "" {
-		blocked, _ := database.ListIssues(db.ListIssuesOptions{
-			Status:   []models.Status{models.StatusCanceled},
-			SortBy:   sortBy,
-			SortDesc: sortDesc,
-		})
-		data.Blocked = append(blocked, blockedByDep...)
-	} else {
-		data.Blocked = blockedByDep
-	}
+	// Blocked issues: issues blocked by unresolved dependencies
+	data.Blocked = blockedByDep
 
-	// Closed issues (if toggle enabled)
+	// Closed issues (if toggle enabled): shipped, canceled, duplicate
 	if includeClosed {
+		closedStatuses := []models.Status{models.StatusShipped, models.StatusCanceled, models.StatusDuplicate}
 		if searchQuery != "" && !useTDQ {
 			results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
-				Status: []models.Status{models.StatusShipped},
+				Status: closedStatuses,
 			})
 			data.Closed = extractIssues(results)
 		} else if searchQuery == "" {
 			data.Closed, _ = database.ListIssues(db.ListIssuesOptions{
-				Status:   []models.Status{models.StatusShipped},
+				Status:   closedStatuses,
 				SortBy:   sortBy,
 				SortDesc: sortDesc,
 			})
