@@ -8,12 +8,12 @@
 //
 // Future guards (defined but not yet attached to transitions):
 //   - BlockedGuard: Requires --force to start canceled issues
-//   - EpicChildrenGuard: Warns when shipping epic with open children
+//   - EpicChildrenGuard: Warns when shipping epic with unshipped children
 //   - SelfCloseGuard: Prevents self-shipping without exception
 //   - InProgressRequiredGuard: Validates review source status
 //
 // These future guards require caller modifications to pass necessary context
-// (e.g., open child count, self-close exception reason) and will be wired
+// (e.g., unshipped child count, self-close exception reason) and will be wired
 // up when Advisory/Strict modes are enabled by default.
 package workflow
 
@@ -91,7 +91,7 @@ func (g *DifferentReviewerGuard) Check(ctx *TransitionContext) GuardResult {
 	return GuardResult{Passed: true}
 }
 
-// EpicChildrenGuard warns when closing epic with open children.
+// EpicChildrenGuard warns when shipping epic with unshipped children.
 // Future: Not yet attached to transitions. Requires caller to set OpenChildCount.
 type EpicChildrenGuard struct {
 	// OpenChildCount is set by caller before validation
@@ -113,11 +113,11 @@ func (g *EpicChildrenGuard) Check(ctx *TransitionContext) GuardResult {
 		return GuardResult{Passed: true}
 	}
 
-	// Check if there are open children
+	// Check if there are unshipped children
 	if g.OpenChildCount > 0 {
 		return GuardResult{
 			Passed:  false,
-			Message: "epic has open children",
+			Message: "epic has unshipped children",
 		}
 	}
 
@@ -190,12 +190,12 @@ func (g *InProgressRequiredGuard) Check(ctx *TransitionContext) GuardResult {
 		return GuardResult{Passed: true}
 	}
 
-	// Allow from in_progress
+	// Allow from in_flight
 	if ctx.FromStatus == models.StatusInFlight {
 		return GuardResult{Passed: true}
 	}
 
-	// Allow from open (direct submission)
+	// Allow from backlog (direct submission)
 	if ctx.FromStatus == models.StatusBacklog {
 		return GuardResult{Passed: true}
 	}

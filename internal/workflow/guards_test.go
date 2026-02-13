@@ -338,7 +338,7 @@ func TestEpicChildrenGuard_WithOpenChildren(t *testing.T) {
 	if result.Passed {
 		t.Error("EpicChildrenGuard should fail when epic has open children")
 	}
-	if result.Message != "epic has open children" {
+	if result.Message != "epic has unshipped children" {
 		t.Errorf("Unexpected message: %s", result.Message)
 	}
 }

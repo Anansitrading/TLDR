@@ -414,7 +414,7 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 	}
 
 	// Reviewable by (issues that can be reviewed by this session)
-	// Must be in_review with implementer, and either:
+	// Must be in review status with implementer, and either:
 	// - Minor task (always self-reviewable), OR
 	// - Session is not implementer, not creator, and not in session history
 	if opts.ReviewableBy != "" {

@@ -205,13 +205,13 @@ func (db *DB) cascadeUpParentStatusLocked(issueID string, targetStatus models.St
 	allAtTarget := true
 	for _, child := range children {
 		if targetStatus == models.StatusReview {
-			// For in_review, check if child is in_review or closed
+			// For review, check if child is in review or shipped
 			if child.Status != models.StatusReview && child.Status != models.StatusShipped {
 				allAtTarget = false
 				break
 			}
 		} else if targetStatus == models.StatusShipped {
-			// For closed, child must be closed
+			// For shipped, child must be shipped
 			if child.Status != models.StatusShipped {
 				allAtTarget = false
 				break
@@ -262,8 +262,8 @@ func (db *DB) cascadeUpParentStatusLocked(issueID string, targetStatus models.St
 }
 
 // CascadeUnblockDependents checks issues that depend on closedIssueID.
-// For each dependent in "blocked" status, if ALL its dependencies are now closed,
-// it transitions the dependent from blocked → open.
+// For each dependent in canceled (blocked) status, if ALL its dependencies are now shipped,
+// it transitions the dependent from canceled → backlog.
 // Returns the count and IDs of unblocked issues.
 func (db *DB) CascadeUnblockDependents(closedIssueID, sessionID string) (int, []string) {
 	var count int

@@ -540,7 +540,7 @@ func (db *DB) GetRecentActionsAll(limit int) ([]models.ActionLog, error) {
 	return actions, nil
 }
 
-// GetRejectedInProgressIssueIDs returns IDs of in_progress issues that have a
+// GetRejectedInProgressIssueIDs returns IDs of in_flight issues that have a
 // recent ActionReject without a subsequent ActionReview (needs rework)
 func (db *DB) GetRejectedInProgressIssueIDs() (map[string]bool, error) {
 	query := `
