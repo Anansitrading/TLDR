@@ -18,21 +18,21 @@ func TestStartSingleIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
 	// Simulate starting the issue
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	issue.ImplementerSession = "ses_test"
 	if err := database.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusInProgress {
+	if retrieved.Status != models.StatusInFlight {
 		t.Errorf("Expected in_progress, got %q", retrieved.Status)
 	}
 	if retrieved.ImplementerSession != "ses_test" {
@@ -50,9 +50,9 @@ func TestStartMultipleIssues(t *testing.T) {
 	defer database.Close()
 
 	issues := []*models.Issue{
-		{Title: "Issue 1", Status: models.StatusOpen},
-		{Title: "Issue 2", Status: models.StatusOpen},
-		{Title: "Issue 3", Status: models.StatusOpen},
+		{Title: "Issue 1", Status: models.StatusBacklog},
+		{Title: "Issue 2", Status: models.StatusBacklog},
+		{Title: "Issue 3", Status: models.StatusBacklog},
 	}
 
 	for _, issue := range issues {
@@ -61,7 +61,7 @@ func TestStartMultipleIssues(t *testing.T) {
 
 	// Start all issues
 	for _, issue := range issues {
-		issue.Status = models.StatusInProgress
+		issue.Status = models.StatusInFlight
 		issue.ImplementerSession = "ses_test"
 		database.UpdateIssue(issue)
 	}
@@ -69,7 +69,7 @@ func TestStartMultipleIssues(t *testing.T) {
 	// Verify all started
 	for _, issue := range issues {
 		retrieved, _ := database.GetIssue(issue.ID)
-		if retrieved.Status != models.StatusInProgress {
+		if retrieved.Status != models.StatusInFlight {
 			t.Errorf("Issue %s not started", issue.ID)
 		}
 	}
@@ -86,13 +86,13 @@ func TestStartBlockedIssueWithoutForce(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Blocked Issue",
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	database.CreateIssue(issue)
 
 	// Without force, blocked issues should remain blocked
 	// In the actual command this would skip, here we test the state check
-	if issue.Status == models.StatusBlocked {
+	if issue.Status == models.StatusCanceled {
 		// This should be skipped in actual command
 		t.Log("Correctly detected blocked issue")
 	} else {
@@ -111,20 +111,20 @@ func TestStartBlockedIssueWithForce(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Blocked Issue",
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	database.CreateIssue(issue)
 
 	// With force, even blocked issues can be started
 	force := true
-	if issue.Status == models.StatusBlocked && force {
-		issue.Status = models.StatusInProgress
+	if issue.Status == models.StatusCanceled && force {
+		issue.Status = models.StatusInFlight
 		issue.ImplementerSession = "ses_test"
 		database.UpdateIssue(issue)
 	}
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusInProgress {
+	if retrieved.Status != models.StatusInFlight {
 		t.Error("Blocked issue should be startable with force")
 	}
 }
@@ -140,12 +140,12 @@ func TestStartSetsImplementerSession(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
 	sessionID := "ses_abc123"
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	issue.ImplementerSession = sessionID
 	database.UpdateIssue(issue)
 
@@ -169,10 +169,10 @@ func TestStartFromDifferentStatuses(t *testing.T) {
 		initialStatus models.Status
 		canStart      bool
 	}{
-		{"from open", models.StatusOpen, true},
-		{"from in_review", models.StatusInReview, true},
-		{"from closed", models.StatusClosed, true},
-		{"from blocked", models.StatusBlocked, false}, // needs force
+		{"from open", models.StatusBacklog, true},
+		{"from in_review", models.StatusReview, true},
+		{"from closed", models.StatusShipped, true},
+		{"from blocked", models.StatusCanceled, false}, // needs force
 	}
 
 	for _, tc := range testCases {
@@ -183,12 +183,12 @@ func TestStartFromDifferentStatuses(t *testing.T) {
 			}
 			database.CreateIssue(issue)
 
-			if tc.canStart || tc.initialStatus != models.StatusBlocked {
-				issue.Status = models.StatusInProgress
+			if tc.canStart || tc.initialStatus != models.StatusCanceled {
+				issue.Status = models.StatusInFlight
 				database.UpdateIssue(issue)
 
 				retrieved, _ := database.GetIssue(issue.ID)
-				if retrieved.Status != models.StatusInProgress {
+				if retrieved.Status != models.StatusInFlight {
 					t.Errorf("Failed to start from %s", tc.initialStatus)
 				}
 			}
@@ -220,7 +220,7 @@ func TestStartRecordsGitSnapshot(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Record a git snapshot
@@ -264,7 +264,7 @@ func TestStartLogsAction(t *testing.T) {
 		t.Fatalf("RunMigrations failed: %v", err)
 	}
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	sessionID := "ses_test123"
@@ -304,7 +304,7 @@ func TestStartAddsProgressLog(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Add progress log as start command would
@@ -340,7 +340,7 @@ func TestStartWithReason(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	reason := "Picking up from previous session"
@@ -367,7 +367,7 @@ func TestStartMixedValidAndInvalid(t *testing.T) {
 	}
 	defer database.Close()
 
-	validIssue := &models.Issue{Title: "Valid", Status: models.StatusOpen}
+	validIssue := &models.Issue{Title: "Valid", Status: models.StatusBacklog}
 	database.CreateIssue(validIssue)
 
 	// Try to get a non-existent issue
@@ -377,11 +377,11 @@ func TestStartMixedValidAndInvalid(t *testing.T) {
 	}
 
 	// Valid issue can still be started
-	validIssue.Status = models.StatusInProgress
+	validIssue.Status = models.StatusInFlight
 	database.UpdateIssue(validIssue)
 
 	retrieved, _ := database.GetIssue(validIssue.ID)
-	if retrieved.Status != models.StatusInProgress {
+	if retrieved.Status != models.StatusInFlight {
 		t.Error("Valid issue should be started despite invalid issue")
 	}
 }

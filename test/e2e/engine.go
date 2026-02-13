@@ -131,24 +131,24 @@ func (e *ChaosEngine) selectIssue(filter string) string {
 			if st.Deleted {
 				candidates = append(candidates, id)
 			}
-		case "open":
-			if !st.Deleted && st.Status == "open" {
+		case "backlog":
+			if !st.Deleted && st.Status == "backlog" {
 				candidates = append(candidates, id)
 			}
-		case "in_progress":
-			if !st.Deleted && st.Status == "in_progress" {
+		case "in_flight":
+			if !st.Deleted && st.Status == "in_flight" {
 				candidates = append(candidates, id)
 			}
-		case "in_review":
-			if !st.Deleted && st.Status == "in_review" {
+		case "review":
+			if !st.Deleted && st.Status == "review" {
 				candidates = append(candidates, id)
 			}
-		case "closed":
-			if !st.Deleted && st.Status == "closed" {
+		case "shipped":
+			if !st.Deleted && st.Status == "shipped" {
 				candidates = append(candidates, id)
 			}
-		case "blocked":
-			if !st.Deleted && st.Status == "blocked" {
+		case "canceled":
+			if !st.Deleted && st.Status == "canceled" {
 				candidates = append(candidates, id)
 			}
 		case "any":
@@ -193,7 +193,7 @@ func isExpectedFailure(output string) bool {
 		"not found",
 		"no such",
 		"already",
-		"blocked",
+		"canceled",
 		"no issues",
 		"does not exist",
 		"cannot close",

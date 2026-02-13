@@ -336,10 +336,10 @@ func TestStatusFilterParsing(t *testing.T) {
 			if !showAll && len(opts.Status) == 0 {
 				// Default: exclude closed issues unless --all is specified
 				opts.Status = []models.Status{
-					models.StatusOpen,
-					models.StatusInProgress,
-					models.StatusBlocked,
-					models.StatusInReview,
+					models.StatusBacklog,
+					models.StatusInFlight,
+					models.StatusCanceled,
+					models.StatusReview,
 				}
 			}
 
@@ -352,7 +352,7 @@ func TestStatusFilterParsing(t *testing.T) {
 			if tc.expectOpen && len(opts.Status) > 0 {
 				foundOpen := false
 				for _, s := range opts.Status {
-					if s == models.StatusOpen {
+					if s == models.StatusBacklog {
 						foundOpen = true
 						break
 					}
@@ -390,16 +390,16 @@ func TestStatusAllIncludesAllStatuses(t *testing.T) {
 
 		if !showAll && len(opts.Status) == 0 {
 			opts.Status = []models.Status{
-				models.StatusOpen,
-				models.StatusInProgress,
-				models.StatusBlocked,
-				models.StatusInReview,
+				models.StatusBacklog,
+				models.StatusInFlight,
+				models.StatusCanceled,
+				models.StatusReview,
 			}
 		}
 
 		// Verify closed status is not in default
 		for _, s := range opts.Status {
-			if s == models.StatusClosed {
+			if s == models.StatusShipped {
 				t.Error("Expected StatusClosed not to be in default filter")
 			}
 		}
@@ -415,10 +415,10 @@ func TestStatusAllIncludesAllStatuses(t *testing.T) {
 		showAllDefault := false
 		if !showAllDefault && len(defaultOpts.Status) == 0 {
 			defaultOpts.Status = []models.Status{
-				models.StatusOpen,
-				models.StatusInProgress,
-				models.StatusBlocked,
-				models.StatusInReview,
+				models.StatusBacklog,
+				models.StatusInFlight,
+				models.StatusCanceled,
+				models.StatusReview,
 			}
 		}
 

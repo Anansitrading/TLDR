@@ -545,7 +545,7 @@ func (db *DB) GetRecentActionsAll(limit int) ([]models.ActionLog, error) {
 func (db *DB) GetRejectedInProgressIssueIDs() (map[string]bool, error) {
 	query := `
 		SELECT DISTINCT i.id FROM issues i
-		WHERE i.status = 'in_progress' AND i.deleted_at IS NULL
+		WHERE i.status = 'in_flight' AND i.deleted_at IS NULL
 		  AND EXISTS (
 			SELECT 1 FROM action_log al
 			WHERE al.entity_id = i.id AND al.action_type = 'reject' AND al.undone = 0

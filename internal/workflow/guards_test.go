@@ -21,9 +21,9 @@ func TestBlockedGuard_WithForceFlag(t *testing.T) {
 	guard := &BlockedGuard{}
 
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusBlocked},
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		Force:      true,
 	}
 
@@ -37,9 +37,9 @@ func TestBlockedGuard_WithoutForceFlag(t *testing.T) {
 	guard := &BlockedGuard{}
 
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusBlocked},
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		Force:      false,
 	}
 
@@ -63,21 +63,21 @@ func TestBlockedGuard_VariousSourceStatuses(t *testing.T) {
 		shouldPass bool
 	}{
 		// Blocked → in_progress without force should fail
-		{"blocked→in_progress no force", models.StatusBlocked, models.StatusInProgress, false, false},
+		{"blocked→in_progress no force", models.StatusCanceled, models.StatusInFlight, false, false},
 		// Blocked → in_progress with force should pass
-		{"blocked→in_progress with force", models.StatusBlocked, models.StatusInProgress, true, true},
+		{"blocked→in_progress with force", models.StatusCanceled, models.StatusInFlight, true, true},
 		// Blocked → open (unblock) without force should fail
-		{"blocked→open no force", models.StatusBlocked, models.StatusOpen, false, false},
+		{"blocked→open no force", models.StatusCanceled, models.StatusBacklog, false, false},
 		// Blocked → closed without force should fail
-		{"blocked→closed no force", models.StatusBlocked, models.StatusClosed, false, false},
+		{"blocked→closed no force", models.StatusCanceled, models.StatusShipped, false, false},
 
 		// Non-blocked statuses should always pass
-		{"open→in_progress", models.StatusOpen, models.StatusInProgress, false, true},
-		{"open→blocked", models.StatusOpen, models.StatusBlocked, false, true},
-		{"in_progress→in_review", models.StatusInProgress, models.StatusInReview, false, true},
-		{"in_progress→blocked", models.StatusInProgress, models.StatusBlocked, false, true},
-		{"in_review→closed", models.StatusInReview, models.StatusClosed, false, true},
-		{"closed→open", models.StatusClosed, models.StatusOpen, false, true},
+		{"open→in_progress", models.StatusBacklog, models.StatusInFlight, false, true},
+		{"open→blocked", models.StatusBacklog, models.StatusCanceled, false, true},
+		{"in_progress→in_review", models.StatusInFlight, models.StatusReview, false, true},
+		{"in_progress→blocked", models.StatusInFlight, models.StatusCanceled, false, true},
+		{"in_review→closed", models.StatusReview, models.StatusShipped, false, true},
+		{"closed→open", models.StatusShipped, models.StatusBacklog, false, true},
 	}
 
 	for _, tt := range tests {
@@ -115,11 +115,11 @@ func TestDifferentReviewerGuard_SameSession(t *testing.T) {
 	ctx := &TransitionContext{
 		Issue: &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		},
-		FromStatus:  models.StatusInReview,
-		ToStatus:    models.StatusClosed,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
 		SessionID:   "session-1", // Same as implementer
 		WasInvolved: true,
 	}
@@ -139,11 +139,11 @@ func TestDifferentReviewerGuard_DifferentSession(t *testing.T) {
 	ctx := &TransitionContext{
 		Issue: &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		},
-		FromStatus:  models.StatusInReview,
-		ToStatus:    models.StatusClosed,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
 		SessionID:   "session-2", // Different from implementer
 		WasInvolved: false,
 	}
@@ -183,12 +183,12 @@ func TestDifferentReviewerGuard_MinorTask(t *testing.T) {
 			ctx := &TransitionContext{
 				Issue: &models.Issue{
 					ID:                 "test-1",
-					Status:             models.StatusInReview,
+					Status:             models.StatusReview,
 					ImplementerSession: implementer,
 					Minor:              tt.issueMinor,
 				},
-				FromStatus:  models.StatusInReview,
-				ToStatus:    models.StatusClosed,
+				FromStatus:  models.StatusReview,
+				ToStatus:    models.StatusShipped,
 				SessionID:   sessionID,
 				Minor:       tt.ctxMinor,
 				WasInvolved: tt.sameSession,
@@ -208,11 +208,11 @@ func TestDifferentReviewerGuard_AdminBypass(t *testing.T) {
 	ctx := &TransitionContext{
 		Issue: &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		},
-		FromStatus:  models.StatusInReview,
-		ToStatus:    models.StatusClosed,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
 		SessionID:   "session-1", // Same as implementer
 		Context:     ContextAdmin,
 		WasInvolved: true,
@@ -250,11 +250,11 @@ func TestDifferentReviewerGuard_WasInvolved(t *testing.T) {
 			ctx := &TransitionContext{
 				Issue: &models.Issue{
 					ID:                 "test-1",
-					Status:             models.StatusInReview,
+					Status:             models.StatusReview,
 					ImplementerSession: tt.implementer,
 				},
-				FromStatus:  models.StatusInReview,
-				ToStatus:    models.StatusClosed,
+				FromStatus:  models.StatusReview,
+				ToStatus:    models.StatusShipped,
 				SessionID:   tt.sessionID,
 				WasInvolved: tt.wasInvolved,
 			}
@@ -285,11 +285,11 @@ func TestDifferentReviewerGuard_ActionContexts(t *testing.T) {
 			ctx := &TransitionContext{
 				Issue: &models.Issue{
 					ID:                 "test-1",
-					Status:             models.StatusInReview,
+					Status:             models.StatusReview,
 					ImplementerSession: "session-1",
 				},
-				FromStatus:  models.StatusInReview,
-				ToStatus:    models.StatusClosed,
+				FromStatus:  models.StatusReview,
+				ToStatus:    models.StatusShipped,
 				SessionID:   "session-1",
 				Context:     actionCtx,
 				WasInvolved: true,
@@ -330,8 +330,8 @@ func TestEpicChildrenGuard_WithOpenChildren(t *testing.T) {
 			ID:   "epic-1",
 			Type: models.TypeEpic,
 		},
-		FromStatus: models.StatusInProgress,
-		ToStatus:   models.StatusClosed,
+		FromStatus: models.StatusInFlight,
+		ToStatus:   models.StatusShipped,
 	}
 
 	result := guard.Check(ctx)
@@ -351,8 +351,8 @@ func TestEpicChildrenGuard_WithoutOpenChildren(t *testing.T) {
 			ID:   "epic-1",
 			Type: models.TypeEpic,
 		},
-		FromStatus: models.StatusInProgress,
-		ToStatus:   models.StatusClosed,
+		FromStatus: models.StatusInFlight,
+		ToStatus:   models.StatusShipped,
 	}
 
 	result := guard.Check(ctx)
@@ -377,8 +377,8 @@ func TestEpicChildrenGuard_NonEpicTypes(t *testing.T) {
 					ID:   "test-1",
 					Type: issueType,
 				},
-				FromStatus: models.StatusInProgress,
-				ToStatus:   models.StatusClosed,
+				FromStatus: models.StatusInFlight,
+				ToStatus:   models.StatusShipped,
 			}
 
 			result := guard.Check(ctx)
@@ -398,12 +398,12 @@ func TestEpicChildrenGuard_NonClosingTransition(t *testing.T) {
 		from models.Status
 		to   models.Status
 	}{
-		{models.StatusOpen, models.StatusInProgress},
-		{models.StatusInProgress, models.StatusInReview},
-		{models.StatusInProgress, models.StatusBlocked},
-		{models.StatusBlocked, models.StatusOpen},
-		{models.StatusInReview, models.StatusInProgress},
-		{models.StatusClosed, models.StatusOpen}, // reopening
+		{models.StatusBacklog, models.StatusInFlight},
+		{models.StatusInFlight, models.StatusReview},
+		{models.StatusInFlight, models.StatusCanceled},
+		{models.StatusCanceled, models.StatusBacklog},
+		{models.StatusReview, models.StatusInFlight},
+		{models.StatusShipped, models.StatusBacklog}, // reopening
 	}
 
 	for _, tr := range transitions {
@@ -445,8 +445,8 @@ func TestEpicChildrenGuard_OpenChildCountVariations(t *testing.T) {
 					ID:   "epic-1",
 					Type: models.TypeEpic,
 				},
-				FromStatus: models.StatusInProgress,
-				ToStatus:   models.StatusClosed,
+				FromStatus: models.StatusInFlight,
+				ToStatus:   models.StatusShipped,
 			}
 
 			result := guard.Check(ctx)
@@ -474,11 +474,11 @@ func TestSelfCloseGuard_WithoutException(t *testing.T) {
 	ctx := &TransitionContext{
 		Issue: &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		},
-		FromStatus:  models.StatusInReview,
-		ToStatus:    models.StatusClosed,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
 		SessionID:   "session-1",
 		WasInvolved: true,
 	}
@@ -498,11 +498,11 @@ func TestSelfCloseGuard_WithException(t *testing.T) {
 	ctx := &TransitionContext{
 		Issue: &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		},
-		FromStatus:  models.StatusInReview,
-		ToStatus:    models.StatusClosed,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
 		SessionID:   "session-1",
 		WasInvolved: true,
 	}
@@ -533,12 +533,12 @@ func TestSelfCloseGuard_MinorTask(t *testing.T) {
 			ctx := &TransitionContext{
 				Issue: &models.Issue{
 					ID:                 "test-1",
-					Status:             models.StatusInReview,
+					Status:             models.StatusReview,
 					ImplementerSession: "session-1",
 					Minor:              tt.issueMinor,
 				},
-				FromStatus:  models.StatusInReview,
-				ToStatus:    models.StatusClosed,
+				FromStatus:  models.StatusReview,
+				ToStatus:    models.StatusShipped,
 				SessionID:   "session-1",
 				Minor:       tt.ctxMinor,
 				WasInvolved: true,
@@ -558,11 +558,11 @@ func TestSelfCloseGuard_NotInvolved(t *testing.T) {
 	ctx := &TransitionContext{
 		Issue: &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		},
-		FromStatus:  models.StatusInReview,
-		ToStatus:    models.StatusClosed,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
 		SessionID:   "session-2",
 		WasInvolved: false, // Different reviewer not involved
 	}
@@ -580,10 +580,10 @@ func TestSelfCloseGuard_NonClosingTransition(t *testing.T) {
 		from models.Status
 		to   models.Status
 	}{
-		{models.StatusOpen, models.StatusInProgress},
-		{models.StatusInProgress, models.StatusInReview},
-		{models.StatusInProgress, models.StatusBlocked},
-		{models.StatusBlocked, models.StatusOpen},
+		{models.StatusBacklog, models.StatusInFlight},
+		{models.StatusInFlight, models.StatusReview},
+		{models.StatusInFlight, models.StatusCanceled},
+		{models.StatusCanceled, models.StatusBacklog},
 	}
 
 	for _, tr := range transitions {
@@ -635,8 +635,8 @@ func TestSelfCloseGuard_WasInvolvedVariations(t *testing.T) {
 					ID:                 "test-1",
 					ImplementerSession: tt.implementer,
 				},
-				FromStatus:  models.StatusInReview,
-				ToStatus:    models.StatusClosed,
+				FromStatus:  models.StatusReview,
+				ToStatus:    models.StatusShipped,
 				SessionID:   tt.sessionID,
 				WasInvolved: tt.wasInvolved,
 			}
@@ -668,8 +668,8 @@ func TestInProgressRequiredGuard_FromInProgress(t *testing.T) {
 
 	ctx := &TransitionContext{
 		Issue:      &models.Issue{ID: "test-1"},
-		FromStatus: models.StatusInProgress,
-		ToStatus:   models.StatusInReview,
+		FromStatus: models.StatusInFlight,
+		ToStatus:   models.StatusReview,
 	}
 
 	result := guard.Check(ctx)
@@ -683,8 +683,8 @@ func TestInProgressRequiredGuard_FromOpen(t *testing.T) {
 
 	ctx := &TransitionContext{
 		Issue:      &models.Issue{ID: "test-1"},
-		FromStatus: models.StatusOpen,
-		ToStatus:   models.StatusInReview,
+		FromStatus: models.StatusBacklog,
+		ToStatus:   models.StatusReview,
 	}
 
 	result := guard.Check(ctx)
@@ -703,22 +703,22 @@ func TestInProgressRequiredGuard_VariousSourceStatuses(t *testing.T) {
 		shouldPass bool
 	}{
 		// To in_review
-		{"open→in_review", models.StatusOpen, models.StatusInReview, true},
-		{"in_progress→in_review", models.StatusInProgress, models.StatusInReview, true},
-		{"blocked→in_review", models.StatusBlocked, models.StatusInReview, false},
-		{"closed→in_review", models.StatusClosed, models.StatusInReview, false},
+		{"open→in_review", models.StatusBacklog, models.StatusReview, true},
+		{"in_progress→in_review", models.StatusInFlight, models.StatusReview, true},
+		{"blocked→in_review", models.StatusCanceled, models.StatusReview, false},
+		{"closed→in_review", models.StatusShipped, models.StatusReview, false},
 
 		// Non-review transitions should always pass
-		{"open→in_progress", models.StatusOpen, models.StatusInProgress, true},
-		{"open→blocked", models.StatusOpen, models.StatusBlocked, true},
-		{"open→closed", models.StatusOpen, models.StatusClosed, true},
-		{"in_progress→blocked", models.StatusInProgress, models.StatusBlocked, true},
-		{"in_progress→closed", models.StatusInProgress, models.StatusClosed, true},
-		{"blocked→open", models.StatusBlocked, models.StatusOpen, true},
-		{"blocked→in_progress", models.StatusBlocked, models.StatusInProgress, true},
-		{"in_review→closed", models.StatusInReview, models.StatusClosed, true},
-		{"in_review→open", models.StatusInReview, models.StatusOpen, true},
-		{"closed→open", models.StatusClosed, models.StatusOpen, true},
+		{"open→in_progress", models.StatusBacklog, models.StatusInFlight, true},
+		{"open→blocked", models.StatusBacklog, models.StatusCanceled, true},
+		{"open→closed", models.StatusBacklog, models.StatusShipped, true},
+		{"in_progress→blocked", models.StatusInFlight, models.StatusCanceled, true},
+		{"in_progress→closed", models.StatusInFlight, models.StatusShipped, true},
+		{"blocked→open", models.StatusCanceled, models.StatusBacklog, true},
+		{"blocked→in_progress", models.StatusCanceled, models.StatusInFlight, true},
+		{"in_review→closed", models.StatusReview, models.StatusShipped, true},
+		{"in_review→open", models.StatusReview, models.StatusBacklog, true},
+		{"closed→open", models.StatusShipped, models.StatusBacklog, true},
 	}
 
 	for _, tt := range tests {
@@ -743,15 +743,15 @@ func TestInProgressRequiredGuard_ErrorMessage(t *testing.T) {
 
 	ctx := &TransitionContext{
 		Issue:      &models.Issue{ID: "test-1"},
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInReview,
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusReview,
 	}
 
 	result := guard.Check(ctx)
 	if result.Passed {
 		t.Error("Should fail for blocked→in_review")
 	}
-	expectedMsg := "can only submit for review from open or in_progress status"
+	expectedMsg := "can only submit for review from backlog or in_flight status"
 	if result.Message != expectedMsg {
 		t.Errorf("message=%q, want %q", result.Message, expectedMsg)
 	}
@@ -766,9 +766,9 @@ func TestGuardsIntegration_StrictMode(t *testing.T) {
 
 	// Test that BlockedGuard is wired up for blocked→in_progress
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusBlocked},
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		Force:      false,
 	}
 
@@ -791,11 +791,11 @@ func TestGuardsIntegration_DifferentReviewerInStrict(t *testing.T) {
 	ctx := &TransitionContext{
 		Issue: &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			ImplementerSession: "session-1",
 		},
-		FromStatus:  models.StatusInReview,
-		ToStatus:    models.StatusClosed,
+		FromStatus:  models.StatusReview,
+		ToStatus:    models.StatusShipped,
 		SessionID:   "session-1",
 		WasInvolved: true,
 	}
@@ -819,9 +819,9 @@ func TestGuardsIntegration_LiberalModeSkipsGuards(t *testing.T) {
 
 	// In liberal mode, even guard-failing scenarios should pass
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusBlocked},
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		Force:      false, // Would fail BlockedGuard
 	}
 
@@ -838,9 +838,9 @@ func TestGuardsIntegration_AdvisoryModeReturnsWarnings(t *testing.T) {
 	sm := AdvisoryMachine()
 
 	ctx := &TransitionContext{
-		Issue:      &models.Issue{ID: "test-1", Status: models.StatusBlocked},
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		Issue:      &models.Issue{ID: "test-1", Status: models.StatusCanceled},
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		Force:      false,
 	}
 

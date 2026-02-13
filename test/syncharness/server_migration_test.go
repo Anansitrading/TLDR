@@ -20,7 +20,7 @@ func TestServerMigration(t *testing.T) {
 	// Step 1: Client creates an issue
 	err := h.Mutate(clientID, "create", "issues", "td-mig-001", map[string]any{
 		"title":  "Migration test issue",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create issue: %v", err)
@@ -114,7 +114,7 @@ func TestServerMigrationMultipleEvents(t *testing.T) {
 		id := "td-mig-multi-" + string(rune('0'+i))
 		err := h.Mutate(clientID, "create", "issues", id, map[string]any{
 			"title":  "Migration multi " + string(rune('0'+i)),
-			"status": "open",
+			"status": "backlog",
 		})
 		if err != nil {
 			t.Fatalf("create issue %s: %v", id, err)
@@ -124,7 +124,7 @@ func TestServerMigrationMultipleEvents(t *testing.T) {
 	// Also add an update
 	err := h.Mutate(clientID, "update", "issues", "td-mig-multi-1", map[string]any{
 		"title":  "Updated migration multi 1",
-		"status": "in_progress",
+		"status": "in_flight",
 	})
 	if err != nil {
 		t.Fatalf("update issue: %v", err)
@@ -211,7 +211,7 @@ func TestServerMigrationWithTwoClients(t *testing.T) {
 	// Client A creates an issue and pushes
 	err := h.Mutate("client-A", "create", "issues", "td-mig2c-001", map[string]any{
 		"title":  "Two-client migration test",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)

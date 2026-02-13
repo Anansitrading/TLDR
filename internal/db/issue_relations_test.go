@@ -602,15 +602,15 @@ func TestGetDescendantIssues_AllStatuses(t *testing.T) {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
-	child1 := &models.Issue{Title: "Open Child", ParentID: parent.ID, Status: models.StatusOpen}
-	child2 := &models.Issue{Title: "Closed Child", ParentID: parent.ID, Status: models.StatusClosed}
+	child1 := &models.Issue{Title: "Open Child", ParentID: parent.ID, Status: models.StatusBacklog}
+	child2 := &models.Issue{Title: "Closed Child", ParentID: parent.ID, Status: models.StatusShipped}
 	if err := db.CreateIssue(child1); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 	if err := db.CreateIssue(child2); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
-	child2.Status = models.StatusClosed
+	child2.Status = models.StatusShipped
 	db.UpdateIssue(child2)
 
 	// Get all descendants (no status filter)
@@ -637,9 +637,9 @@ func TestGetDescendantIssues_FilteredByStatus(t *testing.T) {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
-	child1 := &models.Issue{Title: "Open Child", ParentID: parent.ID, Status: models.StatusOpen}
-	child2 := &models.Issue{Title: "In Progress Child", ParentID: parent.ID, Status: models.StatusInProgress}
-	child3 := &models.Issue{Title: "Closed Child", ParentID: parent.ID, Status: models.StatusClosed}
+	child1 := &models.Issue{Title: "Open Child", ParentID: parent.ID, Status: models.StatusBacklog}
+	child2 := &models.Issue{Title: "In Progress Child", ParentID: parent.ID, Status: models.StatusInFlight}
+	child3 := &models.Issue{Title: "Closed Child", ParentID: parent.ID, Status: models.StatusShipped}
 	for _, c := range []*models.Issue{child1, child2, child3} {
 		if err := db.CreateIssue(c); err != nil {
 			t.Fatalf("CreateIssue failed: %v", err)
@@ -650,7 +650,7 @@ func TestGetDescendantIssues_FilteredByStatus(t *testing.T) {
 	}
 
 	// Filter to only open issues
-	descendants, err := db.GetDescendantIssues(parent.ID, []models.Status{models.StatusOpen})
+	descendants, err := db.GetDescendantIssues(parent.ID, []models.Status{models.StatusBacklog})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
 	}
@@ -658,7 +658,7 @@ func TestGetDescendantIssues_FilteredByStatus(t *testing.T) {
 	if len(descendants) != 1 {
 		t.Errorf("Expected 1 open descendant, got %d", len(descendants))
 	}
-	if descendants[0].Status != models.StatusOpen {
+	if descendants[0].Status != models.StatusBacklog {
 		t.Errorf("Expected open status, got %s", descendants[0].Status)
 	}
 }
@@ -676,9 +676,9 @@ func TestGetDescendantIssues_MultipleStatusFilter(t *testing.T) {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
-	child1 := &models.Issue{Title: "Open Child", ParentID: parent.ID, Status: models.StatusOpen}
-	child2 := &models.Issue{Title: "In Review Child", ParentID: parent.ID, Status: models.StatusInReview}
-	child3 := &models.Issue{Title: "Closed Child", ParentID: parent.ID, Status: models.StatusClosed}
+	child1 := &models.Issue{Title: "Open Child", ParentID: parent.ID, Status: models.StatusBacklog}
+	child2 := &models.Issue{Title: "In Review Child", ParentID: parent.ID, Status: models.StatusReview}
+	child3 := &models.Issue{Title: "Closed Child", ParentID: parent.ID, Status: models.StatusShipped}
 	for _, c := range []*models.Issue{child1, child2, child3} {
 		if err := db.CreateIssue(c); err != nil {
 			t.Fatalf("CreateIssue failed: %v", err)
@@ -689,7 +689,7 @@ func TestGetDescendantIssues_MultipleStatusFilter(t *testing.T) {
 	}
 
 	// Filter to open and in_review
-	descendants, err := db.GetDescendantIssues(parent.ID, []models.Status{models.StatusOpen, models.StatusInReview})
+	descendants, err := db.GetDescendantIssues(parent.ID, []models.Status{models.StatusBacklog, models.StatusReview})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
 	}
@@ -714,14 +714,14 @@ func TestCascadeUpParentStatus_AllChildrenInReview(t *testing.T) {
 	sessionID := "ses_test"
 
 	// Create epic parent
-	epic := &models.Issue{Title: "Epic", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Epic", Type: models.TypeEpic, Status: models.StatusBacklog}
 	if err := db.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
 	// Create children
-	child1 := &models.Issue{Title: "Child 1", ParentID: epic.ID, Status: models.StatusInReview}
-	child2 := &models.Issue{Title: "Child 2", ParentID: epic.ID, Status: models.StatusInReview}
+	child1 := &models.Issue{Title: "Child 1", ParentID: epic.ID, Status: models.StatusReview}
+	child2 := &models.Issue{Title: "Child 2", ParentID: epic.ID, Status: models.StatusReview}
 	for _, c := range []*models.Issue{child1, child2} {
 		if err := db.CreateIssue(c); err != nil {
 			t.Fatalf("CreateIssue failed: %v", err)
@@ -732,7 +732,7 @@ func TestCascadeUpParentStatus_AllChildrenInReview(t *testing.T) {
 	}
 
 	// Cascade up when last child reaches in_review
-	count, ids := db.CascadeUpParentStatus(child2.ID, models.StatusInReview, sessionID)
+	count, ids := db.CascadeUpParentStatus(child2.ID, models.StatusReview, sessionID)
 
 	if count != 1 {
 		t.Errorf("Expected 1 cascaded, got %d", count)
@@ -746,7 +746,7 @@ func TestCascadeUpParentStatus_AllChildrenInReview(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetIssue failed: %v", err)
 	}
-	if updatedEpic.Status != models.StatusInReview {
+	if updatedEpic.Status != models.StatusReview {
 		t.Errorf("Expected epic status in_review, got %s", updatedEpic.Status)
 	}
 }
@@ -761,13 +761,13 @@ func TestCascadeUpParentStatus_NotAllChildrenReady(t *testing.T) {
 
 	sessionID := "ses_test"
 
-	epic := &models.Issue{Title: "Epic", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Epic", Type: models.TypeEpic, Status: models.StatusBacklog}
 	if err := db.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
-	child1 := &models.Issue{Title: "Child 1", ParentID: epic.ID, Status: models.StatusInReview}
-	child2 := &models.Issue{Title: "Child 2", ParentID: epic.ID, Status: models.StatusOpen} // Not ready
+	child1 := &models.Issue{Title: "Child 1", ParentID: epic.ID, Status: models.StatusReview}
+	child2 := &models.Issue{Title: "Child 2", ParentID: epic.ID, Status: models.StatusBacklog} // Not ready
 	for _, c := range []*models.Issue{child1, child2} {
 		if err := db.CreateIssue(c); err != nil {
 			t.Fatalf("CreateIssue failed: %v", err)
@@ -777,7 +777,7 @@ func TestCascadeUpParentStatus_NotAllChildrenReady(t *testing.T) {
 		}
 	}
 
-	count, _ := db.CascadeUpParentStatus(child1.ID, models.StatusInReview, sessionID)
+	count, _ := db.CascadeUpParentStatus(child1.ID, models.StatusReview, sessionID)
 
 	if count != 0 {
 		t.Errorf("Expected 0 cascaded (not all ready), got %d", count)
@@ -785,7 +785,7 @@ func TestCascadeUpParentStatus_NotAllChildrenReady(t *testing.T) {
 
 	// Epic should remain open
 	updatedEpic, _ := db.GetIssue(epic.ID)
-	if updatedEpic.Status != models.StatusOpen {
+	if updatedEpic.Status != models.StatusBacklog {
 		t.Errorf("Expected epic to remain open, got %s", updatedEpic.Status)
 	}
 }
@@ -801,12 +801,12 @@ func TestCascadeUpParentStatus_NonEpicParent(t *testing.T) {
 	sessionID := "ses_test"
 
 	// Parent is task, not epic
-	parent := &models.Issue{Title: "Task Parent", Type: models.TypeTask, Status: models.StatusOpen}
+	parent := &models.Issue{Title: "Task Parent", Type: models.TypeTask, Status: models.StatusBacklog}
 	if err := db.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
-	child := &models.Issue{Title: "Child", ParentID: parent.ID, Status: models.StatusInReview}
+	child := &models.Issue{Title: "Child", ParentID: parent.ID, Status: models.StatusReview}
 	if err := db.CreateIssue(child); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
@@ -814,7 +814,7 @@ func TestCascadeUpParentStatus_NonEpicParent(t *testing.T) {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
 
-	count, _ := db.CascadeUpParentStatus(child.ID, models.StatusInReview, sessionID)
+	count, _ := db.CascadeUpParentStatus(child.ID, models.StatusReview, sessionID)
 
 	// Should not cascade to non-epic parent
 	if count != 0 {
@@ -833,17 +833,17 @@ func TestCascadeUpParentStatus_RecursiveCascade(t *testing.T) {
 	sessionID := "ses_test"
 
 	// grandparent epic -> parent epic -> child
-	grandparent := &models.Issue{Title: "Grandparent Epic", Type: models.TypeEpic, Status: models.StatusOpen}
+	grandparent := &models.Issue{Title: "Grandparent Epic", Type: models.TypeEpic, Status: models.StatusBacklog}
 	if err := db.CreateIssue(grandparent); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
-	parent := &models.Issue{Title: "Parent Epic", Type: models.TypeEpic, ParentID: grandparent.ID, Status: models.StatusOpen}
+	parent := &models.Issue{Title: "Parent Epic", Type: models.TypeEpic, ParentID: grandparent.ID, Status: models.StatusBacklog}
 	if err := db.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
-	child := &models.Issue{Title: "Child", ParentID: parent.ID, Status: models.StatusClosed}
+	child := &models.Issue{Title: "Child", ParentID: parent.ID, Status: models.StatusShipped}
 	if err := db.CreateIssue(child); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
@@ -853,7 +853,7 @@ func TestCascadeUpParentStatus_RecursiveCascade(t *testing.T) {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
 
-	count, ids := db.CascadeUpParentStatus(child.ID, models.StatusClosed, sessionID)
+	count, ids := db.CascadeUpParentStatus(child.ID, models.StatusShipped, sessionID)
 
 	// Should cascade both parent and grandparent
 	if count != 2 {
@@ -866,10 +866,10 @@ func TestCascadeUpParentStatus_RecursiveCascade(t *testing.T) {
 	// Verify both are closed
 	updatedParent, _ := db.GetIssue(parent.ID)
 	updatedGrandparent, _ := db.GetIssue(grandparent.ID)
-	if updatedParent.Status != models.StatusClosed {
+	if updatedParent.Status != models.StatusShipped {
 		t.Errorf("Expected parent closed, got %s", updatedParent.Status)
 	}
-	if updatedGrandparent.Status != models.StatusClosed {
+	if updatedGrandparent.Status != models.StatusShipped {
 		t.Errorf("Expected grandparent closed, got %s", updatedGrandparent.Status)
 	}
 }
@@ -1030,14 +1030,14 @@ func TestGetIssuesWithOpenDeps(t *testing.T) {
 	}
 	defer db.Close()
 
-	openIssue := &models.Issue{Title: "Open Issue", Status: models.StatusOpen}
-	closedIssue := &models.Issue{Title: "Closed Issue", Status: models.StatusClosed}
-	dependentOpen := &models.Issue{Title: "Depends on Open", Status: models.StatusOpen}
-	dependentClosed := &models.Issue{Title: "Depends on Closed", Status: models.StatusOpen}
+	openIssue := &models.Issue{Title: "Open Issue", Status: models.StatusBacklog}
+	closedIssue := &models.Issue{Title: "Closed Issue", Status: models.StatusShipped}
+	dependentOpen := &models.Issue{Title: "Depends on Open", Status: models.StatusBacklog}
+	dependentClosed := &models.Issue{Title: "Depends on Closed", Status: models.StatusBacklog}
 
 	db.CreateIssue(openIssue)
 	db.CreateIssue(closedIssue)
-	closedIssue.Status = models.StatusClosed
+	closedIssue.Status = models.StatusShipped
 	db.UpdateIssue(closedIssue)
 	db.CreateIssue(dependentOpen)
 	db.CreateIssue(dependentClosed)
@@ -1067,15 +1067,15 @@ func TestGetIssueStatuses(t *testing.T) {
 	}
 	defer db.Close()
 
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusInProgress}
-	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusClosed}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusInFlight}
+	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusShipped}
 	db.CreateIssue(issue1)
 	db.CreateIssue(issue2)
-	issue2.Status = models.StatusInProgress
+	issue2.Status = models.StatusInFlight
 	db.UpdateIssue(issue2)
 	db.CreateIssue(issue3)
-	issue3.Status = models.StatusClosed
+	issue3.Status = models.StatusShipped
 	db.UpdateIssue(issue3)
 
 	statuses, err := db.GetIssueStatuses([]string{issue1.ID, issue2.ID, issue3.ID})
@@ -1086,13 +1086,13 @@ func TestGetIssueStatuses(t *testing.T) {
 	if len(statuses) != 3 {
 		t.Errorf("Expected 3 statuses, got %d", len(statuses))
 	}
-	if statuses[issue1.ID] != models.StatusOpen {
+	if statuses[issue1.ID] != models.StatusBacklog {
 		t.Errorf("issue1 status mismatch: got %s", statuses[issue1.ID])
 	}
-	if statuses[issue2.ID] != models.StatusInProgress {
+	if statuses[issue2.ID] != models.StatusInFlight {
 		t.Errorf("issue2 status mismatch: got %s", statuses[issue2.ID])
 	}
-	if statuses[issue3.ID] != models.StatusClosed {
+	if statuses[issue3.ID] != models.StatusShipped {
 		t.Errorf("issue3 status mismatch: got %s", statuses[issue3.ID])
 	}
 }
@@ -1123,7 +1123,7 @@ func TestGetIssueStatuses_DeduplicatesIDs(t *testing.T) {
 	}
 	defer db.Close()
 
-	issue := &models.Issue{Title: "Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Issue", Status: models.StatusBacklog}
 	db.CreateIssue(issue)
 
 	// Pass duplicate IDs
@@ -1429,8 +1429,8 @@ func TestCascadeUnblockDependents_SingleDep(t *testing.T) {
 	}
 	defer db.Close()
 
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusClosed}
-	dependent := &models.Issue{Title: "Dependent", Status: models.StatusBlocked}
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusShipped}
+	dependent := &models.Issue{Title: "Dependent", Status: models.StatusCanceled}
 	db.CreateIssue(blocker)
 	db.CreateIssue(dependent)
 	db.AddDependency(dependent.ID, blocker.ID, "depends_on")
@@ -1445,7 +1445,7 @@ func TestCascadeUnblockDependents_SingleDep(t *testing.T) {
 	}
 
 	updated, _ := db.GetIssue(dependent.ID)
-	if updated.Status != models.StatusOpen {
+	if updated.Status != models.StatusBacklog {
 		t.Errorf("expected open, got %s", updated.Status)
 	}
 }
@@ -1458,9 +1458,9 @@ func TestCascadeUnblockDependents_AllDepsClosed(t *testing.T) {
 	}
 	defer db.Close()
 
-	a1 := &models.Issue{Title: "A1", Status: models.StatusClosed}
-	a2 := &models.Issue{Title: "A2", Status: models.StatusClosed}
-	b := &models.Issue{Title: "B", Status: models.StatusBlocked}
+	a1 := &models.Issue{Title: "A1", Status: models.StatusShipped}
+	a2 := &models.Issue{Title: "A2", Status: models.StatusShipped}
+	b := &models.Issue{Title: "B", Status: models.StatusCanceled}
 	db.CreateIssue(a1)
 	db.CreateIssue(a2)
 	db.CreateIssue(b)
@@ -1473,7 +1473,7 @@ func TestCascadeUnblockDependents_AllDepsClosed(t *testing.T) {
 		t.Errorf("expected 1 unblocked, got %d", count)
 	}
 	updated, _ := db.GetIssue(b.ID)
-	if updated.Status != models.StatusOpen {
+	if updated.Status != models.StatusBacklog {
 		t.Errorf("expected open, got %s", updated.Status)
 	}
 }
@@ -1486,9 +1486,9 @@ func TestCascadeUnblockDependents_PartialResolution(t *testing.T) {
 	}
 	defer db.Close()
 
-	a1 := &models.Issue{Title: "A1", Status: models.StatusClosed}
-	a2 := &models.Issue{Title: "A2", Status: models.StatusOpen} // not closed
-	b := &models.Issue{Title: "B", Status: models.StatusBlocked}
+	a1 := &models.Issue{Title: "A1", Status: models.StatusShipped}
+	a2 := &models.Issue{Title: "A2", Status: models.StatusBacklog} // not closed
+	b := &models.Issue{Title: "B", Status: models.StatusCanceled}
 	db.CreateIssue(a1)
 	db.CreateIssue(a2)
 	db.CreateIssue(b)
@@ -1501,7 +1501,7 @@ func TestCascadeUnblockDependents_PartialResolution(t *testing.T) {
 		t.Errorf("expected 0 unblocked, got %d", count)
 	}
 	updated, _ := db.GetIssue(b.ID)
-	if updated.Status != models.StatusBlocked {
+	if updated.Status != models.StatusCanceled {
 		t.Errorf("expected blocked, got %s", updated.Status)
 	}
 }
@@ -1514,8 +1514,8 @@ func TestCascadeUnblockDependents_NonBlockedSkipped(t *testing.T) {
 	}
 	defer db.Close()
 
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusClosed}
-	dependent := &models.Issue{Title: "Dependent", Status: models.StatusOpen} // not blocked
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusShipped}
+	dependent := &models.Issue{Title: "Dependent", Status: models.StatusBacklog} // not blocked
 	db.CreateIssue(blocker)
 	db.CreateIssue(dependent)
 	db.AddDependency(dependent.ID, blocker.ID, "depends_on")
@@ -1526,7 +1526,7 @@ func TestCascadeUnblockDependents_NonBlockedSkipped(t *testing.T) {
 		t.Errorf("expected 0 unblocked, got %d", count)
 	}
 	updated, _ := db.GetIssue(dependent.ID)
-	if updated.Status != models.StatusOpen {
+	if updated.Status != models.StatusBacklog {
 		t.Errorf("expected open, got %s", updated.Status)
 	}
 }
@@ -1539,8 +1539,8 @@ func TestCascadeUnblockDependents_InProgressSkipped(t *testing.T) {
 	}
 	defer db.Close()
 
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusClosed}
-	dependent := &models.Issue{Title: "Dependent", Status: models.StatusInProgress}
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusShipped}
+	dependent := &models.Issue{Title: "Dependent", Status: models.StatusInFlight}
 	db.CreateIssue(blocker)
 	db.CreateIssue(dependent)
 	db.AddDependency(dependent.ID, blocker.ID, "depends_on")
@@ -1551,7 +1551,7 @@ func TestCascadeUnblockDependents_InProgressSkipped(t *testing.T) {
 		t.Errorf("expected 0 unblocked, got %d", count)
 	}
 	updated, _ := db.GetIssue(dependent.ID)
-	if updated.Status != models.StatusInProgress {
+	if updated.Status != models.StatusInFlight {
 		t.Errorf("expected in_progress, got %s", updated.Status)
 	}
 }
@@ -1564,7 +1564,7 @@ func TestCascadeUnblockDependents_NoDependents(t *testing.T) {
 	}
 	defer db.Close()
 
-	issue := &models.Issue{Title: "Standalone", Status: models.StatusClosed}
+	issue := &models.Issue{Title: "Standalone", Status: models.StatusShipped}
 	db.CreateIssue(issue)
 
 	count, ids := db.CascadeUnblockDependents(issue.ID, "test-session")
@@ -1585,9 +1585,9 @@ func TestCascadeUnblockDependents_MultipleBlocked(t *testing.T) {
 	}
 	defer db.Close()
 
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusClosed}
-	b1 := &models.Issue{Title: "B1", Status: models.StatusBlocked}
-	b2 := &models.Issue{Title: "B2", Status: models.StatusBlocked}
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusShipped}
+	b1 := &models.Issue{Title: "B1", Status: models.StatusCanceled}
+	b2 := &models.Issue{Title: "B2", Status: models.StatusCanceled}
 	db.CreateIssue(blocker)
 	db.CreateIssue(b1)
 	db.CreateIssue(b2)
@@ -1605,7 +1605,7 @@ func TestCascadeUnblockDependents_MultipleBlocked(t *testing.T) {
 
 	for _, dep := range []*models.Issue{b1, b2} {
 		updated, _ := db.GetIssue(dep.ID)
-		if updated.Status != models.StatusOpen {
+		if updated.Status != models.StatusBacklog {
 			t.Errorf("%s: expected open, got %s", dep.ID, updated.Status)
 		}
 	}
@@ -1619,9 +1619,9 @@ func TestCascadeUnblockDependents_ChainNoTransitive(t *testing.T) {
 	}
 	defer db.Close()
 
-	a := &models.Issue{Title: "A", Status: models.StatusClosed}
-	b := &models.Issue{Title: "B", Status: models.StatusBlocked}
-	c := &models.Issue{Title: "C", Status: models.StatusBlocked}
+	a := &models.Issue{Title: "A", Status: models.StatusShipped}
+	b := &models.Issue{Title: "B", Status: models.StatusCanceled}
+	c := &models.Issue{Title: "C", Status: models.StatusCanceled}
 	db.CreateIssue(a)
 	db.CreateIssue(b)
 	db.CreateIssue(c)
@@ -1635,12 +1635,12 @@ func TestCascadeUnblockDependents_ChainNoTransitive(t *testing.T) {
 	}
 
 	bUpdated, _ := db.GetIssue(b.ID)
-	if bUpdated.Status != models.StatusOpen {
+	if bUpdated.Status != models.StatusBacklog {
 		t.Errorf("B: expected open, got %s", bUpdated.Status)
 	}
 
 	cUpdated, _ := db.GetIssue(c.ID)
-	if cUpdated.Status != models.StatusBlocked {
+	if cUpdated.Status != models.StatusCanceled {
 		t.Errorf("C: expected blocked (B is open not closed), got %s", cUpdated.Status)
 	}
 }
@@ -1653,8 +1653,8 @@ func TestCascadeUnblockDependents_LogsCreated(t *testing.T) {
 	}
 	defer db.Close()
 
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusClosed}
-	dependent := &models.Issue{Title: "Dependent", Status: models.StatusBlocked}
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusShipped}
+	dependent := &models.Issue{Title: "Dependent", Status: models.StatusCanceled}
 	db.CreateIssue(blocker)
 	db.CreateIssue(dependent)
 	db.AddDependency(dependent.ID, blocker.ID, "depends_on")
@@ -1701,8 +1701,8 @@ func TestCascadeUnblockDependents_UndoData(t *testing.T) {
 	}
 	defer db.Close()
 
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusClosed}
-	dependent := &models.Issue{Title: "Dependent", Status: models.StatusBlocked}
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusShipped}
+	dependent := &models.Issue{Title: "Dependent", Status: models.StatusCanceled}
 	db.CreateIssue(blocker)
 	db.CreateIssue(dependent)
 	db.AddDependency(dependent.ID, blocker.ID, "depends_on")
@@ -1723,10 +1723,10 @@ func TestCascadeUnblockDependents_UndoData(t *testing.T) {
 	}
 
 	// Verify the status values in the JSON
-	if !strings.Contains(action.PreviousData, string(models.StatusBlocked)) {
-		t.Errorf("PreviousData should contain 'blocked', got: %s", action.PreviousData)
+	if !strings.Contains(action.PreviousData, string(models.StatusCanceled)) {
+		t.Errorf("PreviousData should contain 'canceled', got: %s", action.PreviousData)
 	}
-	if !strings.Contains(action.NewData, string(models.StatusOpen)) {
-		t.Errorf("NewData should contain 'open', got: %s", action.NewData)
+	if !strings.Contains(action.NewData, string(models.StatusBacklog)) {
+		t.Errorf("NewData should contain 'backlog', got: %s", action.NewData)
 	}
 }

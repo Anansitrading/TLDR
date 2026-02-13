@@ -20,7 +20,7 @@ func TestStatusCommand(t *testing.T) {
 		Title:    "Test issue 1",
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 	}
 	err = database.CreateIssue(issue1)
 	if err != nil {
@@ -31,7 +31,7 @@ func TestStatusCommand(t *testing.T) {
 		Title:              "Test issue 2",
 		Type:               models.TypeTask,
 		Priority:           models.PriorityP2,
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: "ses_other",
 	}
 	err = database.CreateIssue(issue2)
@@ -43,7 +43,7 @@ func TestStatusCommand(t *testing.T) {
 		Title:    "Test issue 3",
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
-		Status:   models.StatusBlocked,
+		Status:   models.StatusCanceled,
 	}
 	err = database.CreateIssue(issue3)
 	if err != nil {

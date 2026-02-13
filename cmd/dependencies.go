@@ -188,7 +188,7 @@ var dependsOnCmd = &cobra.Command{
 				continue
 			}
 
-			if dep.Status == models.StatusClosed {
+			if dep.Status == models.StatusShipped {
 				resolved++
 			} else {
 				blocking++
@@ -225,7 +225,7 @@ var criticalPathCmd = &cobra.Command{
 
 		// Get all open/in_progress issues (excluding epics - they're containers, not blocking work)
 		allIssues, err := database.ListIssues(db.ListIssuesOptions{
-			Status: []models.Status{models.StatusOpen, models.StatusInProgress, models.StatusBlocked},
+			Status: []models.Status{models.StatusBacklog, models.StatusInFlight, models.StatusCanceled},
 		})
 		if err != nil {
 			output.Error("failed to list issues: %v", err)
@@ -261,7 +261,7 @@ var criticalPathCmd = &cobra.Command{
 			deps, _ := database.GetDependencies(issue.ID)
 			allResolved := true
 			for _, depID := range deps {
-				if dep, exists := issueMap[depID]; exists && dep.Status != models.StatusClosed {
+				if dep, exists := issueMap[depID]; exists && dep.Status != models.StatusShipped {
 					allResolved = false
 					break
 				}
@@ -365,19 +365,19 @@ func buildCriticalPathSequence(database *db.DB, issueMap map[string]*models.Issu
 	dependsOn := make(map[string][]string)
 
 	for id := range issueMap {
-		if issueMap[id].Status == models.StatusClosed {
+		if issueMap[id].Status == models.StatusShipped {
 			continue
 		}
 		inDegree[id] = 0
 	}
 
 	for id := range issueMap {
-		if issueMap[id].Status == models.StatusClosed {
+		if issueMap[id].Status == models.StatusShipped {
 			continue
 		}
 		deps, _ := database.GetDependencies(id)
 		for _, depID := range deps {
-			if dep, exists := issueMap[depID]; exists && dep.Status != models.StatusClosed {
+			if dep, exists := issueMap[depID]; exists && dep.Status != models.StatusShipped {
 				inDegree[id]++
 				dependsOn[depID] = append(dependsOn[depID], id)
 			}
@@ -661,7 +661,7 @@ func showDependencies(database *db.DB, issue *models.Issue, jsonOutput bool) err
 			continue
 		}
 
-		if dep.Status == models.StatusClosed {
+		if dep.Status == models.StatusShipped {
 			resolved++
 		} else {
 			blocking++

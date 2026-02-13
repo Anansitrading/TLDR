@@ -48,7 +48,7 @@ func FetchData(database *db.DB, sessionID string, startedAt time.Time, searchQue
 
 	// Get in-progress issues
 	inProgress, _ := database.ListIssues(db.ListIssuesOptions{
-		Status: []models.Status{models.StatusInProgress},
+		Status: []models.Status{models.StatusInFlight},
 		SortBy: "priority",
 	})
 	msg.InProgress = inProgress
@@ -206,7 +206,7 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 	isBlockedByDeps := func(issueID string) bool {
 		deps := allDeps[issueID]
 		for _, depID := range deps {
-			if status, ok := depStatuses[depID]; ok && status != models.StatusClosed {
+			if status, ok := depStatuses[depID]; ok && status != models.StatusShipped {
 				return true
 			}
 		}
@@ -226,26 +226,24 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 			// Categorize the TDQ results
 			for _, issue := range allIssues {
 				switch issue.Status {
-				case models.StatusOpen:
+				case models.StatusTriage, models.StatusBacklog, models.StatusPrioritized:
 					if isBlockedByDeps(issue.ID) {
 						data.Blocked = append(data.Blocked, issue)
 					} else {
 						data.Ready = append(data.Ready, issue)
 					}
-				case models.StatusInProgress:
-					// In-progress issues: check if needs rework (rejected without re-submission)
+				case models.StatusInFlight:
+					// In-flight issues: check if needs rework (rejected without re-submission)
 					if rejectedIDs[issue.ID] {
 						data.NeedsRework = append(data.NeedsRework, issue)
 					} else {
 						data.Ready = append(data.Ready, issue)
 					}
-				case models.StatusBlocked:
-					data.Blocked = append(data.Blocked, issue)
-				case models.StatusInReview:
+				case models.StatusReview:
 					if issue.ImplementerSession != sessionID {
 						data.Reviewable = append(data.Reviewable, issue)
 					}
-				case models.StatusClosed:
+				case models.StatusShipped, models.StatusCanceled, models.StatusDuplicate:
 					if includeClosed {
 						data.Closed = append(data.Closed, issue)
 					}
@@ -260,12 +258,12 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 	var openIssues []models.Issue
 	if searchQuery != "" && !useTDQ {
 		results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
-			Status: []models.Status{models.StatusOpen},
+			Status: []models.Status{models.StatusBacklog},
 		})
 		openIssues = extractIssues(results)
 	} else if searchQuery == "" {
 		openIssues, _ = database.ListIssues(db.ListIssuesOptions{
-			Status:   []models.Status{models.StatusOpen},
+			Status:   []models.Status{models.StatusBacklog},
 			SortBy:   sortBy,
 			SortDesc: sortDesc,
 		})
@@ -285,12 +283,12 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 	var inProgressIssues []models.Issue
 	if searchQuery != "" && !useTDQ {
 		results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
-			Status: []models.Status{models.StatusInProgress},
+			Status: []models.Status{models.StatusInFlight},
 		})
 		inProgressIssues = extractIssues(results)
 	} else if searchQuery == "" {
 		inProgressIssues, _ = database.ListIssues(db.ListIssuesOptions{
-			Status:   []models.Status{models.StatusInProgress},
+			Status:   []models.Status{models.StatusInFlight},
 			SortBy:   sortBy,
 			SortDesc: sortDesc,
 		})
@@ -320,12 +318,12 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 	// Blocked issues: explicit blocked status + issues blocked by dependencies
 	if searchQuery != "" && !useTDQ {
 		results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
-			Status: []models.Status{models.StatusBlocked},
+			Status: []models.Status{models.StatusCanceled},
 		})
 		data.Blocked = append(extractIssues(results), blockedByDep...)
 	} else if searchQuery == "" {
 		blocked, _ := database.ListIssues(db.ListIssuesOptions{
-			Status:   []models.Status{models.StatusBlocked},
+			Status:   []models.Status{models.StatusCanceled},
 			SortBy:   sortBy,
 			SortDesc: sortDesc,
 		})
@@ -338,12 +336,12 @@ func fetchTaskList(database *db.DB, sessionID string, searchQuery string, includ
 	if includeClosed {
 		if searchQuery != "" && !useTDQ {
 			results, _ := database.SearchIssuesRanked(searchQuery, db.ListIssuesOptions{
-				Status: []models.Status{models.StatusClosed},
+				Status: []models.Status{models.StatusShipped},
 			})
 			data.Closed = extractIssues(results)
 		} else if searchQuery == "" {
 			data.Closed, _ = database.ListIssues(db.ListIssuesOptions{
-				Status:   []models.Status{models.StatusClosed},
+				Status:   []models.Status{models.StatusShipped},
 				SortBy:   sortBy,
 				SortDesc: sortDesc,
 			})
@@ -468,7 +466,7 @@ func ComputeBoardIssueCategories(database *db.DB, issues []models.BoardIssueView
 	isBlockedByDeps := func(issueID string) bool {
 		deps := allDeps[issueID]
 		for _, depID := range deps {
-			if status, ok := depStatuses[depID]; ok && status != models.StatusClosed {
+			if status, ok := depStatuses[depID]; ok && status != models.StatusShipped {
 				return true
 			}
 		}
@@ -481,27 +479,25 @@ func ComputeBoardIssueCategories(database *db.DB, issues []models.BoardIssueView
 		var category TaskListCategory
 
 		switch issue.Status {
-		case models.StatusOpen:
+		case models.StatusTriage, models.StatusBacklog, models.StatusPrioritized:
 			if isBlockedByDeps(issue.ID) {
 				category = CategoryBlocked
 			} else {
 				category = CategoryReady
 			}
-		case models.StatusInProgress:
+		case models.StatusInFlight:
 			if rejectedIDs[issue.ID] {
 				category = CategoryNeedsRework
 			} else {
 				category = CategoryReady
 			}
-		case models.StatusBlocked:
-			category = CategoryBlocked
-		case models.StatusInReview:
+		case models.StatusReview:
 			if issue.ImplementerSession != sessionID {
 				category = CategoryReviewable
 			} else {
 				category = CategoryReady // Own issues in review show as ready
 			}
-		case models.StatusClosed:
+		case models.StatusShipped, models.StatusCanceled, models.StatusDuplicate:
 			category = CategoryClosed
 		default:
 			category = CategoryReady

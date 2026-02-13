@@ -190,13 +190,14 @@ var boardShowCmd = &cobra.Command{
 			}
 		}
 
-		// Default: hide closed unless specified
+		// Default: hide shipped/canceled/duplicate unless specified
 		if len(statusFilter) == 0 {
 			statusFilter = []models.Status{
-				models.StatusOpen,
-				models.StatusInProgress,
-				models.StatusBlocked,
-				models.StatusInReview,
+				models.StatusTriage,
+				models.StatusBacklog,
+				models.StatusPrioritized,
+				models.StatusInFlight,
+				models.StatusReview,
 			}
 		}
 
@@ -442,16 +443,22 @@ var boardUnpositionCmd = &cobra.Command{
 
 func getStatusIcon(status models.Status) string {
 	switch status {
-	case models.StatusOpen:
+	case models.StatusTriage:
+		return "◇"
+	case models.StatusBacklog:
 		return "○"
-	case models.StatusInProgress:
+	case models.StatusPrioritized:
+		return "◆"
+	case models.StatusInFlight:
 		return "◐"
-	case models.StatusBlocked:
-		return "◉"
-	case models.StatusInReview:
+	case models.StatusReview:
 		return "◑"
-	case models.StatusClosed:
+	case models.StatusShipped:
 		return "●"
+	case models.StatusCanceled:
+		return "◉"
+	case models.StatusDuplicate:
+		return "≡"
 	default:
 		return "○"
 	}

@@ -19,7 +19,7 @@ func TestResumeSetsFocus(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Issue to resume",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	database.CreateIssue(issue)
 
@@ -48,14 +48,14 @@ func TestResumeWithInProgressIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "In Progress Work",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	database.CreateIssue(issue)
 
 	config.SetFocus(dir, issue.ID)
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusInProgress {
+	if retrieved.Status != models.StatusInFlight {
 		t.Error("Issue should still be in_progress after resume")
 	}
 
@@ -77,7 +77,7 @@ func TestResumePreservesIssueState(t *testing.T) {
 	issue := &models.Issue{
 		Title:       "Test Issue",
 		Description: "Important work",
-		Status:      models.StatusInReview,
+		Status:      models.StatusReview,
 		Type:        models.TypeFeature,
 		Priority:    models.PriorityP1,
 		Points:      8,
@@ -111,9 +111,9 @@ func TestResumeMultipleIssuesSequence(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue1 := &models.Issue{Title: "First Issue", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Second Issue", Status: models.StatusInProgress}
-	issue3 := &models.Issue{Title: "Third Issue", Status: models.StatusInReview}
+	issue1 := &models.Issue{Title: "First Issue", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Second Issue", Status: models.StatusInFlight}
+	issue3 := &models.Issue{Title: "Third Issue", Status: models.StatusReview}
 
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
@@ -151,7 +151,7 @@ func TestResumeAllowsContextInformation(t *testing.T) {
 	issue := &models.Issue{
 		Title:       "Complex Feature",
 		Description: "Needs thorough testing",
-		Status:      models.StatusInProgress,
+		Status:      models.StatusInFlight,
 		Type:        models.TypeFeature,
 		Priority:    models.PriorityP0,
 		Points:      21,
@@ -185,14 +185,14 @@ func TestResumeWithBlockedIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Blocked Work",
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	database.CreateIssue(issue)
 
 	config.SetFocus(dir, issue.ID)
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusBlocked {
+	if retrieved.Status != models.StatusCanceled {
 		t.Error("Blocked status should be preserved")
 	}
 }
@@ -208,7 +208,7 @@ func TestResumeWithClosedIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Completed Work",
-		Status: models.StatusClosed,
+		Status: models.StatusShipped,
 	}
 	database.CreateIssue(issue)
 
@@ -248,7 +248,7 @@ func TestResumeWithLogs(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Issue with History",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	database.CreateIssue(issue)
 

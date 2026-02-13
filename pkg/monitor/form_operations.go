@@ -87,7 +87,7 @@ func (m Model) submitForm() (tea.Model, tea.Cmd) {
 
 	if m.FormState.Mode == FormModeCreate {
 		// Create new issue with all fields
-		issue.Status = models.StatusOpen
+		issue.Status = models.StatusBacklog
 		if err := m.DB.CreateIssueLogged(issue, m.SessionID); err != nil {
 			m.Err = err
 			return m, nil

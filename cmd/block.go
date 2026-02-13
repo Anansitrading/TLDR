@@ -43,12 +43,12 @@ var blockCmd = &cobra.Command{
 
 			// Validate transition with state machine
 			sm := workflow.DefaultMachine()
-			if !sm.IsValidTransition(issue.Status, models.StatusBlocked) {
+			if !sm.IsValidTransition(issue.Status, models.StatusCanceled) {
 				output.Warning("cannot block %s: invalid transition from %s", issueID, issue.Status)
 				continue
 			}
 
-			issue.Status = models.StatusBlocked
+			issue.Status = models.StatusCanceled
 
 			if err := database.UpdateIssueLogged(issue, sess.ID, models.ActionBlock); err != nil {
 				output.Error("failed to block %s: %v", issueID, err)
@@ -115,19 +115,19 @@ Examples:
 
 			// Validate transition with state machine
 			sm := workflow.DefaultMachine()
-			if !sm.IsValidTransition(issue.Status, models.StatusOpen) {
+			if !sm.IsValidTransition(issue.Status, models.StatusBacklog) {
 				output.Warning("cannot reopen %s: invalid transition from %s", issueID, issue.Status)
 				skipped++
 				continue
 			}
 
-			if issue.Status != models.StatusClosed {
+			if issue.Status != models.StatusShipped {
 				output.Warning("%s is not closed (status: %s)", issueID, issue.Status)
 				skipped++
 				continue
 			}
 
-			issue.Status = models.StatusOpen
+			issue.Status = models.StatusBacklog
 			issue.ReviewerSession = ""
 			issue.ClosedAt = nil
 
@@ -201,19 +201,19 @@ Examples:
 
 			// Validate transition with state machine
 			sm := workflow.DefaultMachine()
-			if !sm.IsValidTransition(issue.Status, models.StatusOpen) {
+			if !sm.IsValidTransition(issue.Status, models.StatusBacklog) {
 				output.Warning("cannot unblock %s: invalid transition from %s", issueID, issue.Status)
 				skipped++
 				continue
 			}
 
-			if issue.Status != models.StatusBlocked {
+			if issue.Status != models.StatusCanceled {
 				output.Warning("%s is not blocked (status: %s)", issueID, issue.Status)
 				skipped++
 				continue
 			}
 
-			issue.Status = models.StatusOpen
+			issue.Status = models.StatusBacklog
 
 			if err := database.UpdateIssueLogged(issue, sess.ID, models.ActionUnblock); err != nil {
 				output.Warning("failed to unblock %s: %v", issueID, err)

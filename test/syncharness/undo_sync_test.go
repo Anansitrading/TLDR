@@ -14,7 +14,7 @@ func TestUndoBeforeSync_EventNeverSent(t *testing.T) {
 	// Client A creates an issue
 	err := h.Mutate("client-A", "create", "issues", "td-UBS1", map[string]any{
 		"title":  "Will be undone",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -65,7 +65,7 @@ func TestUndoAfterSync_GeneratesCompensatingEvent(t *testing.T) {
 	// Client A creates an issue
 	err := h.Mutate("client-A", "create", "issues", "td-UAS1", map[string]any{
 		"title":  "Created then undone",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -134,7 +134,7 @@ func TestUndoUpdateAfterSync_RevertsToPreviousState(t *testing.T) {
 	// Client A creates an issue with title-v1
 	err := h.Mutate("client-A", "create", "issues", "td-UUS1", map[string]any{
 		"title":  "title-v1",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -162,7 +162,7 @@ func TestUndoUpdateAfterSync_RevertsToPreviousState(t *testing.T) {
 	// Client A updates to title-v2
 	err = h.Mutate("client-A", "update", "issues", "td-UUS1", map[string]any{
 		"title":  "title-v2",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("update: %v", err)
@@ -228,7 +228,7 @@ func TestUndoWithRemoteModification_LWWDeterminesOutcome(t *testing.T) {
 	// Client A creates issue
 	err := h.Mutate("client-A", "create", "issues", "td-ULWW1", map[string]any{
 		"title":  "Original",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -245,7 +245,7 @@ func TestUndoWithRemoteModification_LWWDeterminesOutcome(t *testing.T) {
 	// B modifies the issue (adds description)
 	err = h.Mutate("client-B", "update", "issues", "td-ULWW1", map[string]any{
 		"title":       "Original",
-		"status":      "in_progress",
+		"status":      "in_flight",
 		"description": "Added by B",
 	})
 	if err != nil {
@@ -294,7 +294,7 @@ func TestUndoRestore_ReDeletePropagates(t *testing.T) {
 	// Client A creates an issue
 	err := h.Mutate("client-A", "create", "issues", "td-UR1", map[string]any{
 		"title":  "Will be deleted then restored",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -373,7 +373,7 @@ func TestUndoAlreadySynced_CompensatingEventPropagates(t *testing.T) {
 	// Client A creates issue
 	err := h.Mutate("client-A", "create", "issues", "td-UNR1", map[string]any{
 		"title":  "Already synced",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -449,7 +449,7 @@ func TestUndoThenRedo_TogglesBetweenStates(t *testing.T) {
 	// A creates issue with v1
 	err := h.Mutate("client-A", "create", "issues", "td-UTR1", map[string]any{
 		"title":  "v1",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -458,7 +458,7 @@ func TestUndoThenRedo_TogglesBetweenStates(t *testing.T) {
 	// A updates to v2
 	err = h.Mutate("client-A", "update", "issues", "td-UTR1", map[string]any{
 		"title":  "v2",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("update: %v", err)

@@ -20,12 +20,15 @@ var (
 	errorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 	warningStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	priorityStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-	statusStyles  = map[models.Status]lipgloss.Style{
-		models.StatusOpen:       lipgloss.NewStyle().Foreground(lipgloss.Color("45")),
-		models.StatusInProgress: lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
-		models.StatusBlocked:    lipgloss.NewStyle().Foreground(lipgloss.Color("196")),
-		models.StatusInReview:   lipgloss.NewStyle().Foreground(lipgloss.Color("141")),
-		models.StatusClosed:     lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
+	statusStyles = map[models.Status]lipgloss.Style{
+		models.StatusTriage:      lipgloss.NewStyle().Foreground(lipgloss.Color("220")),
+		models.StatusBacklog:     lipgloss.NewStyle().Foreground(lipgloss.Color("245")),
+		models.StatusPrioritized: lipgloss.NewStyle().Foreground(lipgloss.Color("69")),
+		models.StatusInFlight:    lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+		models.StatusReview:      lipgloss.NewStyle().Foreground(lipgloss.Color("141")),
+		models.StatusShipped:     lipgloss.NewStyle().Foreground(lipgloss.Color("42")),
+		models.StatusCanceled:    lipgloss.NewStyle().Foreground(lipgloss.Color("196")),
+		models.StatusDuplicate:   lipgloss.NewStyle().Foreground(lipgloss.Color("238")),
 	}
 )
 
@@ -269,7 +272,7 @@ func FormatIssueLong(issue *models.Issue, logs []models.Log, handoff *models.Han
 	}
 
 	// Review status
-	if issue.Status == models.StatusInReview {
+	if issue.Status == models.StatusReview {
 		sb.WriteString("\nAWAITING REVIEW - requires different session to approve/reject\n")
 	}
 
@@ -337,14 +340,16 @@ func IssueOneLinerPlain(issue *models.Issue) string {
 }
 
 // StatusBadge returns a status indicator with symbol
-// e.g., "○ open", "▶ in_progress", "✓ closed", "✗ blocked", "◎ in_review"
 func StatusBadge(status models.Status) string {
 	symbols := map[models.Status]string{
-		models.StatusOpen:       "○",
-		models.StatusInProgress: "▶",
-		models.StatusBlocked:    "✗",
-		models.StatusInReview:   "◎",
-		models.StatusClosed:     "✓",
+		models.StatusTriage:      "◇",
+		models.StatusBacklog:     "○",
+		models.StatusPrioritized: "◆",
+		models.StatusInFlight:    "▶",
+		models.StatusReview:      "◎",
+		models.StatusShipped:     "✓",
+		models.StatusCanceled:    "✗",
+		models.StatusDuplicate:   "≡",
 	}
 	symbol, ok := symbols[status]
 	if !ok {
@@ -397,7 +402,7 @@ func BulletList(items []string, indent int) []string {
 // e.g., "  td-abc1: Title [status] ✓"
 func DependencyLine(issue *models.Issue, showResolved bool) string {
 	statusMark := ""
-	if showResolved && issue.Status == models.StatusClosed {
+	if showResolved && issue.Status == models.StatusShipped {
 		statusMark = " ✓"
 	}
 	return fmt.Sprintf("    %s: %s %s%s", issue.ID, issue.Title, FormatStatus(issue.Status), statusMark)

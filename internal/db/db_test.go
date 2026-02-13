@@ -87,10 +87,10 @@ func TestListIssues(t *testing.T) {
 		status   models.Status
 		priority models.Priority
 	}{
-		{"Issue 1", models.StatusOpen, models.PriorityP1},
-		{"Issue 2", models.StatusOpen, models.PriorityP2},
-		{"Issue 3", models.StatusInProgress, models.PriorityP1},
-		{"Issue 4", models.StatusClosed, models.PriorityP3},
+		{"Issue 1", models.StatusBacklog, models.PriorityP1},
+		{"Issue 2", models.StatusBacklog, models.PriorityP2},
+		{"Issue 3", models.StatusInFlight, models.PriorityP1},
+		{"Issue 4", models.StatusShipped, models.PriorityP3},
 	}
 
 	for _, tc := range issues {
@@ -115,7 +115,7 @@ func TestListIssues(t *testing.T) {
 
 	// Test status filter
 	open, err := db.ListIssues(ListIssuesOptions{
-		Status: []models.Status{models.StatusOpen},
+		Status: []models.Status{models.StatusBacklog},
 	})
 	if err != nil {
 		t.Fatalf("ListIssues with status filter failed: %v", err)
@@ -728,7 +728,7 @@ func TestSearchIssuesRanked(t *testing.T) {
 	issue1 := &models.Issue{
 		Title:       "Other title",
 		Description: "Some description",
-		Status:      models.StatusOpen,
+		Status:      models.StatusBacklog,
 	}
 	if err := db.CreateIssue(issue1); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -744,7 +744,7 @@ func TestSearchIssuesRanked(t *testing.T) {
 	issue2 := &models.Issue{
 		Title:       "Gracefully handle errors",
 		Description: "Some other description",
-		Status:      models.StatusOpen,
+		Status:      models.StatusBacklog,
 	}
 	if err := db.CreateIssue(issue2); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -754,7 +754,7 @@ func TestSearchIssuesRanked(t *testing.T) {
 	issue3 := &models.Issue{
 		Title:       "Other task",
 		Description: "gracefully shutdown the service",
-		Status:      models.StatusOpen,
+		Status:      models.StatusBacklog,
 	}
 	if err := db.CreateIssue(issue3); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -764,7 +764,7 @@ func TestSearchIssuesRanked(t *testing.T) {
 	issue4 := &models.Issue{
 		Title:       "Closed issue",
 		Description: "Handle grace period",
-		Status:      models.StatusClosed,
+		Status:      models.StatusShipped,
 	}
 	if err := db.CreateIssue(issue4); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -828,7 +828,7 @@ func TestSearchIssuesRanked(t *testing.T) {
 	// Test 4: Search with closed status filter
 	t.Run("closed status filter", func(t *testing.T) {
 		results, err := db.SearchIssuesRanked("grace", ListIssuesOptions{
-			Status: []models.Status{models.StatusClosed},
+			Status: []models.Status{models.StatusShipped},
 		})
 		if err != nil {
 			t.Fatalf("SearchIssuesRanked failed: %v", err)
@@ -883,7 +883,7 @@ func TestReviewableByFilter(t *testing.T) {
 	// Issue 1: Implemented by A, created by A - A cannot review, B can
 	issue1 := &models.Issue{
 		Title:              "Implemented and created by A",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
 	}
@@ -892,7 +892,7 @@ func TestReviewableByFilter(t *testing.T) {
 	// Issue 2: Implemented by B, created by A - A cannot review (creator), C can
 	issue2 := &models.Issue{
 		Title:              "Implemented by B, created by A",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionB,
 		CreatorSession:     sessionA,
 	}
@@ -901,7 +901,7 @@ func TestReviewableByFilter(t *testing.T) {
 	// Issue 3: Implemented by B, A in session history - A cannot review
 	issue3 := &models.Issue{
 		Title:              "Implemented by B, A in history",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionB,
 		CreatorSession:     sessionC,
 	}
@@ -914,7 +914,7 @@ func TestReviewableByFilter(t *testing.T) {
 	// Issue 4: Minor task - can be self-reviewed by implementer
 	issue4 := &models.Issue{
 		Title:              "Minor task",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
 		Minor:              true,
@@ -924,7 +924,7 @@ func TestReviewableByFilter(t *testing.T) {
 	// Issue 5: Clean issue - B implemented, C created, no history for A
 	issue5 := &models.Issue{
 		Title:              "Clean issue for A to review",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionB,
 		CreatorSession:     sessionC,
 	}
@@ -1037,10 +1037,10 @@ func TestGetRejectedInProgressIssueIDs(t *testing.T) {
 	defer db.Close()
 
 	// Create test issues
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusInProgress}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusInProgress}
-	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusInProgress}
-	issue4 := &models.Issue{Title: "Issue 4", Status: models.StatusOpen} // Not in_progress
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusInFlight}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusInFlight}
+	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusInFlight}
+	issue4 := &models.Issue{Title: "Issue 4", Status: models.StatusBacklog} // Not in_progress
 
 	db.CreateIssue(issue1)
 	db.CreateIssue(issue2)
@@ -1380,8 +1380,8 @@ func TestGetBoardIssues(t *testing.T) {
 	defer db.Close()
 
 	// Create issues
-	issue1 := &models.Issue{Title: "Open Issue", Type: models.TypeTask, Priority: models.PriorityP2, Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Closed Issue", Type: models.TypeTask, Priority: models.PriorityP2, Status: models.StatusClosed}
+	issue1 := &models.Issue{Title: "Open Issue", Type: models.TypeTask, Priority: models.PriorityP2, Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Closed Issue", Type: models.TypeTask, Priority: models.PriorityP2, Status: models.StatusShipped}
 	db.CreateIssue(issue1)
 	db.CreateIssue(issue2)
 
@@ -1397,13 +1397,13 @@ func TestGetBoardIssues(t *testing.T) {
 	})
 
 	t.Run("get board issues with status filter", func(t *testing.T) {
-		issues, err := db.GetBoardIssues("bd-all-issues", "test-session", []models.Status{models.StatusOpen})
+		issues, err := db.GetBoardIssues("bd-all-issues", "test-session", []models.Status{models.StatusBacklog})
 		if err != nil {
 			t.Fatalf("GetBoardIssues failed: %v", err)
 		}
 		// Should only return open issues
 		for _, biv := range issues {
-			if biv.Issue.Status != models.StatusOpen {
+			if biv.Issue.Status != models.StatusBacklog {
 				t.Errorf("Got non-open issue with status filter: %s", biv.Issue.Status)
 			}
 		}

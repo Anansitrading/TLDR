@@ -54,14 +54,14 @@ Examples:
 
 			// Validate transition with state machine
 			sm := workflow.DefaultMachine()
-			if !sm.IsValidTransition(issue.Status, models.StatusOpen) {
+			if !sm.IsValidTransition(issue.Status, models.StatusBacklog) {
 				output.Warning("cannot unstart %s: invalid transition from %s", issueID, issue.Status)
 				skipped++
 				continue
 			}
 
 			// Only unstart in_progress issues (preserving existing behavior)
-			if issue.Status != models.StatusInProgress {
+			if issue.Status != models.StatusInFlight {
 				output.Warning("issue not in_progress: %s (status: %s)", issueID, issue.Status)
 				skipped++
 				continue
@@ -74,7 +74,7 @@ Examples:
 			}
 
 			// Update issue (atomic update + action log)
-			issue.Status = models.StatusOpen
+			issue.Status = models.StatusBacklog
 			issue.ImplementerSession = ""
 
 			if err := database.UpdateIssueLogged(issue, sess.ID, models.ActionReopen); err != nil {

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS issues (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'open',
+    status TEXT NOT NULL DEFAULT 'backlog',
     type TEXT NOT NULL DEFAULT 'task',
     priority TEXT NOT NULL DEFAULT 'P2',
     points INTEGER DEFAULT 0,

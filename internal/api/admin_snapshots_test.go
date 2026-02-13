@@ -158,19 +158,19 @@ func TestAdminSnapshotQuery_Basic(t *testing.T) {
 		DeviceID: "dev1", SessionID: "sess1",
 		Events: []EventInput{
 			{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "td-aaa001",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"open one","status":"open","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"backlog one","status":"backlog","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 			{ClientActionID: 2, ActionType: "create", EntityType: "issues", EntityID: "td-aaa002",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"closed one","status":"closed","type":"bug","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"shipped one","status":"shipped","type":"bug","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
 			{ClientActionID: 3, ActionType: "create", EntityType: "issues", EntityID: "td-aaa003",
-				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"open two","status":"open","type":"task","priority":"P3"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
+				Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"backlog two","status":"backlog","type":"task","priority":"P3"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
 		},
 	})
 	if w.Code != http.StatusOK {
 		t.Fatalf("push: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Query for open issues (snapshot will be built on demand)
-	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open", project.ID), adminToken, nil)
+	// Query for backlog issues (snapshot will be built on demand)
+	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog", project.ID), adminToken, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("query: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
@@ -179,7 +179,7 @@ func TestAdminSnapshotQuery_Basic(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&resp)
 
 	if len(resp.Data) != 2 {
-		t.Fatalf("expected 2 open issues, got %d", len(resp.Data))
+		t.Fatalf("expected 2 backlog issues, got %d", len(resp.Data))
 	}
 	if resp.SnapshotSeq < 3 {
 		t.Fatalf("expected snapshot_seq >= 3, got %d", resp.SnapshotSeq)
@@ -302,7 +302,7 @@ func TestAdminSnapshotQuery_Pagination(t *testing.T) {
 			ActionType:      "create",
 			EntityType:      "issues",
 			EntityID:        fmt.Sprintf("td-pg%04d", i+1),
-			Payload:         json.RawMessage(fmt.Sprintf(`{"schema_version":1,"new_data":{"title":"issue %d","status":"open","type":"task","priority":"P1"}}`, i+1)),
+			Payload:         json.RawMessage(fmt.Sprintf(`{"schema_version":1,"new_data":{"title":"issue %d","status":"backlog","type":"task","priority":"P1"}}`, i+1)),
 			ClientTimestamp:  fmt.Sprintf("2025-01-01T00:00:%02dZ", i),
 		}
 	}
@@ -314,7 +314,7 @@ func TestAdminSnapshotQuery_Pagination(t *testing.T) {
 	}
 
 	// Page 1: limit=2
-	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open&limit=2", project.ID), adminToken, nil)
+	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog&limit=2", project.ID), adminToken, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("page1: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
@@ -331,7 +331,7 @@ func TestAdminSnapshotQuery_Pagination(t *testing.T) {
 	}
 
 	// Page 2: use cursor
-	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open&limit=2&cursor=%s", project.ID, *page1.NextCursor), adminToken, nil)
+	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog&limit=2&cursor=%s", project.ID, *page1.NextCursor), adminToken, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("page2: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
@@ -345,7 +345,7 @@ func TestAdminSnapshotQuery_Pagination(t *testing.T) {
 	}
 
 	// Page 3: last page
-	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open&limit=2&cursor=%s", project.ID, *page2.NextCursor), adminToken, nil)
+	w = doRequest(srv, "GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog&limit=2&cursor=%s", project.ID, *page2.NextCursor), adminToken, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("page3: expected 200, got %d: %s", w.Code, w.Body.String())
 	}

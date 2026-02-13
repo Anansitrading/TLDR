@@ -26,20 +26,20 @@ func TestToMatcher(t *testing.T) {
 		matches bool
 	}{
 		{
-			name:  "status equals open",
-			query: "status = open",
+			name:  "status equals backlog",
+			query: "status = backlog",
 			issue: models.Issue{
 				ID:     "td-001",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
 		{
 			name:  "status not matches",
-			query: "status = open",
+			query: "status = backlog",
 			issue: models.Issue{
 				ID:     "td-002",
-				Status: models.StatusClosed,
+				Status: models.StatusShipped,
 			},
 			matches: false,
 		},
@@ -81,48 +81,48 @@ func TestToMatcher(t *testing.T) {
 		},
 		{
 			name:  "AND expression",
-			query: "status = open AND priority = P1",
+			query: "status = backlog AND priority = P1",
 			issue: models.Issue{
 				ID:       "td-007",
-				Status:   models.StatusOpen,
+				Status:   models.StatusBacklog,
 				Priority: models.PriorityP1,
 			},
 			matches: true,
 		},
 		{
 			name:  "AND expression partial fail",
-			query: "status = open AND priority = P1",
+			query: "status = backlog AND priority = P1",
 			issue: models.Issue{
 				ID:       "td-008",
-				Status:   models.StatusOpen,
+				Status:   models.StatusBacklog,
 				Priority: models.PriorityP2,
 			},
 			matches: false,
 		},
 		{
 			name:  "OR expression",
-			query: "status = open OR status = in_progress",
+			query: "status = backlog OR status = in_flight",
 			issue: models.Issue{
 				ID:     "td-009",
-				Status: models.StatusInProgress,
+				Status: models.StatusInFlight,
 			},
 			matches: true,
 		},
 		{
 			name:  "NOT expression",
-			query: "NOT status = closed",
+			query: "NOT status = shipped",
 			issue: models.Issue{
 				ID:     "td-010",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
 		{
 			name:  "is function",
-			query: "is(open)",
+			query: "is(backlog)",
 			issue: models.Issue{
 				ID:     "td-011",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
@@ -243,7 +243,7 @@ func TestCaseInsensitiveEnumMatching(t *testing.T) {
 			query: "status = OPEN",
 			issue: models.Issue{
 				ID:     "td-ci-05",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
@@ -252,7 +252,7 @@ func TestCaseInsensitiveEnumMatching(t *testing.T) {
 			query: "is(Open)",
 			issue: models.Issue{
 				ID:     "td-ci-06",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
@@ -702,7 +702,7 @@ func TestFunctionArgEnumNormalization(t *testing.T) {
 			query: "any(status, OPEN, Closed)",
 			issue: models.Issue{
 				ID:     "td-fn-01",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
@@ -726,10 +726,10 @@ func TestFunctionArgEnumNormalization(t *testing.T) {
 		},
 		{
 			name:  "none() with mixed-case status",
-			query: "none(status, CLOSED, blocked)",
+			query: "none(status, SHIPPED, IN_FLIGHT)",
 			issue: models.Issue{
 				ID:     "td-fn-04",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
@@ -738,7 +738,7 @@ func TestFunctionArgEnumNormalization(t *testing.T) {
 			query: "none(status, OPEN, blocked)",
 			issue: models.Issue{
 				ID:     "td-fn-05",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: false,
 		},
@@ -747,7 +747,7 @@ func TestFunctionArgEnumNormalization(t *testing.T) {
 			query: "is(IN_PROGRESS)",
 			issue: models.Issue{
 				ID:     "td-fn-06",
-				Status: models.StatusInProgress,
+				Status: models.StatusInFlight,
 			},
 			matches: true,
 		},
@@ -756,7 +756,7 @@ func TestFunctionArgEnumNormalization(t *testing.T) {
 			query: "all(status, OPEN)",
 			issue: models.Issue{
 				ID:     "td-fn-07",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: true,
 		},
@@ -765,7 +765,7 @@ func TestFunctionArgEnumNormalization(t *testing.T) {
 			query: "all(status, CLOSED)",
 			issue: models.Issue{
 				ID:     "td-fn-08",
-				Status: models.StatusOpen,
+				Status: models.StatusBacklog,
 			},
 			matches: false,
 		},

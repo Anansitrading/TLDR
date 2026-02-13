@@ -60,22 +60,28 @@ var (
 				Foreground(warningColor). // Orange - stands out clearly
 				Bold(true)
 
-	// Status styles
+	// Status styles (Linear-matching color scheme)
 	statusStyles = map[models.Status]lipgloss.Style{
-		models.StatusOpen:       lipgloss.NewStyle().Foreground(lipgloss.Color("45")),
-		models.StatusInProgress: lipgloss.NewStyle().Foreground(warningColor),
-		models.StatusBlocked:    lipgloss.NewStyle().Foreground(errorColor),
-		models.StatusInReview:   lipgloss.NewStyle().Foreground(secondaryColor),
-		models.StatusClosed:     lipgloss.NewStyle().Foreground(mutedColor),
+		models.StatusTriage:      lipgloss.NewStyle().Foreground(lipgloss.Color("220")),
+		models.StatusBacklog:     lipgloss.NewStyle().Foreground(lipgloss.Color("245")),
+		models.StatusPrioritized: lipgloss.NewStyle().Foreground(lipgloss.Color("69")),
+		models.StatusInFlight:    lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+		models.StatusReview:      lipgloss.NewStyle().Foreground(lipgloss.Color("141")),
+		models.StatusShipped:     lipgloss.NewStyle().Foreground(lipgloss.Color("42")),
+		models.StatusCanceled:    lipgloss.NewStyle().Foreground(lipgloss.Color("196")),
+		models.StatusDuplicate:   lipgloss.NewStyle().Foreground(lipgloss.Color("238")),
 	}
 
-	// Status chart styles (slightly different colors for stats charts)
+	// Status chart styles (Linear-matching color scheme)
 	statusChartStyles = map[models.Status]lipgloss.Style{
-		models.StatusOpen:       lipgloss.NewStyle().Foreground(lipgloss.Color("45")),
-		models.StatusInProgress: lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
-		models.StatusBlocked:    lipgloss.NewStyle().Foreground(lipgloss.Color("196")),
-		models.StatusInReview:   lipgloss.NewStyle().Foreground(lipgloss.Color("141")),
-		models.StatusClosed:     lipgloss.NewStyle().Foreground(successColor),
+		models.StatusTriage:      lipgloss.NewStyle().Foreground(lipgloss.Color("220")),
+		models.StatusBacklog:     lipgloss.NewStyle().Foreground(lipgloss.Color("245")),
+		models.StatusPrioritized: lipgloss.NewStyle().Foreground(lipgloss.Color("69")),
+		models.StatusInFlight:    lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+		models.StatusReview:      lipgloss.NewStyle().Foreground(lipgloss.Color("141")),
+		models.StatusShipped:     lipgloss.NewStyle().Foreground(lipgloss.Color("42")),
+		models.StatusCanceled:    lipgloss.NewStyle().Foreground(lipgloss.Color("196")),
+		models.StatusDuplicate:   lipgloss.NewStyle().Foreground(lipgloss.Color("238")),
 	}
 
 	// Priority styles
@@ -201,13 +207,16 @@ var (
 
 	kanbanCardSeparator = "╌"
 
-	// Per-status column header colors (background)
+	// Per-status column header colors (background, Linear-matching)
 	kanbanStatusColors = map[models.Status]lipgloss.Color{
-		models.StatusOpen:       lipgloss.Color("45"),  // Cyan
-		models.StatusInProgress: lipgloss.Color("214"), // Orange
-		models.StatusInReview:   lipgloss.Color("141"), // Purple
-		models.StatusBlocked:    lipgloss.Color("196"), // Red
-		models.StatusClosed:     lipgloss.Color("241"), // Gray
+		models.StatusTriage:      lipgloss.Color("220"), // Yellow
+		models.StatusBacklog:     lipgloss.Color("245"), // Gray
+		models.StatusPrioritized: lipgloss.Color("69"),  // Blue
+		models.StatusInFlight:    lipgloss.Color("214"), // Orange
+		models.StatusReview:      lipgloss.Color("141"), // Purple
+		models.StatusShipped:     lipgloss.Color("42"),  // Green
+		models.StatusCanceled:    lipgloss.Color("196"), // Red
+		models.StatusDuplicate:   lipgloss.Color("238"), // Dark gray
 	}
 
 	// Divider styles for drag-to-resize

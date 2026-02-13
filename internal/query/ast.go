@@ -209,7 +209,7 @@ var CrossEntityFields = map[string]map[string]string{
 
 // Enum values for validation
 var EnumValues = map[string][]string{
-	"status":   {"open", "in_progress", "blocked", "in_review", "closed"},
+	"status":   {"triage", "backlog", "prioritized", "in_flight", "review", "shipped", "canceled", "duplicate"},
 	"type":     {"bug", "feature", "task", "epic", "chore"},
 	"priority": {"P0", "P1", "P2", "P3", "P4"},
 	"log.type": {"progress", "blocker", "decision", "hypothesis", "tried", "result", "orchestration"},

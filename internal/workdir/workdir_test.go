@@ -140,6 +140,8 @@ func initGitRepo(t *testing.T) string {
 
 	dir := t.TempDir()
 	runCmd(t, dir, "git", "init")
+	runCmd(t, dir, "git", "config", "user.email", "test@test.com")
+	runCmd(t, dir, "git", "config", "user.name", "Test User")
 	return dir
 }
 

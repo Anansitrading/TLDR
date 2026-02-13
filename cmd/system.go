@@ -53,7 +53,7 @@ var infoCmd = &cobra.Command{
 			ReviewableBy: sess.ID,
 		})
 		inReview, _ := database.ListIssues(db.ListIssuesOptions{
-			Status: []models.Status{models.StatusInReview},
+			Status: []models.Status{models.StatusReview},
 		})
 
 		// JSON output
@@ -64,11 +64,14 @@ var infoCmd = &cobra.Command{
 				"current_session": sess.ID,
 				"issues": map[string]interface{}{
 					"total":       stats["total"],
-					"open":        stats["open"],
-					"in_progress": stats["in_progress"],
-					"blocked":     stats["blocked"],
-					"in_review":   stats["in_review"],
-					"closed":      stats["closed"],
+					"triage":      stats["triage"],
+					"backlog":     stats["backlog"],
+					"prioritized": stats["prioritized"],
+					"in_flight":   stats["in_flight"],
+					"review":      stats["review"],
+					"shipped":     stats["shipped"],
+					"canceled":    stats["canceled"],
+					"duplicate":   stats["duplicate"],
 				},
 				"review_queue": map[string]interface{}{
 					"awaiting_review": len(inReview),
@@ -91,11 +94,14 @@ var infoCmd = &cobra.Command{
 		fmt.Println()
 
 		fmt.Printf("Issues: %d total\n", stats["total"])
-		fmt.Printf("  Open:        %d\n", stats["open"])
-		fmt.Printf("  In Progress: %d\n", stats["in_progress"])
-		fmt.Printf("  Blocked:     %d\n", stats["blocked"])
-		fmt.Printf("  In Review:   %d\n", stats["in_review"])
-		fmt.Printf("  Closed:      %d\n", stats["closed"])
+		fmt.Printf("  Triage:      %d\n", stats["triage"])
+		fmt.Printf("  Backlog:     %d\n", stats["backlog"])
+		fmt.Printf("  Prioritized: %d\n", stats["prioritized"])
+		fmt.Printf("  In Flight:   %d\n", stats["in_flight"])
+		fmt.Printf("  Review:      %d\n", stats["review"])
+		fmt.Printf("  Shipped:     %d\n", stats["shipped"])
+		fmt.Printf("  Canceled:    %d\n", stats["canceled"])
+		fmt.Printf("  Duplicate:   %d\n", stats["duplicate"])
 		fmt.Println()
 
 		fmt.Println("Review Queue:")

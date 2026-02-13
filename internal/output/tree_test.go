@@ -16,7 +16,7 @@ func TestRenderTreeLines_Empty(t *testing.T) {
 
 func TestRenderTreeLines_SingleNode(t *testing.T) {
 	nodes := []TreeNode{
-		{ID: "td-abc", Title: "Test issue", Type: models.TypeTask, Status: models.StatusOpen},
+		{ID: "td-abc", Title: "Test issue", Type: models.TypeTask, Status: models.StatusBacklog},
 	}
 	lines := RenderTreeLines(nodes, TreeRenderOptions{ShowType: true, ShowStatus: true})
 
@@ -37,15 +37,15 @@ func TestRenderTreeLines_SingleNode(t *testing.T) {
 	if !strings.Contains(line, "task") {
 		t.Errorf("expected type in output, got: %s", line)
 	}
-	if !strings.Contains(line, "[open]") {
+	if !strings.Contains(line, "[backlog]") {
 		t.Errorf("expected status in output, got: %s", line)
 	}
 }
 
 func TestRenderTreeLines_MultipleNodes(t *testing.T) {
 	nodes := []TreeNode{
-		{ID: "td-001", Title: "First", Type: models.TypeTask, Status: models.StatusOpen},
-		{ID: "td-002", Title: "Second", Type: models.TypeTask, Status: models.StatusClosed},
+		{ID: "td-001", Title: "First", Type: models.TypeTask, Status: models.StatusBacklog},
+		{ID: "td-002", Title: "Second", Type: models.TypeTask, Status: models.StatusShipped},
 	}
 	lines := RenderTreeLines(nodes, TreeRenderOptions{ShowType: true, ShowStatus: true})
 
@@ -75,10 +75,10 @@ func TestRenderTreeLines_WithChildren(t *testing.T) {
 			ID:     "td-parent",
 			Title:  "Parent",
 			Type:   models.TypeEpic,
-			Status: models.StatusInProgress,
+			Status: models.StatusInFlight,
 			Children: []TreeNode{
-				{ID: "td-child1", Title: "Child 1", Type: models.TypeTask, Status: models.StatusOpen},
-				{ID: "td-child2", Title: "Child 2", Type: models.TypeTask, Status: models.StatusClosed},
+				{ID: "td-child1", Title: "Child 1", Type: models.TypeTask, Status: models.StatusBacklog},
+				{ID: "td-child2", Title: "Child 2", Type: models.TypeTask, Status: models.StatusShipped},
 			},
 		},
 	}
@@ -100,15 +100,15 @@ func TestRenderTreeLines_MaxDepth(t *testing.T) {
 			ID:     "td-level0",
 			Title:  "Level 0",
 			Type:   models.TypeEpic,
-			Status: models.StatusOpen,
+			Status: models.StatusBacklog,
 			Children: []TreeNode{
 				{
 					ID:     "td-level1",
 					Title:  "Level 1",
 					Type:   models.TypeTask,
-					Status: models.StatusOpen,
+					Status: models.StatusBacklog,
 					Children: []TreeNode{
-						{ID: "td-level2", Title: "Level 2", Type: models.TypeTask, Status: models.StatusOpen},
+						{ID: "td-level2", Title: "Level 2", Type: models.TypeTask, Status: models.StatusBacklog},
 					},
 				},
 			},
@@ -128,9 +128,9 @@ func TestRenderTree(t *testing.T) {
 		ID:     "td-root",
 		Title:  "Root",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 		Children: []TreeNode{
-			{ID: "td-child", Title: "Child", Type: models.TypeTask, Status: models.StatusOpen},
+			{ID: "td-child", Title: "Child", Type: models.TypeTask, Status: models.StatusBacklog},
 		},
 	}
 
@@ -147,11 +147,11 @@ func TestStatusMark(t *testing.T) {
 		status models.Status
 		expect string
 	}{
-		{models.StatusClosed, " ✓"},
-		{models.StatusInReview, " ⧗"},
-		{models.StatusInProgress, " ●"},
-		{models.StatusBlocked, " ✗"},
-		{models.StatusOpen, ""},
+		{models.StatusShipped, " ✓"},
+		{models.StatusReview, " ⧗"},
+		{models.StatusInFlight, " ●"},
+		{models.StatusCanceled, " ✗"},
+		{models.StatusBacklog, ""},
 	}
 
 	for _, tc := range tests {
@@ -164,7 +164,7 @@ func TestStatusMark(t *testing.T) {
 
 func TestRenderBlockedTree(t *testing.T) {
 	nodes := []TreeNode{
-		{ID: "td-blocked", Title: "Blocked issue", Status: models.StatusBlocked},
+		{ID: "td-blocked", Title: "Blocked issue", Status: models.StatusCanceled},
 	}
 
 	result := RenderBlockedTree(nodes, TreeRenderOptions{}, false)
@@ -187,9 +187,9 @@ func TestRenderBlockedTree_Empty(t *testing.T) {
 func TestRenderBlockedTree_SkipsDuplicates(t *testing.T) {
 	// Create a scenario where an issue appears multiple times
 	nodes := []TreeNode{
-		{ID: "td-001", Title: "First", Status: models.StatusOpen},
-		{ID: "td-001", Title: "First (duplicate)", Status: models.StatusOpen}, // Same ID
-		{ID: "td-002", Title: "Second", Status: models.StatusOpen},
+		{ID: "td-001", Title: "First", Status: models.StatusBacklog},
+		{ID: "td-001", Title: "First (duplicate)", Status: models.StatusBacklog}, // Same ID
+		{ID: "td-002", Title: "Second", Status: models.StatusBacklog},
 	}
 
 	result := RenderBlockedTree(nodes, TreeRenderOptions{}, false)
@@ -203,8 +203,8 @@ func TestRenderBlockedTree_SkipsDuplicates(t *testing.T) {
 
 func TestRenderChildrenList(t *testing.T) {
 	nodes := []TreeNode{
-		{ID: "td-001", Title: "First", Type: models.TypeTask, Status: models.StatusOpen},
-		{ID: "td-002", Title: "Second", Type: models.TypeBug, Status: models.StatusClosed},
+		{ID: "td-001", Title: "First", Type: models.TypeTask, Status: models.StatusBacklog},
+		{ID: "td-002", Title: "Second", Type: models.TypeBug, Status: models.StatusShipped},
 	}
 
 	lines := RenderChildrenList(nodes)
@@ -218,14 +218,14 @@ func TestRenderChildrenList(t *testing.T) {
 		t.Errorf("expected 2-space indent, got: %s", lines[0])
 	}
 
-	// Check format: "  ├── task td-001: First [open]"
+	// Check format: "  ├── task td-001: First [backlog]"
 	if !strings.Contains(lines[0], "├──") {
 		t.Errorf("expected non-last connector, got: %s", lines[0])
 	}
 	if !strings.Contains(lines[0], "task") {
 		t.Errorf("expected type, got: %s", lines[0])
 	}
-	if !strings.Contains(lines[0], "[open]") {
+	if !strings.Contains(lines[0], "[backlog]") {
 		t.Errorf("expected status in brackets, got: %s", lines[0])
 	}
 
@@ -234,15 +234,15 @@ func TestRenderChildrenList(t *testing.T) {
 		t.Errorf("expected last connector, got: %s", lines[1])
 	}
 
-	// Closed status has checkmark
+	// Shipped status has checkmark
 	if !strings.Contains(lines[1], "✓") {
-		t.Errorf("expected checkmark for closed, got: %s", lines[1])
+		t.Errorf("expected checkmark for shipped, got: %s", lines[1])
 	}
 }
 
 func TestRenderTreeLines_ShowTypeAndStatus(t *testing.T) {
 	nodes := []TreeNode{
-		{ID: "td-test", Title: "Test", Type: models.TypeFeature, Status: models.StatusInProgress},
+		{ID: "td-test", Title: "Test", Type: models.TypeFeature, Status: models.StatusInFlight},
 	}
 
 	// Without ShowType

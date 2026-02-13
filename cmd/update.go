@@ -144,11 +144,11 @@ var updateCmd = &cobra.Command{
 				// Record session action for bypass prevention based on transition type
 				var sessionAction models.IssueSessionAction
 				switch {
-				case oldStatus == models.StatusOpen && newStatus == models.StatusInProgress:
+				case oldStatus == models.StatusBacklog && newStatus == models.StatusInFlight:
 					sessionAction = models.ActionSessionStarted
-				case oldStatus == models.StatusInProgress && newStatus == models.StatusOpen:
+				case oldStatus == models.StatusInFlight && newStatus == models.StatusBacklog:
 					sessionAction = models.ActionSessionUnstarted
-				case oldStatus == models.StatusInReview && newStatus == models.StatusClosed:
+				case oldStatus == models.StatusReview && newStatus == models.StatusShipped:
 					sessionAction = models.ActionSessionReviewed
 				}
 				if sessionAction != "" {

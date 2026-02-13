@@ -45,7 +45,7 @@ type ListIssuesOptions struct {
 func (db *DB) CreateIssue(issue *models.Issue) error {
 	return db.withWriteLock(func() error {
 		if issue.Status == "" {
-			issue.Status = models.StatusOpen
+			issue.Status = models.StatusBacklog
 		}
 		if issue.Type == "" {
 			issue.Type = models.TypeTask
@@ -428,7 +428,7 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 				)
 			)
 		)`
-		args = append(args, models.StatusInReview, opts.ReviewableBy, opts.ReviewableBy, opts.ReviewableBy)
+		args = append(args, models.StatusReview, opts.ReviewableBy, opts.ReviewableBy, opts.ReviewableBy)
 	}
 
 	// Parent filter

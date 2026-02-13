@@ -63,7 +63,7 @@ func testMinorTaskAllowsSelfReview(t *testing.T) {
 	// Create a minor issue by creator
 	issue := &models.Issue{
 		Title:              "Minor: Fix typo",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              true,
 		ImplementerSession: sessionID,
 		CreatorSession:     sessionID,
@@ -109,7 +109,7 @@ func testNormalTaskBlocksSelfReview(t *testing.T) {
 	// Create a normal (non-minor) issue where session is both implementer and creator
 	issue := &models.Issue{
 		Title:              "Normal Task",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              false, // Normal task
 		ImplementerSession: sessionID,
 		CreatorSession:     sessionID,
@@ -156,7 +156,7 @@ func testMinorTaskBypass(t *testing.T) {
 	// Create a minor task implemented by A, created by A
 	minorIssue := &models.Issue{
 		Title:              "Minor fix",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              true,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
@@ -221,7 +221,7 @@ func testMinorVsNormalWorkflow(t *testing.T) {
 	// Scenario 1: Minor task (self-reviewable)
 	minorIssue := &models.Issue{
 		Title:              "Minor: Typo fix",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              true,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
@@ -238,7 +238,7 @@ func testMinorVsNormalWorkflow(t *testing.T) {
 	// Scenario 2: Normal task (requires external review)
 	normalIssue := &models.Issue{
 		Title:              "Normal: Feature implementation",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              false,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
@@ -323,7 +323,7 @@ func testMinorTaskPersistence(t *testing.T) {
 	}
 
 	// Verify it stays true through updates
-	retrieved.Status = models.StatusInProgress
+	retrieved.Status = models.StatusInFlight
 	retrieved.ImplementerSession = "ses_test"
 
 	if err := database.UpdateIssue(retrieved); err != nil {
@@ -378,7 +378,7 @@ func testMultipleMinorTasks(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		issue := &models.Issue{
 			Title:              fmt.Sprintf("Minor task %d", i),
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			Minor:              true,
 			ImplementerSession: sessionA,
 			CreatorSession:     sessionA,

@@ -38,10 +38,10 @@ func TestExecute(t *testing.T) {
 	defer database.Close()
 
 	// Create test issues
-	createTestIssue(t, database, "td-001", "Fix auth bug", models.StatusOpen, models.TypeBug, models.PriorityP1)
-	createTestIssue(t, database, "td-002", "Add login feature", models.StatusOpen, models.TypeFeature, models.PriorityP2)
-	createTestIssue(t, database, "td-003", "Closed task", models.StatusClosed, models.TypeTask, models.PriorityP3)
-	createTestIssue(t, database, "td-004", "In progress bug", models.StatusInProgress, models.TypeBug, models.PriorityP0)
+	createTestIssue(t, database, "td-001", "Fix auth bug", models.StatusBacklog, models.TypeBug, models.PriorityP1)
+	createTestIssue(t, database, "td-002", "Add login feature", models.StatusBacklog, models.TypeFeature, models.PriorityP2)
+	createTestIssue(t, database, "td-003", "Closed task", models.StatusShipped, models.TypeTask, models.PriorityP3)
+	createTestIssue(t, database, "td-004", "In progress bug", models.StatusInFlight, models.TypeBug, models.PriorityP0)
 
 	tests := []struct {
 		name      string
@@ -121,7 +121,7 @@ func TestExecuteWithLimit(t *testing.T) {
 
 	// Create several test issues
 	for i := 0; i < 10; i++ {
-		createTestIssue(t, database, "td-"+string(rune('A'+i)), "Issue", models.StatusOpen, models.TypeTask, models.PriorityP2)
+		createTestIssue(t, database, "td-"+string(rune('A'+i)), "Issue", models.StatusBacklog, models.TypeTask, models.PriorityP2)
 	}
 
 	results, err := Execute(database, "status = open", "ses_test", ExecuteOptions{Limit: 3})
@@ -139,7 +139,7 @@ func TestExecuteWithMaxResults(t *testing.T) {
 
 	// Create test issues
 	for i := 0; i < 5; i++ {
-		createTestIssue(t, database, "td-"+string(rune('A'+i)), "Issue", models.StatusOpen, models.TypeTask, models.PriorityP2)
+		createTestIssue(t, database, "td-"+string(rune('A'+i)), "Issue", models.StatusBacklog, models.TypeTask, models.PriorityP2)
 	}
 
 	// MaxResults should cap what's fetched from DB
@@ -161,7 +161,7 @@ func TestExecuteParentChild(t *testing.T) {
 	parent := &models.Issue{
 		ID:       "td-epic",
 		Title:    "Epic Task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeEpic,
 		Priority: models.PriorityP1,
 	}
@@ -173,7 +173,7 @@ func TestExecuteParentChild(t *testing.T) {
 	child1 := &models.Issue{
 		ID:       "td-child1",
 		Title:    "Child 1",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 		ParentID: "td-epic",
@@ -185,7 +185,7 @@ func TestExecuteParentChild(t *testing.T) {
 	child2 := &models.Issue{
 		ID:       "td-child2",
 		Title:    "Child 2",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 		ParentID: "td-epic",
@@ -209,22 +209,22 @@ func TestExecuteDescendantOf(t *testing.T) {
 	defer database.Close()
 
 	// Create a hierarchy: epic -> task -> subtask
-	epic := &models.Issue{Title: "Epic", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epic := &models.Issue{Title: "Epic", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("failed to create epic: %v", err)
 	}
 
-	task := &models.Issue{Title: "Task", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epic.ID}
+	task := &models.Issue{Title: "Task", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epic.ID}
 	if err := database.CreateIssue(task); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
-	subtask := &models.Issue{Title: "Subtask", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP3, ParentID: task.ID}
+	subtask := &models.Issue{Title: "Subtask", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP3, ParentID: task.ID}
 	if err := database.CreateIssue(subtask); err != nil {
 		t.Fatalf("failed to create subtask: %v", err)
 	}
 
-	unrelated := &models.Issue{Title: "Unrelated", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2}
+	unrelated := &models.Issue{Title: "Unrelated", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2}
 	if err := database.CreateIssue(unrelated); err != nil {
 		t.Fatalf("failed to create unrelated: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestExecuteEpicByID(t *testing.T) {
 	// Create an epic
 	epic := &models.Issue{
 		Title:    "Theme Switcher",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeEpic,
 		Priority: models.PriorityP1,
 	}
@@ -273,7 +273,7 @@ func TestExecuteEpicByID(t *testing.T) {
 	// Create tasks under the epic
 	task1 := &models.Issue{
 		Title:    "Add theme entry type",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 		ParentID: epic.ID,
@@ -284,7 +284,7 @@ func TestExecuteEpicByID(t *testing.T) {
 
 	task2 := &models.Issue{
 		Title:    "Update theme switcher",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 		ParentID: epic.ID,
@@ -296,7 +296,7 @@ func TestExecuteEpicByID(t *testing.T) {
 	// Create a nested subtask (grandchild of epic)
 	subtask := &models.Issue{
 		Title:    "Subtask under task1",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 		ParentID: task1.ID,
@@ -308,7 +308,7 @@ func TestExecuteEpicByID(t *testing.T) {
 	// Create an unrelated epic and task
 	otherEpic := &models.Issue{
 		Title:    "Other Epic",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeEpic,
 		Priority: models.PriorityP2,
 	}
@@ -318,7 +318,7 @@ func TestExecuteEpicByID(t *testing.T) {
 
 	unrelatedTask := &models.Issue{
 		Title:    "Unrelated task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 		ParentID: otherEpic.ID,
@@ -381,7 +381,7 @@ func TestExecuteEpicLabels(t *testing.T) {
 	// Create an epic with labels
 	epic := &models.Issue{
 		Title:    "Parent Epic",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeEpic,
 		Priority: models.PriorityP1,
 		Labels:   []string{"deferred", "backend"},
@@ -393,7 +393,7 @@ func TestExecuteEpicLabels(t *testing.T) {
 	// Create a task under the epic
 	taskUnderEpic := &models.Issue{
 		Title:    "Task under deferred epic",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 		ParentID: epic.ID,
@@ -405,7 +405,7 @@ func TestExecuteEpicLabels(t *testing.T) {
 	// Create a standalone task (no epic)
 	standaloneTask := &models.Issue{
 		Title:    "Standalone task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -416,7 +416,7 @@ func TestExecuteEpicLabels(t *testing.T) {
 	// Create another epic without deferred label
 	epicNoDeferred := &models.Issue{
 		Title:    "Active Epic",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeEpic,
 		Priority: models.PriorityP1,
 		Labels:   []string{"frontend"},
@@ -428,7 +428,7 @@ func TestExecuteEpicLabels(t *testing.T) {
 	// Create task under non-deferred epic
 	taskUnderActiveEpic := &models.Issue{
 		Title:    "Task under active epic",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 		ParentID: epicNoDeferred.ID,
@@ -497,7 +497,7 @@ func TestExecuteIsReadyAndHasOpenDeps(t *testing.T) {
 	// Create standalone issue (no dependencies) - should be ready
 	standalone := &models.Issue{
 		Title:    "Standalone task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -508,7 +508,7 @@ func TestExecuteIsReadyAndHasOpenDeps(t *testing.T) {
 	// Create a blocker issue (open)
 	blocker := &models.Issue{
 		Title:    "Blocker task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 	}
@@ -519,7 +519,7 @@ func TestExecuteIsReadyAndHasOpenDeps(t *testing.T) {
 	// Create issue that depends on blocker (has open deps)
 	blockedIssue := &models.Issue{
 		Title:    "Blocked task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -535,7 +535,7 @@ func TestExecuteIsReadyAndHasOpenDeps(t *testing.T) {
 	// Create closed blocker
 	closedBlocker := &models.Issue{
 		Title:    "Closed blocker",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -546,7 +546,7 @@ func TestExecuteIsReadyAndHasOpenDeps(t *testing.T) {
 	// Create issue with only closed dependencies (should be ready)
 	issueWithClosedDeps := &models.Issue{
 		Title:    "Task with closed deps",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -621,7 +621,7 @@ func TestExecuteWithLogs(t *testing.T) {
 	defer database.Close()
 
 	// Create test issue
-	issue := createTestIssue(t, database, "", "Bug fix", models.StatusOpen, models.TypeBug, models.PriorityP1)
+	issue := createTestIssue(t, database, "", "Bug fix", models.StatusBacklog, models.TypeBug, models.PriorityP1)
 
 	// Add a log entry
 	logEntry := &models.Log{
@@ -635,7 +635,7 @@ func TestExecuteWithLogs(t *testing.T) {
 	}
 
 	// Create another issue without matching log
-	createTestIssue(t, database, "", "Other task", models.StatusOpen, models.TypeTask, models.PriorityP2)
+	createTestIssue(t, database, "", "Other task", models.StatusBacklog, models.TypeTask, models.PriorityP2)
 
 	// Search for issues with log containing "authentication"
 	results, err := Execute(database, `log.message ~ "authentication"`, "ses_test", ExecuteOptions{})
@@ -654,9 +654,9 @@ func TestQuickSearch(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	issue1 := createTestIssue(t, database, "", "Fix authentication bug", models.StatusOpen, models.TypeBug, models.PriorityP1)
-	createTestIssue(t, database, "", "Add login feature", models.StatusOpen, models.TypeFeature, models.PriorityP2)
-	createTestIssue(t, database, "", "Update readme", models.StatusClosed, models.TypeTask, models.PriorityP3)
+	issue1 := createTestIssue(t, database, "", "Fix authentication bug", models.StatusBacklog, models.TypeBug, models.PriorityP1)
+	createTestIssue(t, database, "", "Add login feature", models.StatusBacklog, models.TypeFeature, models.PriorityP2)
+	createTestIssue(t, database, "", "Update readme", models.StatusShipped, models.TypeTask, models.PriorityP3)
 
 	t.Run("search by title word", func(t *testing.T) {
 		results, err := QuickSearch(database, "auth", "ses_test", 10)
@@ -694,10 +694,10 @@ func TestReworkFunction(t *testing.T) {
 	defer database.Close()
 
 	// Create test issues: all in_progress
-	issue1 := createTestIssue(t, database, "td-rework1", "Rejected no resubmit", models.StatusInProgress, models.TypeTask, models.PriorityP2)
-	issue2 := createTestIssue(t, database, "td-rework2", "Rejected then resubmitted", models.StatusInProgress, models.TypeTask, models.PriorityP2)
-	createTestIssue(t, database, "td-rework3", "Never rejected", models.StatusInProgress, models.TypeTask, models.PriorityP2)
-	createTestIssue(t, database, "td-rework4", "Rejected but closed", models.StatusClosed, models.TypeTask, models.PriorityP2)
+	issue1 := createTestIssue(t, database, "td-rework1", "Rejected no resubmit", models.StatusInFlight, models.TypeTask, models.PriorityP2)
+	issue2 := createTestIssue(t, database, "td-rework2", "Rejected then resubmitted", models.StatusInFlight, models.TypeTask, models.PriorityP2)
+	createTestIssue(t, database, "td-rework3", "Never rejected", models.StatusInFlight, models.TypeTask, models.PriorityP2)
+	createTestIssue(t, database, "td-rework4", "Rejected but closed", models.StatusShipped, models.TypeTask, models.PriorityP2)
 
 	// issue1: rejected, no subsequent review (should be detected by rework())
 	database.LogAction(&models.ActionLog{
@@ -759,30 +759,30 @@ func TestExecuteEpicOR(t *testing.T) {
 	defer database.Close()
 
 	// Create two epics with children
-	epicA := &models.Issue{Title: "Epic A", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epicA := &models.Issue{Title: "Epic A", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epicA); err != nil {
 		t.Fatal(err)
 	}
-	epicB := &models.Issue{Title: "Epic B", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epicB := &models.Issue{Title: "Epic B", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epicB); err != nil {
 		t.Fatal(err)
 	}
 
-	taskA1 := &models.Issue{Title: "Task A1", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
+	taskA1 := &models.Issue{Title: "Task A1", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
 	if err := database.CreateIssue(taskA1); err != nil {
 		t.Fatal(err)
 	}
-	taskA2 := &models.Issue{Title: "Task A2", Status: models.StatusClosed, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
+	taskA2 := &models.Issue{Title: "Task A2", Status: models.StatusShipped, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
 	if err := database.CreateIssue(taskA2); err != nil {
 		t.Fatal(err)
 	}
-	taskB1 := &models.Issue{Title: "Task B1", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicB.ID}
+	taskB1 := &models.Issue{Title: "Task B1", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicB.ID}
 	if err := database.CreateIssue(taskB1); err != nil {
 		t.Fatal(err)
 	}
 
 	// Unrelated issue (no epic parent)
-	standalone := &models.Issue{Title: "Standalone", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2}
+	standalone := &models.Issue{Title: "Standalone", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2}
 	if err := database.CreateIssue(standalone); err != nil {
 		t.Fatal(err)
 	}
@@ -855,27 +855,27 @@ func TestExecuteDescendantOfOR(t *testing.T) {
 	defer database.Close()
 
 	// hierarchy: epicX -> taskX1 -> subtaskX1; epicY -> taskY1
-	epicX := &models.Issue{Title: "Epic X", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epicX := &models.Issue{Title: "Epic X", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epicX); err != nil {
 		t.Fatal(err)
 	}
-	taskX1 := &models.Issue{Title: "Task X1", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicX.ID}
+	taskX1 := &models.Issue{Title: "Task X1", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicX.ID}
 	if err := database.CreateIssue(taskX1); err != nil {
 		t.Fatal(err)
 	}
-	subtaskX1 := &models.Issue{Title: "Subtask X1", Status: models.StatusClosed, Type: models.TypeTask, Priority: models.PriorityP3, ParentID: taskX1.ID}
+	subtaskX1 := &models.Issue{Title: "Subtask X1", Status: models.StatusShipped, Type: models.TypeTask, Priority: models.PriorityP3, ParentID: taskX1.ID}
 	if err := database.CreateIssue(subtaskX1); err != nil {
 		t.Fatal(err)
 	}
-	epicY := &models.Issue{Title: "Epic Y", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epicY := &models.Issue{Title: "Epic Y", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epicY); err != nil {
 		t.Fatal(err)
 	}
-	taskY1 := &models.Issue{Title: "Task Y1", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicY.ID}
+	taskY1 := &models.Issue{Title: "Task Y1", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicY.ID}
 	if err := database.CreateIssue(taskY1); err != nil {
 		t.Fatal(err)
 	}
-	unrelated := &models.Issue{Title: "Unrelated", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2}
+	unrelated := &models.Issue{Title: "Unrelated", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2}
 	if err := database.CreateIssue(unrelated); err != nil {
 		t.Fatal(err)
 	}
@@ -926,9 +926,9 @@ func TestExecuteLogBooleanCombinations(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	issueA := createTestIssue(t, database, "", "Issue A", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	issueB := createTestIssue(t, database, "", "Issue B", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	issueC := createTestIssue(t, database, "", "Issue C", models.StatusClosed, models.TypeTask, models.PriorityP3)
+	issueA := createTestIssue(t, database, "", "Issue A", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	issueB := createTestIssue(t, database, "", "Issue B", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	issueC := createTestIssue(t, database, "", "Issue C", models.StatusShipped, models.TypeTask, models.PriorityP3)
 
 	// issueA has "deploy" log
 	if err := database.AddLog(&models.Log{IssueID: issueA.ID, SessionID: "ses_test", Message: "deployed to staging", Type: models.LogTypeProgress}); err != nil {
@@ -998,9 +998,9 @@ func TestExecuteCommentCrossEntity(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	issueA := createTestIssue(t, database, "", "Issue A", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	issueB := createTestIssue(t, database, "", "Issue B", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	issueC := createTestIssue(t, database, "", "Issue C", models.StatusClosed, models.TypeTask, models.PriorityP3)
+	issueA := createTestIssue(t, database, "", "Issue A", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	issueB := createTestIssue(t, database, "", "Issue B", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	issueC := createTestIssue(t, database, "", "Issue C", models.StatusShipped, models.TypeTask, models.PriorityP3)
 
 	if err := database.AddComment(&models.Comment{IssueID: issueA.ID, SessionID: "ses_test", Text: "approved for production"}); err != nil {
 		t.Fatal(err)
@@ -1065,9 +1065,9 @@ func TestExecuteHandoffCrossEntity(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	issueA := createTestIssue(t, database, "", "Issue A", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	issueB := createTestIssue(t, database, "", "Issue B", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	issueC := createTestIssue(t, database, "", "Issue C", models.StatusOpen, models.TypeTask, models.PriorityP3)
+	issueA := createTestIssue(t, database, "", "Issue A", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	issueB := createTestIssue(t, database, "", "Issue B", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	issueC := createTestIssue(t, database, "", "Issue C", models.StatusBacklog, models.TypeTask, models.PriorityP3)
 
 	if err := database.AddHandoff(&models.Handoff{
 		IssueID:   issueA.ID,
@@ -1131,9 +1131,9 @@ func TestExecuteFileCrossEntity(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	issueA := createTestIssue(t, database, "", "Issue A", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	issueB := createTestIssue(t, database, "", "Issue B", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	issueC := createTestIssue(t, database, "", "Issue C", models.StatusOpen, models.TypeTask, models.PriorityP3)
+	issueA := createTestIssue(t, database, "", "Issue A", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	issueB := createTestIssue(t, database, "", "Issue B", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	issueC := createTestIssue(t, database, "", "Issue C", models.StatusBacklog, models.TypeTask, models.PriorityP3)
 
 	if err := database.LinkFile(issueA.ID, "cmd/main.go", models.FileRoleImplementation, "abc123"); err != nil {
 		t.Fatal(err)
@@ -1202,9 +1202,9 @@ func TestExecuteMixedCrossEntityOR(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	issueA := createTestIssue(t, database, "", "Issue A", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	issueB := createTestIssue(t, database, "", "Issue B", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	createTestIssue(t, database, "", "Issue C", models.StatusOpen, models.TypeTask, models.PriorityP3)
+	issueA := createTestIssue(t, database, "", "Issue A", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	issueB := createTestIssue(t, database, "", "Issue B", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	createTestIssue(t, database, "", "Issue C", models.StatusBacklog, models.TypeTask, models.PriorityP3)
 
 	// issueA has a log
 	if err := database.AddLog(&models.Log{IssueID: issueA.ID, SessionID: "ses_test", Message: "deploy complete", Type: models.LogTypeProgress}); err != nil {
@@ -1233,26 +1233,26 @@ func TestExecuteMixedCrossEntityEpicAndDescendant(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	epicA := &models.Issue{Title: "Epic A", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epicA := &models.Issue{Title: "Epic A", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epicA); err != nil {
 		t.Fatal(err)
 	}
-	taskA := &models.Issue{Title: "Task A", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
+	taskA := &models.Issue{Title: "Task A", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
 	if err := database.CreateIssue(taskA); err != nil {
 		t.Fatal(err)
 	}
 
 	// Separate parent (not an epic) with a child
-	parentB := &models.Issue{Title: "Parent B", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2}
+	parentB := &models.Issue{Title: "Parent B", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2}
 	if err := database.CreateIssue(parentB); err != nil {
 		t.Fatal(err)
 	}
-	taskB := &models.Issue{Title: "Task B", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: parentB.ID}
+	taskB := &models.Issue{Title: "Task B", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: parentB.ID}
 	if err := database.CreateIssue(taskB); err != nil {
 		t.Fatal(err)
 	}
 
-	unrelated := &models.Issue{Title: "Unrelated", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2}
+	unrelated := &models.Issue{Title: "Unrelated", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2}
 	if err := database.CreateIssue(unrelated); err != nil {
 		t.Fatal(err)
 	}
@@ -1275,23 +1275,23 @@ func TestExecuteComplexNested(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	epicA := &models.Issue{Title: "Epic A", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epicA := &models.Issue{Title: "Epic A", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epicA); err != nil {
 		t.Fatal(err)
 	}
-	epicB := &models.Issue{Title: "Epic B", Status: models.StatusOpen, Type: models.TypeEpic, Priority: models.PriorityP1}
+	epicB := &models.Issue{Title: "Epic B", Status: models.StatusBacklog, Type: models.TypeEpic, Priority: models.PriorityP1}
 	if err := database.CreateIssue(epicB); err != nil {
 		t.Fatal(err)
 	}
-	taskA := &models.Issue{Title: "Task A", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
+	taskA := &models.Issue{Title: "Task A", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicA.ID}
 	if err := database.CreateIssue(taskA); err != nil {
 		t.Fatal(err)
 	}
-	taskB := &models.Issue{Title: "Task B", Status: models.StatusClosed, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicB.ID}
+	taskB := &models.Issue{Title: "Task B", Status: models.StatusShipped, Type: models.TypeTask, Priority: models.PriorityP2, ParentID: epicB.ID}
 	if err := database.CreateIssue(taskB); err != nil {
 		t.Fatal(err)
 	}
-	standalone := &models.Issue{Title: "Standalone", Status: models.StatusOpen, Type: models.TypeTask, Priority: models.PriorityP2}
+	standalone := &models.Issue{Title: "Standalone", Status: models.StatusBacklog, Type: models.TypeTask, Priority: models.PriorityP2}
 	if err := database.CreateIssue(standalone); err != nil {
 		t.Fatal(err)
 	}
@@ -1352,11 +1352,11 @@ func TestExecuteBlocksOR(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	targetX := createTestIssue(t, database, "", "Target X", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	targetY := createTestIssue(t, database, "", "Target Y", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	blockerA := createTestIssue(t, database, "", "Blocker A", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	blockerB := createTestIssue(t, database, "", "Blocker B", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	unrelated := createTestIssue(t, database, "", "Unrelated", models.StatusOpen, models.TypeTask, models.PriorityP3)
+	targetX := createTestIssue(t, database, "", "Target X", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	targetY := createTestIssue(t, database, "", "Target Y", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	blockerA := createTestIssue(t, database, "", "Blocker A", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	blockerB := createTestIssue(t, database, "", "Blocker B", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	unrelated := createTestIssue(t, database, "", "Unrelated", models.StatusBacklog, models.TypeTask, models.PriorityP3)
 
 	// blockerA blocks targetX; blockerB blocks targetY
 	if err := database.AddDependency(targetX.ID, blockerA.ID, "depends_on"); err != nil {
@@ -1399,10 +1399,10 @@ func TestExecuteIsReadyOR(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()
 
-	blocker := createTestIssue(t, database, "", "Blocker", models.StatusOpen, models.TypeTask, models.PriorityP1)
-	blocked := createTestIssue(t, database, "", "Blocked", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	ready := createTestIssue(t, database, "", "Ready", models.StatusOpen, models.TypeTask, models.PriorityP2)
-	closed := createTestIssue(t, database, "", "Closed", models.StatusClosed, models.TypeTask, models.PriorityP3)
+	blocker := createTestIssue(t, database, "", "Blocker", models.StatusBacklog, models.TypeTask, models.PriorityP1)
+	blocked := createTestIssue(t, database, "", "Blocked", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	ready := createTestIssue(t, database, "", "Ready", models.StatusBacklog, models.TypeTask, models.PriorityP2)
+	closed := createTestIssue(t, database, "", "Closed", models.StatusShipped, models.TypeTask, models.PriorityP3)
 
 	if err := database.AddDependency(blocked.ID, blocker.ID, "depends_on"); err != nil {
 		t.Fatal(err)

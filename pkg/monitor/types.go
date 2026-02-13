@@ -490,14 +490,17 @@ type KanbanState struct {
 	ColumnIssues  map[models.Status][]models.Issue // Issues grouped by status
 }
 
-// DefaultBoardStatusFilter returns the default status filter (closed hidden)
+// DefaultBoardStatusFilter returns the default status filter (shipped/canceled/duplicate hidden)
 func DefaultBoardStatusFilter() map[models.Status]bool {
 	return map[models.Status]bool{
-		models.StatusOpen:       true,
-		models.StatusInProgress: true,
-		models.StatusBlocked:    true,
-		models.StatusInReview:   true,
-		models.StatusClosed:     false,
+		models.StatusTriage:      true,
+		models.StatusBacklog:     true,
+		models.StatusPrioritized: true,
+		models.StatusInFlight:    true,
+		models.StatusReview:      true,
+		models.StatusShipped:     false,
+		models.StatusCanceled:    false,
+		models.StatusDuplicate:   false,
 	}
 }
 
@@ -505,13 +508,13 @@ func DefaultBoardStatusFilter() map[models.Status]bool {
 type StatusFilterPreset int
 
 const (
-	StatusPresetDefault StatusFilterPreset = iota // open/in_progress/blocked/in_review
-	StatusPresetAll                               // all statuses
-	StatusPresetOpen                              // only open
-	StatusPresetInProgress                        // only in_progress
-	StatusPresetBlocked                           // only blocked
-	StatusPresetInReview                          // only in_review
-	StatusPresetClosed                            // only closed
+	StatusPresetDefault    StatusFilterPreset = iota // active statuses (triage through review)
+	StatusPresetAll                                  // all statuses
+	StatusPresetBacklog                              // only backlog
+	StatusPresetInFlight                             // only in_flight
+	StatusPresetReview                               // only review
+	StatusPresetShipped                              // only shipped
+	StatusPresetCanceled                             // only canceled
 )
 
 // StatusFilterPresetName returns the display name for a preset
@@ -519,16 +522,16 @@ func (p StatusFilterPreset) Name() string {
 	switch p {
 	case StatusPresetAll:
 		return "All"
-	case StatusPresetOpen:
-		return "Open"
-	case StatusPresetInProgress:
-		return "In Progress"
-	case StatusPresetBlocked:
-		return "Blocked"
-	case StatusPresetInReview:
-		return "In Review"
-	case StatusPresetClosed:
-		return "Closed"
+	case StatusPresetBacklog:
+		return "Backlog"
+	case StatusPresetInFlight:
+		return "In Flight"
+	case StatusPresetReview:
+		return "Review"
+	case StatusPresetShipped:
+		return "Shipped"
+	case StatusPresetCanceled:
+		return "Canceled"
 	default:
 		return "Default"
 	}
@@ -550,55 +553,49 @@ func StatusFilterMapToSlice(filter map[models.Status]bool) []models.Status {
 
 // ToFilter converts a preset to a status filter map
 func (p StatusFilterPreset) ToFilter() map[models.Status]bool {
+	allFalse := map[models.Status]bool{
+		models.StatusTriage:      false,
+		models.StatusBacklog:     false,
+		models.StatusPrioritized: false,
+		models.StatusInFlight:    false,
+		models.StatusReview:      false,
+		models.StatusShipped:     false,
+		models.StatusCanceled:    false,
+		models.StatusDuplicate:   false,
+	}
+	allTrue := map[models.Status]bool{
+		models.StatusTriage:      true,
+		models.StatusBacklog:     true,
+		models.StatusPrioritized: true,
+		models.StatusInFlight:    true,
+		models.StatusReview:      true,
+		models.StatusShipped:     true,
+		models.StatusCanceled:    true,
+		models.StatusDuplicate:   true,
+	}
 	switch p {
 	case StatusPresetAll:
-		return map[models.Status]bool{
-			models.StatusOpen:       true,
-			models.StatusInProgress: true,
-			models.StatusBlocked:    true,
-			models.StatusInReview:   true,
-			models.StatusClosed:     true,
-		}
-	case StatusPresetOpen:
-		return map[models.Status]bool{
-			models.StatusOpen:       true,
-			models.StatusInProgress: false,
-			models.StatusBlocked:    false,
-			models.StatusInReview:   false,
-			models.StatusClosed:     false,
-		}
-	case StatusPresetInProgress:
-		return map[models.Status]bool{
-			models.StatusOpen:       false,
-			models.StatusInProgress: true,
-			models.StatusBlocked:    false,
-			models.StatusInReview:   false,
-			models.StatusClosed:     false,
-		}
-	case StatusPresetBlocked:
-		return map[models.Status]bool{
-			models.StatusOpen:       false,
-			models.StatusInProgress: false,
-			models.StatusBlocked:    true,
-			models.StatusInReview:   false,
-			models.StatusClosed:     false,
-		}
-	case StatusPresetInReview:
-		return map[models.Status]bool{
-			models.StatusOpen:       false,
-			models.StatusInProgress: false,
-			models.StatusBlocked:    false,
-			models.StatusInReview:   true,
-			models.StatusClosed:     false,
-		}
-	case StatusPresetClosed:
-		return map[models.Status]bool{
-			models.StatusOpen:       false,
-			models.StatusInProgress: false,
-			models.StatusBlocked:    false,
-			models.StatusInReview:   false,
-			models.StatusClosed:     true,
-		}
+		return allTrue
+	case StatusPresetBacklog:
+		m := allFalse
+		m[models.StatusBacklog] = true
+		return m
+	case StatusPresetInFlight:
+		m := allFalse
+		m[models.StatusInFlight] = true
+		return m
+	case StatusPresetReview:
+		m := allFalse
+		m[models.StatusReview] = true
+		return m
+	case StatusPresetShipped:
+		m := allFalse
+		m[models.StatusShipped] = true
+		return m
+	case StatusPresetCanceled:
+		m := allFalse
+		m[models.StatusCanceled] = true
+		return m
 	default:
 		return DefaultBoardStatusFilter()
 	}

@@ -127,7 +127,7 @@ func TestWsTagAddsIssueToSession(t *testing.T) {
 	config.SetActiveWorkSession(dir, ws.ID)
 
 	// Create issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Tag issue to work session
@@ -163,9 +163,9 @@ func TestWsTagMultipleIssues(t *testing.T) {
 
 	// Create issues
 	issues := []*models.Issue{
-		{Title: "Issue 1", Status: models.StatusOpen},
-		{Title: "Issue 2", Status: models.StatusOpen},
-		{Title: "Issue 3", Status: models.StatusOpen},
+		{Title: "Issue 1", Status: models.StatusBacklog},
+		{Title: "Issue 2", Status: models.StatusBacklog},
+		{Title: "Issue 3", Status: models.StatusBacklog},
 	}
 
 	for _, issue := range issues {
@@ -230,7 +230,7 @@ func TestWsUntagRemovesIssueFromSession(t *testing.T) {
 	database.CreateWorkSession(ws)
 
 	// Create and tag issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 	database.TagIssueToWorkSession(ws.ID, issue.ID, "test-session")
 
@@ -266,8 +266,8 @@ func TestWsUntagPartialRemoval(t *testing.T) {
 	database.CreateWorkSession(ws)
 
 	// Create and tag issues
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 	database.TagIssueToWorkSession(ws.ID, issue1.ID, "test-session")
@@ -300,7 +300,7 @@ func TestWsLogAddsLogEntry(t *testing.T) {
 	database.CreateWorkSession(ws)
 
 	// Create and tag issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 	database.TagIssueToWorkSession(ws.ID, issue.ID, "test-session")
 
@@ -401,8 +401,8 @@ func TestWsHandoffCreatesHandoffs(t *testing.T) {
 	database.CreateWorkSession(ws)
 
 	// Create and tag issues
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusInProgress}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusInProgress}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusInFlight}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusInFlight}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 	database.TagIssueToWorkSession(ws.ID, issue1.ID, "test-session")
@@ -501,7 +501,7 @@ func TestWsCurrentShowsActiveSession(t *testing.T) {
 	config.SetActiveWorkSession(dir, ws.ID)
 
 	// Tag issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	database.CreateIssue(issue)
 	database.TagIssueToWorkSession(ws.ID, issue.ID, "test-session")
 
@@ -649,20 +649,20 @@ func TestWsTagAutoStartsOpenIssues(t *testing.T) {
 	database.CreateWorkSession(ws)
 
 	// Create open issue
-	issue := &models.Issue{Title: "Open Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Open Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Tag issue (simulating auto-start behavior)
 	database.TagIssueToWorkSession(ws.ID, issue.ID, "test-session")
 
 	// Simulate starting the issue
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	issue.ImplementerSession = "ses_test"
 	database.UpdateIssue(issue)
 
 	// Verify issue is started
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusInProgress {
+	if retrieved.Status != models.StatusInFlight {
 		t.Errorf("Expected issue to be in_progress, got %s", retrieved.Status)
 	}
 }
@@ -681,7 +681,7 @@ func TestWsTagNoStartFlag(t *testing.T) {
 	database.CreateWorkSession(ws)
 
 	// Create open issue
-	issue := &models.Issue{Title: "Open Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Open Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Tag issue without starting (simulating --no-start)
@@ -689,7 +689,7 @@ func TestWsTagNoStartFlag(t *testing.T) {
 
 	// Issue should remain open (with --no-start)
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusOpen {
+	if retrieved.Status != models.StatusBacklog {
 		t.Errorf("Expected issue to remain open, got %s", retrieved.Status)
 	}
 }
@@ -708,7 +708,7 @@ func TestWsShowDisplaysPastSession(t *testing.T) {
 	database.CreateWorkSession(ws)
 
 	// Tag issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	database.CreateIssue(issue)
 	database.TagIssueToWorkSession(ws.ID, issue.ID, "test-session")
 

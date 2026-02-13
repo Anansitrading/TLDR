@@ -30,7 +30,7 @@ func TestHandoffRecordsData(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	database.CreateIssue(issue)
 
 	handoff := &models.Handoff{
@@ -60,7 +60,7 @@ func TestHandoffRecordsGitSnapshot(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	database.CreateIssue(issue)
 
 	// Add handoff
@@ -132,7 +132,7 @@ func TestHandoffUpdatesIssueTimestamp(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	database.CreateIssue(issue)
 	originalUpdatedAt := issue.UpdatedAt
 
@@ -295,7 +295,7 @@ func TestMultipleHandoffsForSameIssue(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	database.CreateIssue(issue)
 
 	// First handoff
@@ -357,7 +357,7 @@ func TestGetLatestHandoff(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	database.CreateIssue(issue)
 
 	// Add handoffs
@@ -454,13 +454,13 @@ func TestCascadeHandoffBasic(t *testing.T) {
 	defer database.Close()
 
 	// Create parent issue
-	parent := &models.Issue{Title: "Parent Task", Status: models.StatusInProgress}
+	parent := &models.Issue{Title: "Parent Task", Status: models.StatusInFlight}
 	if err := database.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue parent failed: %v", err)
 	}
 
 	// Create child issue
-	child := &models.Issue{Title: "Child Task", Status: models.StatusOpen, ParentID: parent.ID}
+	child := &models.Issue{Title: "Child Task", Status: models.StatusBacklog, ParentID: parent.ID}
 	if err := database.CreateIssue(child); err != nil {
 		t.Fatalf("CreateIssue child failed: %v", err)
 	}
@@ -476,8 +476,8 @@ func TestCascadeHandoffBasic(t *testing.T) {
 
 	// Get descendants
 	descendants, err := database.GetDescendantIssues(parent.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -500,7 +500,7 @@ func TestCascadeHandoffMultipleChildren(t *testing.T) {
 	defer database.Close()
 
 	// Create parent
-	parent := &models.Issue{Title: "Parent Task", Status: models.StatusInProgress}
+	parent := &models.Issue{Title: "Parent Task", Status: models.StatusInFlight}
 	if err := database.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
@@ -510,7 +510,7 @@ func TestCascadeHandoffMultipleChildren(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		child := &models.Issue{
 			Title:    fmt.Sprintf("Child %d", i+1),
-			Status:   models.StatusOpen,
+			Status:   models.StatusBacklog,
 			ParentID: parent.ID,
 		}
 		if err := database.CreateIssue(child); err != nil {
@@ -521,8 +521,8 @@ func TestCascadeHandoffMultipleChildren(t *testing.T) {
 
 	// Get all descendants
 	descendants, err := database.GetDescendantIssues(parent.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -542,7 +542,7 @@ func TestCascadeHandoffNestedHierarchy(t *testing.T) {
 	defer database.Close()
 
 	// Create grandparent
-	grandparent := &models.Issue{Title: "Grandparent Task", Status: models.StatusInProgress}
+	grandparent := &models.Issue{Title: "Grandparent Task", Status: models.StatusInFlight}
 	if err := database.CreateIssue(grandparent); err != nil {
 		t.Fatalf("CreateIssue grandparent failed: %v", err)
 	}
@@ -550,7 +550,7 @@ func TestCascadeHandoffNestedHierarchy(t *testing.T) {
 	// Create parent (child of grandparent)
 	parent := &models.Issue{
 		Title:    "Parent Task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: grandparent.ID,
 	}
 	if err := database.CreateIssue(parent); err != nil {
@@ -560,7 +560,7 @@ func TestCascadeHandoffNestedHierarchy(t *testing.T) {
 	// Create child (child of parent)
 	child := &models.Issue{
 		Title:    "Child Task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(child); err != nil {
@@ -569,8 +569,8 @@ func TestCascadeHandoffNestedHierarchy(t *testing.T) {
 
 	// Get descendants of grandparent (should include parent and child)
 	descendants, err := database.GetDescendantIssues(grandparent.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -581,8 +581,8 @@ func TestCascadeHandoffNestedHierarchy(t *testing.T) {
 
 	// Get descendants of parent (should include child only)
 	descendants, err = database.GetDescendantIssues(parent.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -605,7 +605,7 @@ func TestCascadeHandoffSkipsCompletedChildren(t *testing.T) {
 	defer database.Close()
 
 	// Create parent
-	parent := &models.Issue{Title: "Parent Task", Status: models.StatusInProgress}
+	parent := &models.Issue{Title: "Parent Task", Status: models.StatusInFlight}
 	if err := database.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue parent failed: %v", err)
 	}
@@ -613,7 +613,7 @@ func TestCascadeHandoffSkipsCompletedChildren(t *testing.T) {
 	// Create open child
 	openChild := &models.Issue{
 		Title:    "Open Child",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(openChild); err != nil {
@@ -623,7 +623,7 @@ func TestCascadeHandoffSkipsCompletedChildren(t *testing.T) {
 	// Create closed child
 	closedChild := &models.Issue{
 		Title:    "Closed Child",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(closedChild); err != nil {
@@ -632,8 +632,8 @@ func TestCascadeHandoffSkipsCompletedChildren(t *testing.T) {
 
 	// Get descendants with Open/InProgress filter
 	descendants, err := database.GetDescendantIssues(parent.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -658,14 +658,14 @@ func TestCascadeHandoffSkipsExistingHandoffs(t *testing.T) {
 	defer database.Close()
 
 	// Create parent and children
-	parent := &models.Issue{Title: "Parent", Status: models.StatusInProgress}
+	parent := &models.Issue{Title: "Parent", Status: models.StatusInFlight}
 	if err := database.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue parent failed: %v", err)
 	}
 
 	child1 := &models.Issue{
 		Title:    "Child 1",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(child1); err != nil {
@@ -674,7 +674,7 @@ func TestCascadeHandoffSkipsExistingHandoffs(t *testing.T) {
 
 	child2 := &models.Issue{
 		Title:    "Child 2",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(child2); err != nil {
@@ -720,7 +720,7 @@ func TestUndoHandoffDelete(t *testing.T) {
 	defer database.Close()
 
 	// Create issue and handoff
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
@@ -770,14 +770,14 @@ func TestCascadeAndUndoInteraction(t *testing.T) {
 	defer database.Close()
 
 	// Create parent and children
-	parent := &models.Issue{Title: "Parent", Status: models.StatusInProgress}
+	parent := &models.Issue{Title: "Parent", Status: models.StatusInFlight}
 	if err := database.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue parent failed: %v", err)
 	}
 
 	child := &models.Issue{
 		Title:    "Child",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(child); err != nil {
@@ -844,7 +844,7 @@ func TestMultipleCascadeLevels(t *testing.T) {
 	levels := make([]*models.Issue, 4)
 
 	// Level 0 (top)
-	levels[0] = &models.Issue{Title: "Level 0", Status: models.StatusInProgress}
+	levels[0] = &models.Issue{Title: "Level 0", Status: models.StatusInFlight}
 	if err := database.CreateIssue(levels[0]); err != nil {
 		t.Fatalf("CreateIssue level 0 failed: %v", err)
 	}
@@ -853,7 +853,7 @@ func TestMultipleCascadeLevels(t *testing.T) {
 	for i := 1; i < 4; i++ {
 		levels[i] = &models.Issue{
 			Title:    fmt.Sprintf("Level %d", i),
-			Status:   models.StatusOpen,
+			Status:   models.StatusBacklog,
 			ParentID: levels[i-1].ID,
 		}
 		if err := database.CreateIssue(levels[i]); err != nil {
@@ -863,8 +863,8 @@ func TestMultipleCascadeLevels(t *testing.T) {
 
 	// Get descendants of Level 0 - should include Levels 1, 2, 3
 	descendants, err := database.GetDescendantIssues(levels[0].ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -875,8 +875,8 @@ func TestMultipleCascadeLevels(t *testing.T) {
 
 	// Get descendants of Level 1 - should include Levels 2, 3
 	descendants, err = database.GetDescendantIssues(levels[1].ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues for level 1 failed: %v", err)
@@ -896,7 +896,7 @@ func TestHandoffLoggingForUndo(t *testing.T) {
 	defer database.Close()
 
 	// Create issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInProgress}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusInFlight}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
@@ -951,26 +951,26 @@ func TestCascadeHandoffStatusFiltering(t *testing.T) {
 	}{
 		{
 			name:      "match open status",
-			statuses:  []models.Status{models.StatusOpen},
-			childStat: models.StatusOpen,
+			statuses:  []models.Status{models.StatusBacklog},
+			childStat: models.StatusBacklog,
 			wantCount: 1,
 		},
 		{
 			name:      "match in_progress status",
-			statuses:  []models.Status{models.StatusInProgress},
-			childStat: models.StatusInProgress,
+			statuses:  []models.Status{models.StatusInFlight},
+			childStat: models.StatusInFlight,
 			wantCount: 1,
 		},
 		{
 			name:      "multiple statuses include child",
-			statuses:  []models.Status{models.StatusOpen, models.StatusInProgress},
-			childStat: models.StatusOpen,
+			statuses:  []models.Status{models.StatusBacklog, models.StatusInFlight},
+			childStat: models.StatusBacklog,
 			wantCount: 1,
 		},
 		{
 			name:      "status filter excludes child",
-			statuses:  []models.Status{models.StatusClosed},
-			childStat: models.StatusOpen,
+			statuses:  []models.Status{models.StatusShipped},
+			childStat: models.StatusBacklog,
 			wantCount: 0,
 		},
 	}
@@ -985,7 +985,7 @@ func TestCascadeHandoffStatusFiltering(t *testing.T) {
 			defer database.Close()
 
 			// Create parent
-			parent := &models.Issue{Title: "Parent", Status: models.StatusInProgress}
+			parent := &models.Issue{Title: "Parent", Status: models.StatusInFlight}
 			if err := database.CreateIssue(parent); err != nil {
 				t.Fatalf("CreateIssue parent failed: %v", err)
 			}
@@ -1023,14 +1023,14 @@ func TestCascadePreservesHandoffContent(t *testing.T) {
 	defer database.Close()
 
 	// Create parent and child
-	parent := &models.Issue{Title: "Parent", Status: models.StatusInProgress}
+	parent := &models.Issue{Title: "Parent", Status: models.StatusInFlight}
 	if err := database.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue parent failed: %v", err)
 	}
 
 	child := &models.Issue{
 		Title:    "Child",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(child); err != nil {

@@ -604,8 +604,8 @@ func TestIntegration_SkipReviewNotAllowed(t *testing.T) {
 	}{
 		{
 			name:               "Open to Closed directly - bypass review",
-			initialStatus:      models.StatusOpen,
-			attemptedStatus:    models.StatusClosed,
+			initialStatus:      models.StatusBacklog,
+			attemptedStatus:    models.StatusShipped,
 			creatorSession:     "ses_creator",
 			implementerSession: "",
 			reviewerSession:    "",
@@ -615,8 +615,8 @@ func TestIntegration_SkipReviewNotAllowed(t *testing.T) {
 		},
 		{
 			name:               "InProgress to Closed directly - bypass review",
-			initialStatus:      models.StatusInProgress,
-			attemptedStatus:    models.StatusClosed,
+			initialStatus:      models.StatusInFlight,
+			attemptedStatus:    models.StatusShipped,
 			creatorSession:     "ses_creator",
 			implementerSession: "ses_impl",
 			reviewerSession:    "",
@@ -626,8 +626,8 @@ func TestIntegration_SkipReviewNotAllowed(t *testing.T) {
 		},
 		{
 			name:               "Must go through InReview first",
-			initialStatus:      models.StatusOpen,
-			attemptedStatus:    models.StatusInReview,
+			initialStatus:      models.StatusBacklog,
+			attemptedStatus:    models.StatusReview,
 			creatorSession:     "ses_creator",
 			implementerSession: "",
 			reviewerSession:    "",
@@ -667,8 +667,8 @@ func TestIntegration_SkipReviewNotAllowed(t *testing.T) {
 			}
 
 			// Check if bypass is being attempted
-			isBypassAttempt := (tt.initialStatus == models.StatusOpen || tt.initialStatus == models.StatusInProgress) &&
-				tt.attemptedStatus == models.StatusClosed
+			isBypassAttempt := (tt.initialStatus == models.StatusBacklog || tt.initialStatus == models.StatusInFlight) &&
+				tt.attemptedStatus == models.StatusShipped
 
 			if isBypassAttempt && tt.shouldBeAllowed {
 				t.Errorf("%s: %s", tt.name, tt.description)
@@ -693,7 +693,7 @@ func TestIntegration_ReviewWorkflowEnforced(t *testing.T) {
 	// Step 1: Creator creates issue (open)
 	issue := &models.Issue{
 		Title:          "Feature Request",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		CreatorSession: creatorSess,
 	}
 	if err := db.CreateIssue(issue); err != nil {
@@ -708,7 +708,7 @@ func TestIntegration_ReviewWorkflowEnforced(t *testing.T) {
 	}
 
 	// Step 2: Implementer starts work
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	issue.ImplementerSession = implSess
 	if err := db.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
@@ -721,7 +721,7 @@ func TestIntegration_ReviewWorkflowEnforced(t *testing.T) {
 	}
 
 	// Step 3: Implementer submits for review
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	if err := db.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
@@ -734,7 +734,7 @@ func TestIntegration_ReviewWorkflowEnforced(t *testing.T) {
 	}
 
 	// Reviewer can approve since they were not involved
-	issue.Status = models.StatusClosed
+	issue.Status = models.StatusShipped
 	issue.ReviewerSession = reviewerSess
 	if err := db.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
@@ -744,7 +744,7 @@ func TestIntegration_ReviewWorkflowEnforced(t *testing.T) {
 
 	// Verify final state
 	finalIssue, _ := db.GetIssue(issue.ID)
-	if finalIssue.Status != models.StatusClosed {
+	if finalIssue.Status != models.StatusShipped {
 		t.Errorf("Expected closed, got %q", finalIssue.Status)
 	}
 	if finalIssue.ReviewerSession != reviewerSess {
@@ -766,7 +766,7 @@ func TestIntegration_ImplementerCannotApprove(t *testing.T) {
 	// Create issue with implementer starting it
 	issue := &models.Issue{
 		Title:              "Task",
-		Status:             models.StatusOpen,
+		Status:             models.StatusBacklog,
 		ImplementerSession: implSess,
 	}
 	if err := db.CreateIssue(issue); err != nil {
@@ -777,7 +777,7 @@ func TestIntegration_ImplementerCannotApprove(t *testing.T) {
 	db.RecordSessionAction(issue.ID, implSess, models.ActionSessionStarted)
 
 	// Mark as in review
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	db.UpdateIssue(issue)
 
 	// Check if implementer can approve
@@ -803,19 +803,19 @@ func TestIntegration_HandoffValidatesWorkflow(t *testing.T) {
 	}{
 		{
 			name:           "Handoff at open status",
-			status:         models.StatusOpen,
+			status:         models.StatusBacklog,
 			implementerSet: false,
 			description:    "Handoff can be recorded at open status",
 		},
 		{
 			name:           "Handoff at in_progress",
-			status:         models.StatusInProgress,
+			status:         models.StatusInFlight,
 			implementerSet: true,
 			description:    "Handoff recorded when in_progress with implementer set",
 		},
 		{
 			name:           "Handoff at in_review",
-			status:         models.StatusInReview,
+			status:         models.StatusReview,
 			implementerSet: true,
 			description:    "Handoff recorded when in_review",
 		},
@@ -883,7 +883,7 @@ func TestIntegration_CreatorCannotImplementAndApprove(t *testing.T) {
 	// Creator creates issue
 	issue := &models.Issue{
 		Title:          "Feature",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		CreatorSession: creatorSess,
 	}
 	if err := db.CreateIssue(issue); err != nil {
@@ -893,12 +893,12 @@ func TestIntegration_CreatorCannotImplementAndApprove(t *testing.T) {
 
 	// Creator also implements (should not be allowed to approve)
 	issue.ImplementerSession = creatorSess
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	db.UpdateIssue(issue)
 	db.RecordSessionAction(issue.ID, creatorSess, models.ActionSessionStarted)
 
 	// Mark as in review
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	db.UpdateIssue(issue)
 
 	// Creator should not be able to approve
@@ -930,7 +930,7 @@ func TestIntegration_DifferentSessionCanApprove(t *testing.T) {
 	// Setup: creator -> implementer -> now reviewer
 	issue := &models.Issue{
 		Title:              "Task",
-		Status:             models.StatusOpen,
+		Status:             models.StatusBacklog,
 		CreatorSession:     creatorSess,
 		ImplementerSession: implSess,
 	}
@@ -943,7 +943,7 @@ func TestIntegration_DifferentSessionCanApprove(t *testing.T) {
 	db.RecordSessionAction(issue.ID, implSess, models.ActionSessionStarted)
 
 	// Move to review
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	db.UpdateIssue(issue)
 
 	// Reviewer (uninvolved) should be able to approve
@@ -973,7 +973,7 @@ func TestIntegration_UnstartDoesNotBypass(t *testing.T) {
 	// Session A starts, then unstarts
 	issue := &models.Issue{
 		Title:          "Task",
-		Status:         models.StatusInProgress,
+		Status:         models.StatusInFlight,
 		CreatorSession: "ses_creator",
 	}
 	if err := db.CreateIssue(issue); err != nil {
@@ -990,12 +990,12 @@ func TestIntegration_UnstartDoesNotBypass(t *testing.T) {
 
 	// B starts (becomes new implementer)
 	issue.ImplementerSession = sessB
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	db.UpdateIssue(issue)
 	db.RecordSessionAction(issue.ID, sessB, models.ActionSessionStarted)
 
 	// Now move to review
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	db.UpdateIssue(issue)
 
 	// A should NOT be able to approve even though they're not current implementer
@@ -1060,7 +1060,7 @@ func TestIntegration_BypassAttemptErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			issue := &models.Issue{
 				Title:              tt.name,
-				Status:             models.StatusInReview,
+				Status:             models.StatusReview,
 				CreatorSession:     tt.creatorSession,
 				ImplementerSession: tt.implementerSession,
 			}
@@ -1114,7 +1114,7 @@ func TestCommand_CreatorAsImplementerCannotClose(t *testing.T) {
 	// Creator creates and implements issue
 	issue := &models.Issue{
 		Title:              "Self-implemented task",
-		Status:             models.StatusInProgress,
+		Status:             models.StatusInFlight,
 		CreatorSession:     creatorSess,
 		ImplementerSession: creatorSess, // Same session
 	}
@@ -1168,7 +1168,7 @@ func TestCommand_UninvolvedSessionCanClose(t *testing.T) {
 	// Create issue with different creator and implementer
 	issue := &models.Issue{
 		Title:              "Task to close",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		CreatorSession:     creatorSess,
 		ImplementerSession: implSess,
 	}
@@ -1392,7 +1392,7 @@ func TestCommand_CreatorOnlyCannotApprove(t *testing.T) {
 	// Creator creates issue, different session implements
 	issue := &models.Issue{
 		Title:              "Task with separate implementer",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		CreatorSession:     creatorSess,
 		ImplementerSession: implSess,
 	}
@@ -1432,7 +1432,7 @@ func TestCommand_ImplementerOnlyCannotApprove(t *testing.T) {
 	// Different session creates, implementer just implements
 	issue := &models.Issue{
 		Title:              "Task with separate creator",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		CreatorSession:     creatorSess,
 		ImplementerSession: implSess,
 	}
@@ -1466,31 +1466,31 @@ func TestCommand_StatusValidationBeforeApprove(t *testing.T) {
 	}{
 		{
 			name:               "Open status - should not approve",
-			status:             models.StatusOpen,
+			status:             models.StatusBacklog,
 			shouldAllowApprove: false,
 			description:        "Cannot approve issues that haven't been submitted for review",
 		},
 		{
 			name:               "InProgress status - should not approve",
-			status:             models.StatusInProgress,
+			status:             models.StatusInFlight,
 			shouldAllowApprove: false,
 			description:        "Cannot approve issues still being worked on",
 		},
 		{
 			name:               "InReview status - can approve",
-			status:             models.StatusInReview,
+			status:             models.StatusReview,
 			shouldAllowApprove: true,
 			description:        "Can approve issues that are in_review",
 		},
 		{
 			name:               "Blocked status - should not approve",
-			status:             models.StatusBlocked,
+			status:             models.StatusCanceled,
 			shouldAllowApprove: false,
 			description:        "Cannot approve blocked issues",
 		},
 		{
 			name:               "Already closed - should not approve",
-			status:             models.StatusClosed,
+			status:             models.StatusShipped,
 			shouldAllowApprove: false,
 			description:        "Cannot approve already closed issues",
 		},
@@ -1520,7 +1520,7 @@ func TestCommand_StatusValidationBeforeApprove(t *testing.T) {
 			}
 
 			db.RecordSessionAction(issue.ID, creatorSess, models.ActionSessionCreated)
-			if tt.status != models.StatusOpen {
+			if tt.status != models.StatusBacklog {
 				db.RecordSessionAction(issue.ID, implSess, models.ActionSessionStarted)
 			}
 
@@ -1534,7 +1534,7 @@ func TestCommand_StatusValidationBeforeApprove(t *testing.T) {
 			bypassCheckPasses := !wasEverInvolved
 
 			// But status must also be in_review for approve to make sense
-			statusAllowsApprove := issue.Status == models.StatusInReview
+			statusAllowsApprove := issue.Status == models.StatusReview
 
 			// Both conditions needed for approval
 			canApprove := bypassCheckPasses && statusAllowsApprove
@@ -1561,7 +1561,7 @@ func TestCommand_CreatorCanCloseIfOtherImplemented(t *testing.T) {
 	// Creator creates, other session implements
 	issue := &models.Issue{
 		Title:              "Task with separate implementer",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		CreatorSession:     creatorSess,
 		ImplementerSession: implSess,
 	}
@@ -1608,7 +1608,7 @@ func TestCommand_MinorTaskBypassesAllChecks(t *testing.T) {
 	// Solo session creates, implements, and wants to close/approve minor task
 	issue := &models.Issue{
 		Title:              "Minor fix",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		CreatorSession:     sess,
 		ImplementerSession: sess,
 		Minor:              true,
@@ -1694,7 +1694,7 @@ func TestCommand_PreviousInvolvementPreventsApprove(t *testing.T) {
 
 			issue := &models.Issue{
 				Title:  tt.name,
-				Status: models.StatusInReview,
+				Status: models.StatusReview,
 			}
 			if err := db.CreateIssue(issue); err != nil {
 				t.Fatalf("CreateIssue failed: %v", err)

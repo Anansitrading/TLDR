@@ -16,40 +16,40 @@ func TestIsValidTransition(t *testing.T) {
 		expected bool
 	}{
 		// Valid transitions from open
-		{"open → in_progress", models.StatusOpen, models.StatusInProgress, true},
-		{"open → blocked", models.StatusOpen, models.StatusBlocked, true},
-		{"open → in_review", models.StatusOpen, models.StatusInReview, true},
-		{"open → closed", models.StatusOpen, models.StatusClosed, true},
+		{"open → in_progress", models.StatusBacklog, models.StatusInFlight, true},
+		{"open → blocked", models.StatusBacklog, models.StatusCanceled, true},
+		{"open → in_review", models.StatusBacklog, models.StatusReview, true},
+		{"open → closed", models.StatusBacklog, models.StatusShipped, true},
 
 		// Valid transitions from in_progress
-		{"in_progress → open", models.StatusInProgress, models.StatusOpen, true},
-		{"in_progress → blocked", models.StatusInProgress, models.StatusBlocked, true},
-		{"in_progress → in_review", models.StatusInProgress, models.StatusInReview, true},
-		{"in_progress → closed", models.StatusInProgress, models.StatusClosed, true},
+		{"in_progress → open", models.StatusInFlight, models.StatusBacklog, true},
+		{"in_progress → blocked", models.StatusInFlight, models.StatusCanceled, true},
+		{"in_progress → in_review", models.StatusInFlight, models.StatusReview, true},
+		{"in_progress → closed", models.StatusInFlight, models.StatusShipped, true},
 
 		// Valid transitions from blocked
-		{"blocked → open", models.StatusBlocked, models.StatusOpen, true},
-		{"blocked → in_progress", models.StatusBlocked, models.StatusInProgress, true},
-		{"blocked → closed", models.StatusBlocked, models.StatusClosed, true},
+		{"blocked → open", models.StatusCanceled, models.StatusBacklog, true},
+		{"blocked → in_progress", models.StatusCanceled, models.StatusInFlight, true},
+		{"blocked → closed", models.StatusCanceled, models.StatusShipped, true},
 
 		// Invalid: blocked cannot go to in_review
-		{"blocked → in_review", models.StatusBlocked, models.StatusInReview, false},
+		{"blocked → in_review", models.StatusCanceled, models.StatusReview, false},
 
 		// Valid transitions from in_review
-		{"in_review → open", models.StatusInReview, models.StatusOpen, true},
-		{"in_review → in_progress", models.StatusInReview, models.StatusInProgress, true},
-		{"in_review → closed", models.StatusInReview, models.StatusClosed, true},
+		{"in_review → open", models.StatusReview, models.StatusBacklog, true},
+		{"in_review → in_progress", models.StatusReview, models.StatusInFlight, true},
+		{"in_review → closed", models.StatusReview, models.StatusShipped, true},
 
 		// Invalid: in_review cannot go to blocked
-		{"in_review → blocked", models.StatusInReview, models.StatusBlocked, false},
+		{"in_review → blocked", models.StatusReview, models.StatusCanceled, false},
 
 		// Valid transitions from closed
-		{"closed → open", models.StatusClosed, models.StatusOpen, true},
+		{"closed → open", models.StatusShipped, models.StatusBacklog, true},
 
 		// Invalid: closed cannot go anywhere else
-		{"closed → in_progress", models.StatusClosed, models.StatusInProgress, false},
-		{"closed → blocked", models.StatusClosed, models.StatusBlocked, false},
-		{"closed → in_review", models.StatusClosed, models.StatusInReview, false},
+		{"closed → in_progress", models.StatusShipped, models.StatusInFlight, false},
+		{"closed → blocked", models.StatusShipped, models.StatusCanceled, false},
+		{"closed → in_review", models.StatusShipped, models.StatusReview, false},
 	}
 
 	for _, tt := range tests {
@@ -68,14 +68,14 @@ func TestLiberalModeAllowsAllTransitions(t *testing.T) {
 	// Even with guards, liberal mode should allow all valid transitions
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusBlocked,
+		Status:             models.StatusCanceled,
 		ImplementerSession: "session-1",
 	}
 
 	ctx := &TransitionContext{
 		Issue:      issue,
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		SessionID:  "session-1",
 		Force:      false, // Not forcing
 	}
@@ -94,14 +94,14 @@ func TestStrictModeBlocksGuardFailures(t *testing.T) {
 
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusBlocked,
+		Status:             models.StatusCanceled,
 		ImplementerSession: "session-1",
 	}
 
 	ctx := &TransitionContext{
 		Issue:      issue,
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		SessionID:  "session-1",
 		Force:      false,
 	}
@@ -117,14 +117,14 @@ func TestStrictModeAllowsWithForce(t *testing.T) {
 
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusBlocked,
+		Status:             models.StatusCanceled,
 		ImplementerSession: "session-1",
 	}
 
 	ctx := &TransitionContext{
 		Issue:      issue,
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		SessionID:  "session-1",
 		Force:      true, // Force flag set
 	}
@@ -140,14 +140,14 @@ func TestAdvisoryModeReturnsWarnings(t *testing.T) {
 
 	issue := &models.Issue{
 		ID:                 "test-1",
-		Status:             models.StatusBlocked,
+		Status:             models.StatusCanceled,
 		ImplementerSession: "session-1",
 	}
 
 	ctx := &TransitionContext{
 		Issue:      issue,
-		FromStatus: models.StatusBlocked,
-		ToStatus:   models.StatusInProgress,
+		FromStatus: models.StatusCanceled,
+		ToStatus:   models.StatusInFlight,
 		SessionID:  "session-1",
 		Force:      false,
 	}
@@ -185,15 +185,15 @@ func TestDifferentReviewerGuard(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			issue := &models.Issue{
 				ID:                 "test-1",
-				Status:             models.StatusInReview,
+				Status:             models.StatusReview,
 				ImplementerSession: tt.implementer,
 				Minor:              tt.minor,
 			}
 
 			ctx := &TransitionContext{
 				Issue:       issue,
-				FromStatus:  models.StatusInReview,
-				ToStatus:    models.StatusClosed,
+				FromStatus:  models.StatusReview,
+				ToStatus:    models.StatusShipped,
 				SessionID:   tt.reviewer,
 				Minor:       tt.minor,
 				WasInvolved: tt.wasInvolved,
@@ -219,9 +219,9 @@ func TestBlockedGuard(t *testing.T) {
 		force      bool
 		shouldPass bool
 	}{
-		{"blocked without force", models.StatusBlocked, false, false},
-		{"blocked with force", models.StatusBlocked, true, true},
-		{"open (not blocked)", models.StatusOpen, false, true},
+		{"blocked without force", models.StatusCanceled, false, false},
+		{"blocked with force", models.StatusCanceled, true, true},
+		{"open (not blocked)", models.StatusBacklog, false, true},
 	}
 
 	for _, tt := range tests {
@@ -229,7 +229,7 @@ func TestBlockedGuard(t *testing.T) {
 			ctx := &TransitionContext{
 				Issue:      &models.Issue{ID: "test-1", Status: tt.fromStatus},
 				FromStatus: tt.fromStatus,
-				ToStatus:   models.StatusInProgress,
+				ToStatus:   models.StatusInFlight,
 				Force:      tt.force,
 			}
 
@@ -249,10 +249,10 @@ func TestEpicChildrenGuard(t *testing.T) {
 		openChildCount int
 		shouldPass     bool
 	}{
-		{"epic with open children", models.TypeEpic, models.StatusClosed, 3, false},
-		{"epic with no open children", models.TypeEpic, models.StatusClosed, 0, true},
-		{"task (not epic)", models.TypeTask, models.StatusClosed, 3, true},
-		{"epic not closing", models.TypeEpic, models.StatusInProgress, 3, true},
+		{"epic with open children", models.TypeEpic, models.StatusShipped, 3, false},
+		{"epic with no open children", models.TypeEpic, models.StatusShipped, 0, true},
+		{"task (not epic)", models.TypeTask, models.StatusShipped, 3, true},
+		{"epic not closing", models.TypeEpic, models.StatusInFlight, 3, true},
 	}
 
 	for _, tt := range tests {
@@ -278,11 +278,14 @@ func TestGetAllowedTransitions(t *testing.T) {
 		from     models.Status
 		expected int
 	}{
-		{models.StatusOpen, 4},       // in_progress, blocked, in_review, closed
-		{models.StatusInProgress, 4}, // open, blocked, in_review, closed
-		{models.StatusBlocked, 3},    // open, in_progress, closed
-		{models.StatusInReview, 3},   // open, in_progress, closed
-		{models.StatusClosed, 1},     // open only
+		{models.StatusTriage, 3},       // backlog, canceled, duplicate
+		{models.StatusBacklog, 6},      // triage, prioritized, in_flight, review, canceled, shipped
+		{models.StatusPrioritized, 3},  // backlog, in_flight, canceled
+		{models.StatusInFlight, 4},     // backlog, review, shipped, canceled
+		{models.StatusReview, 3},       // backlog, in_flight, shipped
+		{models.StatusShipped, 1},      // backlog only
+		{models.StatusCanceled, 3},     // backlog, in_flight, shipped
+		{models.StatusDuplicate, 1},    // backlog only
 	}
 
 	for _, tt := range tests {
@@ -301,15 +304,16 @@ func TestTransitionName(t *testing.T) {
 		to       models.Status
 		expected string
 	}{
-		{models.StatusOpen, models.StatusInProgress, "start"},
-		{models.StatusInProgress, models.StatusOpen, "unstart"},
-		{models.StatusOpen, models.StatusBlocked, "block"},
-		{models.StatusBlocked, models.StatusOpen, "unblock"},
-		{models.StatusInProgress, models.StatusInReview, "review"},
-		{models.StatusInReview, models.StatusInProgress, "reject"},
-		{models.StatusInReview, models.StatusClosed, "approve"},
-		{models.StatusInProgress, models.StatusClosed, "close"},
-		{models.StatusClosed, models.StatusOpen, "reopen"},
+		{models.StatusBacklog, models.StatusInFlight, "start"},
+		{models.StatusPrioritized, models.StatusInFlight, "start"},
+		{models.StatusInFlight, models.StatusBacklog, "unstart"},
+		{models.StatusBacklog, models.StatusCanceled, "cancel"},
+		{models.StatusCanceled, models.StatusBacklog, "reopen"},
+		{models.StatusInFlight, models.StatusReview, "review"},
+		{models.StatusReview, models.StatusInFlight, "reject"},
+		{models.StatusReview, models.StatusShipped, "approve"},
+		{models.StatusInFlight, models.StatusShipped, "ship"},
+		{models.StatusShipped, models.StatusBacklog, "reopen"},
 	}
 
 	for _, tt := range tests {
@@ -324,16 +328,19 @@ func TestTransitionName(t *testing.T) {
 
 func TestAllStatuses(t *testing.T) {
 	statuses := AllStatuses()
-	if len(statuses) != 5 {
-		t.Errorf("AllStatuses() returned %d statuses, want 5", len(statuses))
+	if len(statuses) != 8 {
+		t.Errorf("AllStatuses() returned %d statuses, want 8", len(statuses))
 	}
 
 	expected := []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
-		models.StatusBlocked,
-		models.StatusInReview,
-		models.StatusClosed,
+		models.StatusTriage,
+		models.StatusBacklog,
+		models.StatusPrioritized,
+		models.StatusInFlight,
+		models.StatusReview,
+		models.StatusShipped,
+		models.StatusCanceled,
+		models.StatusDuplicate,
 	}
 
 	for i, s := range expected {
@@ -348,13 +355,13 @@ func TestCanTransition(t *testing.T) {
 
 	issue := &models.Issue{
 		ID:     "test-1",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	ctx := &TransitionContext{
 		Issue:      issue,
-		FromStatus: models.StatusOpen,
-		ToStatus:   models.StatusInProgress,
+		FromStatus: models.StatusBacklog,
+		ToStatus:   models.StatusInFlight,
 		SessionID:  "session-1",
 	}
 
@@ -366,21 +373,21 @@ func TestCanTransition(t *testing.T) {
 
 func TestTransitionError(t *testing.T) {
 	err := &TransitionError{
-		From:    models.StatusClosed,
-		To:      models.StatusInProgress,
+		From:    models.StatusShipped,
+		To:      models.StatusInFlight,
 		IssueID: "test-123",
 		Reason:  "transition not allowed",
 	}
 
 	msg := err.Error()
-	if msg != "cannot transition test-123 from closed to in_progress: transition not allowed" {
+	if msg != "cannot transition test-123 from shipped to in_flight: transition not allowed" {
 		t.Errorf("TransitionError.Error() = %q", msg)
 	}
 
 	// Test without issue ID
 	err.IssueID = ""
 	msg = err.Error()
-	if msg != "cannot transition from closed to in_progress: transition not allowed" {
+	if msg != "cannot transition from shipped to in_flight: transition not allowed" {
 		t.Errorf("TransitionError.Error() = %q", msg)
 	}
 }
@@ -436,8 +443,8 @@ func TestValidateNilContext(t *testing.T) {
 	// Test nil issue in context
 	ctx := &TransitionContext{
 		Issue:      nil,
-		FromStatus: models.StatusOpen,
-		ToStatus:   models.StatusInProgress,
+		FromStatus: models.StatusBacklog,
+		ToStatus:   models.StatusInFlight,
 	}
 	_, err = sm.Validate(ctx)
 	if err == nil {

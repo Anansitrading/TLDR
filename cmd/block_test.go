@@ -18,20 +18,20 @@ func TestBlockSingleIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
 	// Block the issue
-	issue.Status = models.StatusBlocked
+	issue.Status = models.StatusCanceled
 	if err := database.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusBlocked {
+	if retrieved.Status != models.StatusCanceled {
 		t.Errorf("Expected blocked, got %q", retrieved.Status)
 	}
 }
@@ -46,9 +46,9 @@ func TestBlockMultipleIssues(t *testing.T) {
 	defer database.Close()
 
 	issues := []*models.Issue{
-		{Title: "Issue 1", Status: models.StatusOpen},
-		{Title: "Issue 2", Status: models.StatusInProgress},
-		{Title: "Issue 3", Status: models.StatusOpen},
+		{Title: "Issue 1", Status: models.StatusBacklog},
+		{Title: "Issue 2", Status: models.StatusInFlight},
+		{Title: "Issue 3", Status: models.StatusBacklog},
 	}
 
 	for _, issue := range issues {
@@ -57,14 +57,14 @@ func TestBlockMultipleIssues(t *testing.T) {
 
 	// Block all issues
 	for _, issue := range issues {
-		issue.Status = models.StatusBlocked
+		issue.Status = models.StatusCanceled
 		database.UpdateIssue(issue)
 	}
 
 	// Verify all blocked
 	for _, issue := range issues {
 		retrieved, _ := database.GetIssue(issue.ID)
-		if retrieved.Status != models.StatusBlocked {
+		if retrieved.Status != models.StatusCanceled {
 			t.Errorf("Issue %s not blocked", issue.ID)
 		}
 	}
@@ -84,11 +84,11 @@ func TestBlockFromDifferentStatuses(t *testing.T) {
 		initialStatus  models.Status
 		shouldTransition bool
 	}{
-		{"from open", models.StatusOpen, true},
-		{"from in_progress", models.StatusInProgress, true},
-		{"from in_review", models.StatusInReview, true},
-		{"from closed", models.StatusClosed, true},
-		{"already blocked", models.StatusBlocked, true},
+		{"from open", models.StatusBacklog, true},
+		{"from in_progress", models.StatusInFlight, true},
+		{"from in_review", models.StatusReview, true},
+		{"from closed", models.StatusShipped, true},
+		{"already blocked", models.StatusCanceled, true},
 	}
 
 	for _, tc := range testCases {
@@ -100,11 +100,11 @@ func TestBlockFromDifferentStatuses(t *testing.T) {
 			database.CreateIssue(issue)
 
 			if tc.shouldTransition {
-				issue.Status = models.StatusBlocked
+				issue.Status = models.StatusCanceled
 				database.UpdateIssue(issue)
 
 				retrieved, _ := database.GetIssue(issue.ID)
-				if retrieved.Status != models.StatusBlocked {
+				if retrieved.Status != models.StatusCanceled {
 					t.Errorf("Failed to block from %s", tc.initialStatus)
 				}
 			}
@@ -127,13 +127,13 @@ func TestBlockLogsAction(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
 	sessionID := "ses_test123"
 	previousStatus := issue.Status
-	issue.Status = models.StatusBlocked
+	issue.Status = models.StatusCanceled
 
 	// Log block action
 	action := &models.ActionLog{
@@ -175,7 +175,7 @@ func TestBlockWithReason(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -193,7 +193,7 @@ func TestBlockWithReason(t *testing.T) {
 	}
 
 	// Update issue to blocked
-	issue.Status = models.StatusBlocked
+	issue.Status = models.StatusCanceled
 	if err := database.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
@@ -237,18 +237,18 @@ func TestBlockAlreadyBlockedIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Already Blocked",
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	database.CreateIssue(issue)
 
 	// Block again (idempotent)
-	issue.Status = models.StatusBlocked
+	issue.Status = models.StatusCanceled
 	if err := database.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusBlocked {
+	if retrieved.Status != models.StatusCanceled {
 		t.Errorf("Expected blocked, got %q", retrieved.Status)
 	}
 }
@@ -263,8 +263,8 @@ func TestBlockWithDependentIssues(t *testing.T) {
 	defer database.Close()
 
 	// Create blocker and dependent
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusOpen}
-	dependent := &models.Issue{Title: "Dependent", Status: models.StatusOpen}
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusBacklog}
+	dependent := &models.Issue{Title: "Dependent", Status: models.StatusBacklog}
 
 	database.CreateIssue(blocker)
 	database.CreateIssue(dependent)
@@ -273,18 +273,18 @@ func TestBlockWithDependentIssues(t *testing.T) {
 	database.AddDependency(dependent.ID, blocker.ID, "depends_on")
 
 	// Block the blocker
-	blocker.Status = models.StatusBlocked
+	blocker.Status = models.StatusCanceled
 	database.UpdateIssue(blocker)
 
 	// Verify blocker is blocked
 	retrieved, _ := database.GetIssue(blocker.ID)
-	if retrieved.Status != models.StatusBlocked {
+	if retrieved.Status != models.StatusCanceled {
 		t.Error("Blocker should be blocked")
 	}
 
 	// Dependent should still be open but with a dependency on blocked issue
 	depRetrieved, _ := database.GetIssue(dependent.ID)
-	if depRetrieved.Status != models.StatusOpen {
+	if depRetrieved.Status != models.StatusBacklog {
 		t.Error("Dependent should still be open")
 	}
 
@@ -306,10 +306,10 @@ func TestBlockMixedStatuses(t *testing.T) {
 	testCases := []struct {
 		status models.Status
 	}{
-		{models.StatusOpen},
-		{models.StatusInProgress},
-		{models.StatusInReview},
-		{models.StatusClosed},
+		{models.StatusBacklog},
+		{models.StatusInFlight},
+		{models.StatusReview},
+		{models.StatusShipped},
 	}
 
 	for i, tc := range testCases {
@@ -320,11 +320,11 @@ func TestBlockMixedStatuses(t *testing.T) {
 		}
 		database.CreateIssue(issue)
 
-		issue.Status = models.StatusBlocked
+		issue.Status = models.StatusCanceled
 		database.UpdateIssue(issue)
 
 		retrieved, _ := database.GetIssue(issue.ID)
-		if retrieved.Status != models.StatusBlocked {
+		if retrieved.Status != models.StatusCanceled {
 			t.Errorf("Test case %d: failed to block issue with status %s", i, tc.status)
 		}
 	}
@@ -341,14 +341,14 @@ func TestBlockUpdatesTimestamp(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
 	originalTime := issue.UpdatedAt
 
 	// Simulate time passage and block
-	issue.Status = models.StatusBlocked
+	issue.Status = models.StatusCanceled
 	database.UpdateIssue(issue)
 
 	retrieved, _ := database.GetIssue(issue.ID)

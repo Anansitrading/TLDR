@@ -159,8 +159,8 @@ func ScenarioPartitionRecovery(h *Harness, rng *rand.Rand) []VerifyResult {
 		if err == nil {
 			id := extractIssueID(out)
 			if id != "" {
-				engineA.TrackCreatedIssue(id, "open", "alice")
-				engineB.TrackCreatedIssue(id, "open", "alice")
+				engineA.TrackCreatedIssue(id, "backlog", "alice")
+				engineB.TrackCreatedIssue(id, "backlog", "alice")
 			}
 		}
 	}

@@ -8,54 +8,81 @@ import (
 // This defines the complete workflow state machine
 func AllTransitions() []*Transition {
 	return []*Transition{
-		// From open
-		{From: models.StatusOpen, To: models.StatusInProgress, Guards: nil},
-		{From: models.StatusOpen, To: models.StatusBlocked, Guards: nil},
-		{From: models.StatusOpen, To: models.StatusInReview, Guards: nil},
-		{From: models.StatusOpen, To: models.StatusClosed, Guards: nil},
+		// From triage
+		{From: models.StatusTriage, To: models.StatusBacklog, Guards: nil},
+		{From: models.StatusTriage, To: models.StatusCanceled, Guards: nil},
+		{From: models.StatusTriage, To: models.StatusDuplicate, Guards: nil},
 
-		// From in_progress
-		{From: models.StatusInProgress, To: models.StatusOpen, Guards: nil},
-		{From: models.StatusInProgress, To: models.StatusBlocked, Guards: nil},
-		{From: models.StatusInProgress, To: models.StatusInReview, Guards: nil},
-		{From: models.StatusInProgress, To: models.StatusClosed, Guards: nil},
+		// From backlog
+		{From: models.StatusBacklog, To: models.StatusTriage, Guards: nil},
+		{From: models.StatusBacklog, To: models.StatusPrioritized, Guards: nil},
+		{From: models.StatusBacklog, To: models.StatusInFlight, Guards: nil},
+		{From: models.StatusBacklog, To: models.StatusReview, Guards: nil},
+		{From: models.StatusBacklog, To: models.StatusCanceled, Guards: nil},
+		{From: models.StatusBacklog, To: models.StatusShipped, Guards: nil},
 
-		// From blocked
-		{From: models.StatusBlocked, To: models.StatusOpen, Guards: nil},
-		{From: models.StatusBlocked, To: models.StatusInProgress, Guards: []Guard{&BlockedGuard{}}},
-		{From: models.StatusBlocked, To: models.StatusClosed, Guards: nil},
+		// From prioritized
+		{From: models.StatusPrioritized, To: models.StatusBacklog, Guards: nil},
+		{From: models.StatusPrioritized, To: models.StatusInFlight, Guards: nil},
+		{From: models.StatusPrioritized, To: models.StatusCanceled, Guards: nil},
 
-		// From in_review
-		{From: models.StatusInReview, To: models.StatusOpen, Guards: nil},
-		{From: models.StatusInReview, To: models.StatusInProgress, Guards: nil},
-		{From: models.StatusInReview, To: models.StatusClosed, Guards: []Guard{&DifferentReviewerGuard{}}},
+		// From in_flight
+		{From: models.StatusInFlight, To: models.StatusBacklog, Guards: nil},
+		{From: models.StatusInFlight, To: models.StatusReview, Guards: nil},
+		{From: models.StatusInFlight, To: models.StatusShipped, Guards: nil},
+		{From: models.StatusInFlight, To: models.StatusCanceled, Guards: nil},
 
-		// From closed
-		{From: models.StatusClosed, To: models.StatusOpen, Guards: nil},
+		// From review
+		{From: models.StatusReview, To: models.StatusBacklog, Guards: nil},
+		{From: models.StatusReview, To: models.StatusInFlight, Guards: nil},
+		{From: models.StatusReview, To: models.StatusShipped, Guards: []Guard{&DifferentReviewerGuard{}}},
+
+		// From shipped
+		{From: models.StatusShipped, To: models.StatusBacklog, Guards: nil},
+
+		// From canceled
+		{From: models.StatusCanceled, To: models.StatusBacklog, Guards: nil},
+		{From: models.StatusCanceled, To: models.StatusInFlight, Guards: []Guard{&BlockedGuard{}}},
+		{From: models.StatusCanceled, To: models.StatusShipped, Guards: nil},
+
+		// From duplicate
+		{From: models.StatusDuplicate, To: models.StatusBacklog, Guards: nil},
 	}
 }
 
 // TransitionName returns a human-readable name for the transition
 func TransitionName(from, to models.Status) string {
 	switch {
-	case from == models.StatusOpen && to == models.StatusInProgress:
+	case from == models.StatusBacklog && to == models.StatusInFlight:
 		return "start"
-	case from == models.StatusInProgress && to == models.StatusOpen:
+	case from == models.StatusPrioritized && to == models.StatusInFlight:
+		return "start"
+	case from == models.StatusInFlight && to == models.StatusBacklog:
 		return "unstart"
-	case to == models.StatusBlocked:
-		return "block"
-	case from == models.StatusBlocked && to == models.StatusOpen:
-		return "unblock"
-	case to == models.StatusInReview:
+	case to == models.StatusCanceled:
+		return "cancel"
+	case to == models.StatusDuplicate:
+		return "duplicate"
+	case to == models.StatusReview:
 		return "review"
-	case from == models.StatusInReview && to == models.StatusInProgress:
+	case from == models.StatusReview && to == models.StatusInFlight:
 		return "reject"
-	case from == models.StatusInReview && to == models.StatusClosed:
+	case from == models.StatusReview && to == models.StatusShipped:
 		return "approve"
-	case to == models.StatusClosed:
-		return "close"
-	case from == models.StatusClosed && to == models.StatusOpen:
+	case to == models.StatusShipped:
+		return "ship"
+	case from == models.StatusShipped && to == models.StatusBacklog:
 		return "reopen"
+	case from == models.StatusCanceled && to == models.StatusBacklog:
+		return "reopen"
+	case from == models.StatusDuplicate && to == models.StatusBacklog:
+		return "reopen"
+	case to == models.StatusPrioritized:
+		return "prioritize"
+	case to == models.StatusBacklog:
+		return "deprioritize"
+	case to == models.StatusTriage:
+		return "triage"
 	default:
 		return string(from) + " → " + string(to)
 	}
@@ -86,10 +113,13 @@ func GetTransitionsTo(status models.Status) []models.Status {
 // AllStatuses returns all valid statuses in workflow order
 func AllStatuses() []models.Status {
 	return []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
-		models.StatusBlocked,
-		models.StatusInReview,
-		models.StatusClosed,
+		models.StatusTriage,
+		models.StatusBacklog,
+		models.StatusPrioritized,
+		models.StatusInFlight,
+		models.StatusReview,
+		models.StatusShipped,
+		models.StatusCanceled,
+		models.StatusDuplicate,
 	}
 }

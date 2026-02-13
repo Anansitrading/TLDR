@@ -11,11 +11,14 @@ import (
 type Status string
 
 const (
-	StatusOpen       Status = "open"
-	StatusInProgress Status = "in_progress"
-	StatusBlocked    Status = "blocked"
-	StatusInReview   Status = "in_review"
-	StatusClosed     Status = "closed"
+	StatusTriage      Status = "triage"
+	StatusBacklog     Status = "backlog"
+	StatusPrioritized Status = "prioritized"
+	StatusInFlight    Status = "in_flight"
+	StatusReview      Status = "review"
+	StatusShipped     Status = "shipped"
+	StatusCanceled    Status = "canceled"
+	StatusDuplicate   Status = "duplicate"
 )
 
 // Type represents issue type
@@ -337,7 +340,7 @@ func IsValidPoints(p int) bool {
 // IsValidStatus checks if a status is valid
 func IsValidStatus(s Status) bool {
 	switch s {
-	case StatusOpen, StatusInProgress, StatusBlocked, StatusInReview, StatusClosed:
+	case StatusTriage, StatusBacklog, StatusPrioritized, StatusInFlight, StatusReview, StatusShipped, StatusCanceled, StatusDuplicate:
 		return true
 	}
 	return false
@@ -395,14 +398,24 @@ func NormalizeType(t string) Type {
 }
 
 // NormalizeStatus converts alternate status names to canonical form
-// Accepts: "review" as alias for "in_review", hyphens converted to underscores
+// Maps old status strings to new ones for backwards compatibility.
+// Accepts hyphens as underscores (in-flight → in_flight).
 func NormalizeStatus(s string) Status {
-	// Convert hyphens to underscores (in-progress → in_progress)
+	// Convert hyphens to underscores (in-flight → in_flight)
 	normalized := strings.ReplaceAll(s, "-", "_")
 
 	switch normalized {
-	case "review":
-		return StatusInReview
+	// Backwards compat: old status strings → new statuses
+	case "open":
+		return StatusBacklog
+	case "in_progress":
+		return StatusInFlight
+	case "in_review":
+		return StatusReview
+	case "blocked":
+		return StatusBacklog
+	case "closed":
+		return StatusShipped
 	default:
 		return Status(normalized)
 	}

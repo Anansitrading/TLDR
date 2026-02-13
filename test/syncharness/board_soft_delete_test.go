@@ -152,12 +152,12 @@ func TestBoardDeleteCascadesPositionSync(t *testing.T) {
 
 	// Client A creates 2 issues
 	if err := h.Mutate("client-A", "create", "issues", issueID1, map[string]any{
-		"title": "Issue 1", "status": "open",
+		"title": "Issue 1", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create issue 1: %v", err)
 	}
 	if err := h.Mutate("client-A", "create", "issues", issueID2, map[string]any{
-		"title": "Issue 2", "status": "open",
+		"title": "Issue 2", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create issue 2: %v", err)
 	}

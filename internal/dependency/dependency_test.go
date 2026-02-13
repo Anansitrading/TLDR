@@ -45,7 +45,7 @@ func createTestIssue(t *testing.T, database *db.DB, title string) *models.Issue 
 
 	issue := &models.Issue{
 		Title:    title,
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -366,7 +366,7 @@ func TestGetTransitiveBlockedOpenExcludesClosed(t *testing.T) {
 	database.AddDependency(issueC.ID, issueB.ID, "depends_on")
 
 	// Close B
-	issueB.Status = models.StatusClosed
+	issueB.Status = models.StatusShipped
 	database.UpdateIssue(issueB)
 
 	// GetTransitiveBlocked includes closed issues
@@ -398,7 +398,7 @@ func TestGetTransitiveBlockedOpenPartialClosed(t *testing.T) {
 	database.AddDependency(issueD.ID, issueB.ID, "depends_on")
 
 	// Close C
-	issueC.Status = models.StatusClosed
+	issueC.Status = models.StatusShipped
 	database.UpdateIssue(issueC)
 
 	open := GetTransitiveBlockedOpen(database, issueA.ID, make(map[string]bool))

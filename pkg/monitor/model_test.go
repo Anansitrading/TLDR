@@ -902,9 +902,9 @@ func TestBlockedByCursorNavigation(t *testing.T) {
 				IssueID: "td-001",
 				Issue:   &models.Issue{ID: "td-001"},
 				BlockedBy: []models.Issue{
-					{ID: "td-002", Status: models.StatusOpen},
-					{ID: "td-003", Status: models.StatusOpen},
-					{ID: "td-004", Status: models.StatusOpen},
+					{ID: "td-002", Status: models.StatusBacklog},
+					{ID: "td-003", Status: models.StatusBacklog},
+					{ID: "td-004", Status: models.StatusBacklog},
 				},
 				BlockedBySectionFocused: true,
 				BlockedByCursor:         0,
@@ -1055,7 +1055,7 @@ func TestTabCyclesThroughSections(t *testing.T) {
 				IssueID: "td-001",
 				Issue:   &models.Issue{ID: "td-001"},
 				BlockedBy: []models.Issue{
-					{ID: "td-002", Status: models.StatusOpen},
+					{ID: "td-002", Status: models.StatusBacklog},
 				},
 				Blocks: []models.Issue{
 					{ID: "td-003"},
@@ -3561,7 +3561,7 @@ func TestCloseConfirm_OpensModalFromOpenModal(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-test-001",
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	m := Model{
@@ -3592,7 +3592,7 @@ func TestCloseConfirm_InitializesTextInput(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-test-001",
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	m := Model{
@@ -3628,7 +3628,7 @@ func TestCloseConfirm_RejectsClosedIssue(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-test-001",
 		Title:  "Test Issue",
-		Status: models.StatusClosed, // Already closed
+		Status: models.StatusShipped, // Already closed
 	}
 
 	m := Model{
@@ -3747,7 +3747,7 @@ func TestCloseConfirm_StateFields(t *testing.T) {
 			name:        "open issue sets all fields",
 			issueID:     "td-abc123",
 			issueTitle:  "My Task",
-			issueStatus: models.StatusOpen,
+			issueStatus: models.StatusBacklog,
 			wantOpen:    true,
 			wantIssueID: "td-abc123",
 			wantTitle:   "My Task",
@@ -3756,7 +3756,7 @@ func TestCloseConfirm_StateFields(t *testing.T) {
 			name:        "in_progress issue sets all fields",
 			issueID:     "td-def456",
 			issueTitle:  "In Progress Task",
-			issueStatus: models.StatusInProgress,
+			issueStatus: models.StatusInFlight,
 			wantOpen:    true,
 			wantIssueID: "td-def456",
 			wantTitle:   "In Progress Task",
@@ -3765,7 +3765,7 @@ func TestCloseConfirm_StateFields(t *testing.T) {
 			name:        "in_review issue sets all fields",
 			issueID:     "td-ghi789",
 			issueTitle:  "Review Task",
-			issueStatus: models.StatusInReview,
+			issueStatus: models.StatusReview,
 			wantOpen:    true,
 			wantIssueID: "td-ghi789",
 			wantTitle:   "Review Task",
@@ -3774,7 +3774,7 @@ func TestCloseConfirm_StateFields(t *testing.T) {
 			name:        "blocked issue sets all fields",
 			issueID:     "td-jkl012",
 			issueTitle:  "Blocked Task",
-			issueStatus: models.StatusBlocked,
+			issueStatus: models.StatusCanceled,
 			wantOpen:    true,
 			wantIssueID: "td-jkl012",
 			wantTitle:   "Blocked Task",
@@ -3783,7 +3783,7 @@ func TestCloseConfirm_StateFields(t *testing.T) {
 			name:        "closed issue does not open modal",
 			issueID:     "td-mno345",
 			issueTitle:  "Closed Task",
-			issueStatus: models.StatusClosed,
+			issueStatus: models.StatusShipped,
 			wantOpen:    false,
 			wantIssueID: "",
 			wantTitle:   "",
@@ -3882,7 +3882,7 @@ func TestCloseConfirm_ModalTakesIssueFromModalStack(t *testing.T) {
 	modalIssue := &models.Issue{
 		ID:     "td-modal-issue",
 		Title:  "Modal Issue",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 
 	m := Model{
@@ -3890,7 +3890,7 @@ func TestCloseConfirm_ModalTakesIssueFromModalStack(t *testing.T) {
 		ActivePanel: PanelTaskList,
 		Cursor:      map[Panel]int{PanelTaskList: 0},
 		TaskListRows: []TaskListRow{
-			{Issue: models.Issue{ID: "td-panel-issue", Title: "Panel Issue", Status: models.StatusOpen}},
+			{Issue: models.Issue{ID: "td-panel-issue", Title: "Panel Issue", Status: models.StatusBacklog}},
 		},
 		ModalStack: []ModalEntry{
 			{

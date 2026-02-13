@@ -825,7 +825,7 @@ func TestWorkSessionIssueTag_Sync(t *testing.T) {
 			t.Fatalf("create ws on %s: %v", cid, err)
 		}
 		if err := h.Mutate(cid, "create", "issues", issueID, map[string]any{
-			"title": "Test Issue", "status": "open", "type": "task", "priority": "P2",
+			"title": "Test Issue", "status": "backlog", "type": "task", "priority": "P2",
 		}); err != nil {
 			t.Fatalf("create issue on %s: %v", cid, err)
 		}
@@ -879,7 +879,7 @@ func TestWorkSessionIssueUntag_Sync(t *testing.T) {
 			t.Fatalf("create ws on %s: %v", cid, err)
 		}
 		if err := h.Mutate(cid, "create", "issues", issueID, map[string]any{
-			"title": "Test Issue", "status": "open", "type": "task", "priority": "P2",
+			"title": "Test Issue", "status": "backlog", "type": "task", "priority": "P2",
 		}); err != nil {
 			t.Fatalf("create issue on %s: %v", cid, err)
 		}
@@ -1114,7 +1114,7 @@ func TestWorkSessionIssue_LastWriteWins(t *testing.T) {
 			t.Fatalf("create ws on %s: %v", cid, err)
 		}
 		if err := h.Mutate(cid, "create", "issues", issueID, map[string]any{
-			"title": "Test Issue", "status": "open", "type": "task", "priority": "P2",
+			"title": "Test Issue", "status": "backlog", "type": "task", "priority": "P2",
 		}); err != nil {
 			t.Fatalf("create issue on %s: %v", cid, err)
 		}

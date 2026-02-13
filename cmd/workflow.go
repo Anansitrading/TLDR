@@ -110,11 +110,11 @@ func printDotDiagram() error {
 	fmt.Println()
 
 	// Node styling
-	fmt.Printf("    %s [style=filled,fillcolor=lightblue];\n", models.StatusOpen)
-	fmt.Printf("    %s [style=filled,fillcolor=lightyellow];\n", models.StatusInProgress)
-	fmt.Printf("    %s [style=filled,fillcolor=lightpink];\n", models.StatusBlocked)
-	fmt.Printf("    %s [style=filled,fillcolor=lightorange];\n", models.StatusInReview)
-	fmt.Printf("    %s [style=filled,fillcolor=lightgreen];\n", models.StatusClosed)
+	fmt.Printf("    %s [style=filled,fillcolor=lightblue];\n", models.StatusBacklog)
+	fmt.Printf("    %s [style=filled,fillcolor=lightyellow];\n", models.StatusInFlight)
+	fmt.Printf("    %s [style=filled,fillcolor=lightpink];\n", models.StatusCanceled)
+	fmt.Printf("    %s [style=filled,fillcolor=lightorange];\n", models.StatusReview)
+	fmt.Printf("    %s [style=filled,fillcolor=lightgreen];\n", models.StatusShipped)
 	fmt.Println()
 
 	// Transitions

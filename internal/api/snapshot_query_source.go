@@ -185,7 +185,7 @@ func (s *SnapshotQuerySource) ListIssues(opts db.ListIssuesOptions) ([]models.Is
 				)
 			)
 		)`
-		args = append(args, models.StatusInReview, opts.ReviewableBy, opts.ReviewableBy, opts.ReviewableBy)
+		args = append(args, models.StatusReview, opts.ReviewableBy, opts.ReviewableBy, opts.ReviewableBy)
 	}
 
 	// Parent filter

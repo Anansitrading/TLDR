@@ -27,13 +27,13 @@ type TreeRenderOptions struct {
 // statusMark returns a status indicator symbol
 func statusMark(s models.Status) string {
 	switch s {
-	case models.StatusClosed:
+	case models.StatusShipped:
 		return " \u2713" // ✓
-	case models.StatusInReview:
+	case models.StatusReview:
 		return " \u29d7" // ⧗
-	case models.StatusInProgress:
+	case models.StatusInFlight:
 		return " \u25cf" // ●
-	case models.StatusBlocked:
+	case models.StatusCanceled:
 		return " \u2717" // ✗
 	default:
 		return ""

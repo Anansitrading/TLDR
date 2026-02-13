@@ -29,7 +29,7 @@ func TestConcurrentDifferentFieldEdits(t *testing.T) {
 
 	// Client A creates issue with status=open, priority=P2, title="Original"
 	if err := h.Mutate("client-A", "create", "issues", "td-FM1", map[string]any{
-		"title": "Original", "status": "open", "priority": "P2",
+		"title": "Original", "status": "backlog", "priority": "P2",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -56,14 +56,14 @@ func TestConcurrentDifferentFieldEdits(t *testing.T) {
 
 	// Client A updates priority=P0 (status stays open, title stays Original)
 	if err := h.Mutate("client-A", "update", "issues", "td-FM1", map[string]any{
-		"title": "Original", "status": "open", "priority": "P0",
+		"title": "Original", "status": "backlog", "priority": "P0",
 	}); err != nil {
 		t.Fatalf("update A: %v", err)
 	}
 
 	// Client B updates status=in_progress (priority stays P2, title stays Original)
 	if err := h.Mutate("client-B", "update", "issues", "td-FM1", map[string]any{
-		"title": "Original", "status": "in_progress", "priority": "P2",
+		"title": "Original", "status": "in_flight", "priority": "P2",
 	}); err != nil {
 		t.Fatalf("update B: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestConcurrentDifferentFieldEdits(t *testing.T) {
 			t.Fatalf("%s: td-FM1 not found", cid)
 		}
 		status, _ := ent["status"].(string)
-		if status != "in_progress" {
+		if status != "in_flight" {
 			t.Fatalf("%s: expected status 'in_progress', got %q", cid, status)
 		}
 		priority, _ := ent["priority"].(string)
@@ -116,7 +116,7 @@ func TestConcurrentSameFieldEditsLWW(t *testing.T) {
 
 	// Both have issue with priority=P2
 	if err := h.Mutate("client-A", "create", "issues", "td-FM2", map[string]any{
-		"title": "LWW test", "status": "open", "priority": "P2",
+		"title": "LWW test", "status": "backlog", "priority": "P2",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -133,14 +133,14 @@ func TestConcurrentSameFieldEditsLWW(t *testing.T) {
 
 	// Client A updates priority=P0
 	if err := h.Mutate("client-A", "update", "issues", "td-FM2", map[string]any{
-		"title": "LWW test", "status": "open", "priority": "P0",
+		"title": "LWW test", "status": "backlog", "priority": "P0",
 	}); err != nil {
 		t.Fatalf("update A: %v", err)
 	}
 
 	// Client B updates priority=P1
 	if err := h.Mutate("client-B", "update", "issues", "td-FM2", map[string]any{
-		"title": "LWW test", "status": "open", "priority": "P1",
+		"title": "LWW test", "status": "backlog", "priority": "P1",
 	}); err != nil {
 		t.Fatalf("update B: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestUpdateWithNoPreviousDataFallback(t *testing.T) {
 	serverDB := h.ProjectDBs[proj]
 
 	// Craft a server event with empty previous_data (simulates old client or backfill)
-	payload := `{"schema_version":1,"new_data":{"title":"Backfilled","status":"open","priority":"P3"},"previous_data":{}}`
+	payload := `{"schema_version":1,"new_data":{"title":"Backfilled","status":"backlog","priority":"P3"},"previous_data":{}}`
 	ev := tdsync.Event{
 		ClientActionID:  900,
 		DeviceID:        "device-phantom",
@@ -243,7 +243,7 @@ func TestUpdateNonExistentRowFallback(t *testing.T) {
 	serverDB := h.ProjectDBs[proj]
 
 	// Craft a server update event with previous_data for an issue that doesn't exist on B
-	payload := `{"schema_version":1,"new_data":{"title":"Ghost update","status":"in_progress","priority":"P1"},"previous_data":{"title":"Ghost","status":"open","priority":"P1"}}`
+	payload := `{"schema_version":1,"new_data":{"title":"Ghost update","status":"in_flight","priority":"P1"},"previous_data":{"title":"Ghost","status":"backlog","priority":"P1"}}`
 	ev := tdsync.Event{
 		ClientActionID:  901,
 		DeviceID:        "device-phantom",
@@ -295,7 +295,7 @@ func TestEmptyDiffNoOp(t *testing.T) {
 
 	// Client A creates issue
 	if err := h.Mutate("client-A", "create", "issues", "td-FM5", map[string]any{
-		"title": "Stable", "status": "open", "priority": "P2",
+		"title": "Stable", "status": "backlog", "priority": "P2",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestEmptyDiffNoOp(t *testing.T) {
 	serverDB := h.ProjectDBs[proj]
 
 	// Craft a server event where previous_data == new_data (no fields changed)
-	payload := `{"schema_version":1,"new_data":{"title":"Stable","status":"open","priority":"P2"},"previous_data":{"title":"Stable","status":"open","priority":"P2"}}`
+	payload := `{"schema_version":1,"new_data":{"title":"Stable","status":"backlog","priority":"P2"},"previous_data":{"title":"Stable","status":"backlog","priority":"P2"}}`
 	ev := tdsync.Event{
 		ClientActionID:  902,
 		DeviceID:        "device-phantom",
@@ -364,7 +364,7 @@ func TestEmptyDiffNoOp(t *testing.T) {
 		t.Fatalf("client-B: expected title 'Stable', got %q", title)
 	}
 	status, _ := entAfter["status"].(string)
-	if status != "open" {
+	if status != "backlog" {
 		t.Fatalf("client-B: expected status 'open', got %q", status)
 	}
 	priority, _ := entAfter["priority"].(string)
@@ -380,7 +380,7 @@ func TestConcurrentUpdatesConvergeViaServerSeq(t *testing.T) {
 
 	// Client A creates issue
 	if err := h.Mutate("client-A", "create", "issues", "td-LWW1", map[string]any{
-		"title": "LWW Guard", "status": "open", "priority": "P2",
+		"title": "LWW Guard", "status": "backlog", "priority": "P2",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -395,7 +395,7 @@ func TestConcurrentUpdatesConvergeViaServerSeq(t *testing.T) {
 
 	// Client A updates priority to P0
 	if err := h.Mutate("client-A", "update", "issues", "td-LWW1", map[string]any{
-		"title": "LWW Guard", "status": "open", "priority": "P0",
+		"title": "LWW Guard", "status": "backlog", "priority": "P0",
 	}); err != nil {
 		t.Fatalf("update A: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestConcurrentUpdatesConvergeViaServerSeq(t *testing.T) {
 
 	// Client B updates status to in_progress (concurrent, different field)
 	if err := h.Mutate("client-B", "update", "issues", "td-LWW1", map[string]any{
-		"title": "LWW Guard", "status": "in_progress", "priority": "P2",
+		"title": "LWW Guard", "status": "in_flight", "priority": "P2",
 	}); err != nil {
 		t.Fatalf("update B: %v", err)
 	}
@@ -434,7 +434,7 @@ func TestDependencyAddRemoveConverges(t *testing.T) {
 	// Create two issues on A
 	for _, id := range []string{"td-DEP1", "td-DEP2", "td-DEP3"} {
 		if err := h.Mutate("client-A", "create", "issues", id, map[string]any{
-			"title": id, "status": "open",
+			"title": id, "status": "backlog",
 		}); err != nil {
 			t.Fatalf("create %s: %v", id, err)
 		}

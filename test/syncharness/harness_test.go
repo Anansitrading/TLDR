@@ -17,7 +17,7 @@ func TestSingleClientCreate(t *testing.T) {
 	// Client A creates an issue
 	err := h.Mutate("client-A", "create", "issues", "td-001", map[string]any{
 		"title":  "Fix bug",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("mutate: %v", err)
@@ -57,7 +57,7 @@ func TestTwoClientsNoConflict(t *testing.T) {
 	// Client A creates issue X
 	err := h.Mutate("client-A", "create", "issues", "td-X", map[string]any{
 		"title":  "Issue X",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("mutate A: %v", err)
@@ -66,7 +66,7 @@ func TestTwoClientsNoConflict(t *testing.T) {
 	// Client B creates issue Y
 	err = h.Mutate("client-B", "create", "issues", "td-Y", map[string]any{
 		"title":  "Issue Y",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("mutate B: %v", err)
@@ -105,7 +105,7 @@ func TestUpdatePropagation(t *testing.T) {
 	// Client A creates issue
 	err := h.Mutate("client-A", "create", "issues", "td-U1", map[string]any{
 		"title":  "Original",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -128,7 +128,7 @@ func TestUpdatePropagation(t *testing.T) {
 	// Client A updates the title
 	err = h.Mutate("client-A", "update", "issues", "td-U1", map[string]any{
 		"title":  "New title",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("update: %v", err)
@@ -163,7 +163,7 @@ func TestDeletePropagation(t *testing.T) {
 	// Client A creates issue
 	err := h.Mutate("client-A", "create", "issues", "td-D1", map[string]any{
 		"title":  "To delete",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -213,7 +213,7 @@ func TestLastWriteWins(t *testing.T) {
 	// Client A creates issue
 	err := h.Mutate("client-A", "create", "issues", "td-LWW", map[string]any{
 		"title":  "Original",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -230,14 +230,14 @@ func TestLastWriteWins(t *testing.T) {
 	// Both update concurrently (no sync between)
 	err = h.Mutate("client-A", "update", "issues", "td-LWW", map[string]any{
 		"title":  "A",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("update A: %v", err)
 	}
 	err = h.Mutate("client-B", "update", "issues", "td-LWW", map[string]any{
 		"title":  "B",
-		"status": "open",
+		"status": "backlog",
 	})
 	if err != nil {
 		t.Fatalf("update B: %v", err)
@@ -283,7 +283,7 @@ func TestCreateDeleteConflict_DeleteLast(t *testing.T) {
 
 	// A creates issue
 	if err := h.Mutate("client-A", "create", "issues", "td-CD1", map[string]any{
-		"title": "Will be deleted", "status": "open",
+		"title": "Will be deleted", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -298,7 +298,7 @@ func TestCreateDeleteConflict_DeleteLast(t *testing.T) {
 
 	// A updates, B deletes (no sync between)
 	if err := h.Mutate("client-A", "update", "issues", "td-CD1", map[string]any{
-		"title": "Updated by A", "status": "open",
+		"title": "Updated by A", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("update A: %v", err)
 	}
@@ -340,7 +340,7 @@ func TestCreateDeleteConflict_UpdateLast(t *testing.T) {
 
 	// A creates issue
 	if err := h.Mutate("client-A", "create", "issues", "td-CD2", map[string]any{
-		"title": "Will stay deleted", "status": "open",
+		"title": "Will stay deleted", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -358,7 +358,7 @@ func TestCreateDeleteConflict_UpdateLast(t *testing.T) {
 		t.Fatalf("delete B: %v", err)
 	}
 	if err := h.Mutate("client-A", "update", "issues", "td-CD2", map[string]any{
-		"title": "Resurrected by A", "status": "in_progress",
+		"title": "Resurrected by A", "status": "in_flight",
 	}); err != nil {
 		t.Fatalf("update A: %v", err)
 	}
@@ -399,7 +399,7 @@ func TestIdempotentPush(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		id := fmt.Sprintf("td-IP%d", i)
 		if err := h.Mutate("client-A", "create", "issues", id, map[string]any{
-			"title": fmt.Sprintf("Issue %d", i), "status": "open",
+			"title": fmt.Sprintf("Issue %d", i), "status": "backlog",
 		}); err != nil {
 			t.Fatalf("create %s: %v", id, err)
 		}
@@ -432,7 +432,7 @@ func TestLargeBatch(t *testing.T) {
 	for i := 0; i < 500; i++ {
 		id := fmt.Sprintf("td-LB%04d", i)
 		if err := h.Mutate("client-A", "create", "issues", id, map[string]any{
-			"title": fmt.Sprintf("Batch issue %d", i), "status": "open",
+			"title": fmt.Sprintf("Batch issue %d", i), "status": "backlog",
 		}); err != nil {
 			t.Fatalf("create %s: %v", id, err)
 		}
@@ -461,7 +461,7 @@ func TestInterleavedSync(t *testing.T) {
 
 	// A creates issue-1, syncs
 	if err := h.Mutate("client-A", "create", "issues", "td-IL1", map[string]any{
-		"title": "Issue 1", "status": "open",
+		"title": "Issue 1", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create 1: %v", err)
 	}
@@ -471,7 +471,7 @@ func TestInterleavedSync(t *testing.T) {
 
 	// B creates issue-2, syncs (also pulls issue-1)
 	if err := h.Mutate("client-B", "create", "issues", "td-IL2", map[string]any{
-		"title": "Issue 2", "status": "open",
+		"title": "Issue 2", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create 2: %v", err)
 	}
@@ -484,7 +484,7 @@ func TestInterleavedSync(t *testing.T) {
 		t.Fatalf("pull A: %v", err)
 	}
 	if err := h.Mutate("client-A", "update", "issues", "td-IL2", map[string]any{
-		"title": "Issue 2 updated by A", "status": "open",
+		"title": "Issue 2 updated by A", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("update IL2: %v", err)
 	}
@@ -497,7 +497,7 @@ func TestInterleavedSync(t *testing.T) {
 		t.Fatalf("pull B: %v", err)
 	}
 	if err := h.Mutate("client-B", "update", "issues", "td-IL1", map[string]any{
-		"title": "Issue 1", "status": "in_progress",
+		"title": "Issue 1", "status": "in_flight",
 	}); err != nil {
 		t.Fatalf("update IL1: %v", err)
 	}
@@ -507,7 +507,7 @@ func TestInterleavedSync(t *testing.T) {
 
 	// A creates issue-3, B deletes issue-2, both sync
 	if err := h.Mutate("client-A", "create", "issues", "td-IL3", map[string]any{
-		"title": "Issue 3", "status": "open",
+		"title": "Issue 3", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create 3: %v", err)
 	}
@@ -538,7 +538,7 @@ func TestInterleavedSync(t *testing.T) {
 		if e1 == nil {
 			t.Fatalf("%s: td-IL1 should exist", cid)
 		}
-		if s, _ := e1["status"].(string); s != "in_progress" {
+		if s, _ := e1["status"].(string); s != "in_flight" {
 			t.Fatalf("%s: td-IL1 status expected 'in_progress', got %q", cid, s)
 		}
 		e2 := h.QueryEntityRaw(cid, "issues", "td-IL2")
@@ -561,7 +561,7 @@ func TestMultiEntityTypes(t *testing.T) {
 
 	// A creates: issue, log, comment
 	if err := h.Mutate("client-A", "create", "issues", "td-ME1", map[string]any{
-		"title": "Multi-entity issue", "status": "open",
+		"title": "Multi-entity issue", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create issue: %v", err)
 	}
@@ -629,7 +629,7 @@ func TestCreateExistingEntity(t *testing.T) {
 
 	// A creates td-DUP with "A version"
 	if err := h.Mutate("client-A", "create", "issues", "td-DUP", map[string]any{
-		"title": "A version", "status": "open",
+		"title": "A version", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create A: %v", err)
 	}
@@ -639,7 +639,7 @@ func TestCreateExistingEntity(t *testing.T) {
 
 	// B independently creates same ID with "B version" (no pull)
 	if err := h.Mutate("client-B", "create", "issues", "td-DUP", map[string]any{
-		"title": "B version", "status": "open",
+		"title": "B version", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create B: %v", err)
 	}
@@ -666,12 +666,12 @@ func TestUpdateMissingEntity(t *testing.T) {
 
 	// A creates issue then updates title
 	if err := h.Mutate("client-A", "create", "issues", "td-UM1", map[string]any{
-		"title": "Original", "status": "open",
+		"title": "Original", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if err := h.Mutate("client-A", "update", "issues", "td-UM1", map[string]any{
-		"title": "Updated", "status": "in_progress",
+		"title": "Updated", "status": "in_flight",
 	}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -708,7 +708,7 @@ func TestDeleteMissingEntity(t *testing.T) {
 
 	// A creates and deletes — push both
 	if err := h.Mutate("client-A", "create", "issues", "td-DM1", map[string]any{
-		"title": "Ghost", "status": "open",
+		"title": "Ghost", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -744,7 +744,7 @@ func TestUpdateAfterLocalDelete(t *testing.T) {
 
 	// A creates issue, both sync
 	if err := h.Mutate("client-A", "create", "issues", "td-ULD1", map[string]any{
-		"title": "Original", "status": "open",
+		"title": "Original", "status": "backlog",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -766,7 +766,7 @@ func TestUpdateAfterLocalDelete(t *testing.T) {
 
 	// A updates issue, pushes
 	if err := h.Mutate("client-A", "update", "issues", "td-ULD1", map[string]any{
-		"title": "Updated by A", "status": "in_progress",
+		"title": "Updated by A", "status": "in_flight",
 	}); err != nil {
 		t.Fatalf("update A: %v", err)
 	}
@@ -793,7 +793,7 @@ func TestSchemaVersionMismatch(t *testing.T) {
 	serverDB := h.ProjectDBs[proj]
 
 	// Construct a raw event with unknown field in new_data
-	payload := `{"schema_version":2,"new_data":{"title":"Alien","status":"open","custom_xyz":"should be ignored"},"previous_data":{}}`
+	payload := `{"schema_version":2,"new_data":{"title":"Alien","status":"backlog","custom_xyz":"should be ignored"},"previous_data":{}}`
 	ev := tdsync.Event{
 		ClientActionID:  999,
 		DeviceID:        "device-phantom",
@@ -835,7 +835,7 @@ func TestSchemaVersionMismatch(t *testing.T) {
 		t.Fatalf("client-B: expected title 'Alien', got %q", title)
 	}
 	status, _ := ent["status"].(string)
-	if status != "open" {
+	if status != "backlog" {
 		t.Fatalf("client-B: expected status 'open', got %q", status)
 	}
 }
@@ -852,7 +852,7 @@ func TestPartialBatchFailure(t *testing.T) {
 	now := time.Now()
 
 	for i := 1; i <= 3; i++ {
-		payload := fmt.Sprintf(`{"schema_version":1,"new_data":{"title":"Good %d","status":"open"},"previous_data":{}}`, i)
+		payload := fmt.Sprintf(`{"schema_version":1,"new_data":{"title":"Good %d","status":"backlog"},"previous_data":{}}`, i)
 		events = append(events, tdsync.Event{
 			ClientActionID:  int64(i),
 			DeviceID:        "device-batch",
@@ -878,7 +878,7 @@ func TestPartialBatchFailure(t *testing.T) {
 	})
 
 	for i := 5; i <= 7; i++ {
-		payload := fmt.Sprintf(`{"schema_version":1,"new_data":{"title":"Good %d","status":"open"},"previous_data":{}}`, i)
+		payload := fmt.Sprintf(`{"schema_version":1,"new_data":{"title":"Good %d","status":"backlog"},"previous_data":{}}`, i)
 		events = append(events, tdsync.Event{
 			ClientActionID:  int64(i),
 			DeviceID:        "device-batch",
@@ -931,7 +931,7 @@ func TestPartialPayloadDropsColumns(t *testing.T) {
 
 	// A creates issue with title + status + priority
 	if err := h.Mutate("client-A", "create", "issues", "td-PP1", map[string]any{
-		"title": "Full data", "status": "open", "priority": "P1",
+		"title": "Full data", "status": "backlog", "priority": "P1",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -981,7 +981,7 @@ func TestPartialPayloadDropsColumns(t *testing.T) {
 	// status and priority should be their DEFAULT values (not the original values)
 	// since INSERT OR REPLACE drops the old row and inserts fresh
 	status, _ := ent["status"].(string)
-	if status != "open" {
+	if status != "backlog" {
 		// Default is 'open' per schema
 		t.Logf("client-B: status after partial update = %q (default 'open')", status)
 	}
@@ -1007,7 +1007,7 @@ func TestConcurrentPush(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		id := fmt.Sprintf("td-CPA%03d", i)
 		if err := h.Mutate("client-A", "create", "issues", id, map[string]any{
-			"title": fmt.Sprintf("A-%d", i), "status": "open",
+			"title": fmt.Sprintf("A-%d", i), "status": "backlog",
 		}); err != nil {
 			t.Fatalf("mutate A: %v", err)
 		}
@@ -1017,7 +1017,7 @@ func TestConcurrentPush(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		id := fmt.Sprintf("td-CPB%03d", i)
 		if err := h.Mutate("client-B", "create", "issues", id, map[string]any{
-			"title": fmt.Sprintf("B-%d", i), "status": "open",
+			"title": fmt.Sprintf("B-%d", i), "status": "backlog",
 		}); err != nil {
 			t.Fatalf("mutate B: %v", err)
 		}
@@ -1116,7 +1116,7 @@ func TestCrashRecovery(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		id := fmt.Sprintf("td-CR%03d", i)
 		if err := h.Mutate("client-A", "create", "issues", id, map[string]any{
-			"title": fmt.Sprintf("Crash %d", i), "status": "open",
+			"title": fmt.Sprintf("Crash %d", i), "status": "backlog",
 		}); err != nil {
 			t.Fatalf("mutate A: %v", err)
 		}

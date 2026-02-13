@@ -18,21 +18,21 @@ func TestCascadeCLIBasic(t *testing.T) {
 	}
 	defer database.Close()
 
-	epic := &models.Issue{Title: "Epic: Feature X", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Epic: Feature X", Type: models.TypeEpic, Status: models.StatusBacklog}
 	database.CreateIssue(epic)
 
-	child := &models.Issue{Title: "Task: Implement", Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID}
+	child := &models.Issue{Title: "Task: Implement", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID}
 	database.CreateIssue(child)
 
 	sessionID := "ses_test_cascade"
 
 	// Close child
-	child.Status = models.StatusClosed
+	child.Status = models.StatusShipped
 	now := time.Now()
 	child.ClosedAt = &now
 	database.UpdateIssue(child)
 
-	cascaded, cascadedIDs := database.CascadeUpParentStatus(child.ID, models.StatusClosed, sessionID)
+	cascaded, cascadedIDs := database.CascadeUpParentStatus(child.ID, models.StatusShipped, sessionID)
 
 	if cascaded != 1 {
 		t.Errorf("Expected 1 cascaded parent, got %d", cascaded)
@@ -42,7 +42,7 @@ func TestCascadeCLIBasic(t *testing.T) {
 	}
 
 	retrievedEpic, _ := database.GetIssue(epic.ID)
-	if retrievedEpic.Status != models.StatusClosed {
+	if retrievedEpic.Status != models.StatusShipped {
 		t.Errorf("Epic should be closed, got %q", retrievedEpic.Status)
 	}
 }
@@ -54,13 +54,13 @@ func TestCascadeCLIMultipleChildren(t *testing.T) {
 	defer database.Close()
 
 	sessionID := "ses_multi_children"
-	epic := &models.Issue{Title: "Epic: Big Feature", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Epic: Big Feature", Type: models.TypeEpic, Status: models.StatusBacklog}
 	database.CreateIssue(epic)
 
 	children := make([]*models.Issue, 3)
 	for i := 0; i < 3; i++ {
 		children[i] = &models.Issue{
-			Title: fmt.Sprintf("Child %d", i+1), Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID,
+			Title: fmt.Sprintf("Child %d", i+1), Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID,
 		}
 		database.CreateIssue(children[i])
 	}
@@ -68,30 +68,30 @@ func TestCascadeCLIMultipleChildren(t *testing.T) {
 	// Close first two
 	now := time.Now()
 	for i := 0; i < 2; i++ {
-		children[i].Status = models.StatusClosed
+		children[i].Status = models.StatusShipped
 		children[i].ClosedAt = &now
 		database.UpdateIssue(children[i])
 	}
 
 	// Should NOT cascade yet
-	cascaded, _ := database.CascadeUpParentStatus(children[0].ID, models.StatusClosed, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus(children[0].ID, models.StatusShipped, sessionID)
 	if cascaded != 0 {
 		t.Errorf("Epic should not cascade yet, got %d cascaded", cascaded)
 	}
 
 	// Close last child
-	children[2].Status = models.StatusClosed
+	children[2].Status = models.StatusShipped
 	children[2].ClosedAt = &now
 	database.UpdateIssue(children[2])
 
 	// Now cascade
-	cascaded, _ = database.CascadeUpParentStatus(children[2].ID, models.StatusClosed, sessionID)
+	cascaded, _ = database.CascadeUpParentStatus(children[2].ID, models.StatusShipped, sessionID)
 	if cascaded != 1 {
 		t.Errorf("Expected 1 cascaded, got %d", cascaded)
 	}
 
 	epic, _ = database.GetIssue(epic.ID)
-	if epic.Status != models.StatusClosed {
+	if epic.Status != models.StatusShipped {
 		t.Errorf("Epic should be closed, got %q", epic.Status)
 	}
 }
@@ -104,33 +104,33 @@ func TestCascadeCLINestedHierarchy(t *testing.T) {
 
 	sessionID := "ses_nested"
 
-	grandparent := &models.Issue{Title: "Epic: L1", Type: models.TypeEpic, Status: models.StatusOpen}
+	grandparent := &models.Issue{Title: "Epic: L1", Type: models.TypeEpic, Status: models.StatusBacklog}
 	database.CreateIssue(grandparent)
 
-	parent := &models.Issue{Title: "Epic: L2", Type: models.TypeEpic, Status: models.StatusOpen, ParentID: grandparent.ID}
+	parent := &models.Issue{Title: "Epic: L2", Type: models.TypeEpic, Status: models.StatusBacklog, ParentID: grandparent.ID}
 	database.CreateIssue(parent)
 
-	child := &models.Issue{Title: "Task: L3", Type: models.TypeTask, Status: models.StatusOpen, ParentID: parent.ID}
+	child := &models.Issue{Title: "Task: L3", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: parent.ID}
 	database.CreateIssue(child)
 
 	now := time.Now()
-	child.Status = models.StatusClosed
+	child.Status = models.StatusShipped
 	child.ClosedAt = &now
 	database.UpdateIssue(child)
 
-	cascaded, _ := database.CascadeUpParentStatus(child.ID, models.StatusClosed, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus(child.ID, models.StatusShipped, sessionID)
 
 	if cascaded != 2 {
 		t.Errorf("Expected 2 cascaded levels, got %d", cascaded)
 	}
 
 	retrievedParent, _ := database.GetIssue(parent.ID)
-	if retrievedParent.Status != models.StatusClosed {
+	if retrievedParent.Status != models.StatusShipped {
 		t.Errorf("Parent should be closed, got %q", retrievedParent.Status)
 	}
 
 	retrievedGrandparent, _ := database.GetIssue(grandparent.ID)
-	if retrievedGrandparent.Status != models.StatusClosed {
+	if retrievedGrandparent.Status != models.StatusShipped {
 		t.Errorf("Grandparent should be closed, got %q", retrievedGrandparent.Status)
 	}
 }
@@ -142,23 +142,23 @@ func TestCascadeCLIStatusRules(t *testing.T) {
 	defer database.Close()
 
 	sessionID := "ses_rules"
-	epic := &models.Issue{Title: "Epic for review", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Epic for review", Type: models.TypeEpic, Status: models.StatusBacklog}
 	database.CreateIssue(epic)
 
-	child := &models.Issue{Title: "Child for review", Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID}
+	child := &models.Issue{Title: "Child for review", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID}
 	database.CreateIssue(child)
 
-	child.Status = models.StatusInReview
+	child.Status = models.StatusReview
 	database.UpdateIssue(child)
 
-	cascaded, _ := database.CascadeUpParentStatus(child.ID, models.StatusInReview, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus(child.ID, models.StatusReview, sessionID)
 
 	if cascaded != 1 {
 		t.Errorf("Expected cascade to in_review, got %d", cascaded)
 	}
 
 	epic, _ = database.GetIssue(epic.ID)
-	if epic.Status != models.StatusInReview {
+	if epic.Status != models.StatusReview {
 		t.Errorf("Epic should be in_review, got %q", epic.Status)
 	}
 }
@@ -169,15 +169,15 @@ func TestCascadeCLINoParent(t *testing.T) {
 	database, _ := db.Initialize(dir)
 	defer database.Close()
 
-	task := &models.Issue{Title: "Orphan Task", Type: models.TypeTask, Status: models.StatusOpen}
+	task := &models.Issue{Title: "Orphan Task", Type: models.TypeTask, Status: models.StatusBacklog}
 	database.CreateIssue(task)
 
 	now := time.Now()
-	task.Status = models.StatusClosed
+	task.Status = models.StatusShipped
 	task.ClosedAt = &now
 	database.UpdateIssue(task)
 
-	cascaded, cascadedIDs := database.CascadeUpParentStatus(task.ID, models.StatusClosed, "ses_orphan")
+	cascaded, cascadedIDs := database.CascadeUpParentStatus(task.ID, models.StatusShipped, "ses_orphan")
 
 	if cascaded != 0 {
 		t.Errorf("Expected 0 cascaded for orphan, got %d", cascaded)
@@ -194,18 +194,18 @@ func TestCascadeCLIUndoable(t *testing.T) {
 	defer database.Close()
 
 	sessionID := "ses_undo_test"
-	epic := &models.Issue{Title: "Epic for undo", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Epic for undo", Type: models.TypeEpic, Status: models.StatusBacklog}
 	database.CreateIssue(epic)
 
-	child := &models.Issue{Title: "Child for undo", Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID}
+	child := &models.Issue{Title: "Child for undo", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID}
 	database.CreateIssue(child)
 
 	now := time.Now()
-	child.Status = models.StatusClosed
+	child.Status = models.StatusShipped
 	child.ClosedAt = &now
 	database.UpdateIssue(child)
 
-	database.CascadeUpParentStatus(child.ID, models.StatusClosed, sessionID)
+	database.CascadeUpParentStatus(child.ID, models.StatusShipped, sessionID)
 
 	actions, _ := database.GetRecentActions(sessionID, 10)
 	foundCascadeAction := false
@@ -230,25 +230,25 @@ func TestCascadeCLINonEpicParent(t *testing.T) {
 	database, _ := db.Initialize(dir)
 	defer database.Close()
 
-	parentTask := &models.Issue{Title: "Parent Task", Type: models.TypeTask, Status: models.StatusOpen}
+	parentTask := &models.Issue{Title: "Parent Task", Type: models.TypeTask, Status: models.StatusBacklog}
 	database.CreateIssue(parentTask)
 
-	childTask := &models.Issue{Title: "Child Task", Type: models.TypeTask, Status: models.StatusOpen, ParentID: parentTask.ID}
+	childTask := &models.Issue{Title: "Child Task", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: parentTask.ID}
 	database.CreateIssue(childTask)
 
 	now := time.Now()
-	childTask.Status = models.StatusClosed
+	childTask.Status = models.StatusShipped
 	childTask.ClosedAt = &now
 	database.UpdateIssue(childTask)
 
-	cascaded, _ := database.CascadeUpParentStatus(childTask.ID, models.StatusClosed, "ses_non_epic")
+	cascaded, _ := database.CascadeUpParentStatus(childTask.ID, models.StatusShipped, "ses_non_epic")
 
 	if cascaded != 0 {
 		t.Errorf("Should not cascade through non-epic parent, got %d", cascaded)
 	}
 
 	parentTask, _ = database.GetIssue(parentTask.ID)
-	if parentTask.Status != models.StatusOpen {
+	if parentTask.Status != models.StatusBacklog {
 		t.Errorf("Non-epic parent should not be affected, got %q", parentTask.Status)
 	}
 }
@@ -264,11 +264,11 @@ func TestCascadeCLITableDriven(t *testing.T) {
 		expectedCascaded    int
 		shouldCascadeParent bool
 	}{
-		{"Epic 1 child closed", models.TypeEpic, 1, 1, models.StatusClosed, 1, true},
-		{"Epic 3 children 2 closed", models.TypeEpic, 3, 2, models.StatusClosed, 0, false},
-		{"Epic 3 children all closed", models.TypeEpic, 3, 3, models.StatusClosed, 1, true},
-		{"Task parent no cascade", models.TypeTask, 1, 1, models.StatusClosed, 0, false},
-		{"Epic to in_review all children", models.TypeEpic, 2, 2, models.StatusInReview, 1, true},
+		{"Epic 1 child closed", models.TypeEpic, 1, 1, models.StatusShipped, 1, true},
+		{"Epic 3 children 2 closed", models.TypeEpic, 3, 2, models.StatusShipped, 0, false},
+		{"Epic 3 children all closed", models.TypeEpic, 3, 3, models.StatusShipped, 1, true},
+		{"Task parent no cascade", models.TypeTask, 1, 1, models.StatusShipped, 0, false},
+		{"Epic to in_review all children", models.TypeEpic, 2, 2, models.StatusReview, 1, true},
 	}
 
 	for _, tt := range tests {
@@ -278,13 +278,13 @@ func TestCascadeCLITableDriven(t *testing.T) {
 			defer database.Close()
 
 			sessionID := fmt.Sprintf("ses_%s", tt.name)
-			parent := &models.Issue{Title: fmt.Sprintf("Parent: %s", tt.name), Type: tt.parentType, Status: models.StatusOpen}
+			parent := &models.Issue{Title: fmt.Sprintf("Parent: %s", tt.name), Type: tt.parentType, Status: models.StatusBacklog}
 			database.CreateIssue(parent)
 
 			children := make([]*models.Issue, tt.numChildren)
 			for i := 0; i < tt.numChildren; i++ {
 				children[i] = &models.Issue{
-					Title: fmt.Sprintf("Child %d", i+1), Type: models.TypeTask, Status: models.StatusOpen, ParentID: parent.ID,
+					Title: fmt.Sprintf("Child %d", i+1), Type: models.TypeTask, Status: models.StatusBacklog, ParentID: parent.ID,
 				}
 				database.CreateIssue(children[i])
 			}
@@ -292,7 +292,7 @@ func TestCascadeCLITableDriven(t *testing.T) {
 			now := time.Now()
 			for i := 0; i < tt.childrenToClose; i++ {
 				children[i].Status = tt.targetStatus
-				if tt.targetStatus == models.StatusClosed {
+				if tt.targetStatus == models.StatusShipped {
 					children[i].ClosedAt = &now
 				}
 				database.UpdateIssue(children[i])
@@ -308,7 +308,7 @@ func TestCascadeCLITableDriven(t *testing.T) {
 			if tt.shouldCascadeParent && retrievedParent.Status != tt.targetStatus {
 				t.Errorf("Parent should be %q, got %q", tt.targetStatus, retrievedParent.Status)
 			}
-			if !tt.shouldCascadeParent && retrievedParent.Status != models.StatusOpen {
+			if !tt.shouldCascadeParent && retrievedParent.Status != models.StatusBacklog {
 				t.Errorf("Parent should remain open, got %q", retrievedParent.Status)
 			}
 		})
@@ -321,31 +321,31 @@ func TestCascadeCLIInReviewStatus(t *testing.T) {
 	database, _ := db.Initialize(dir)
 	defer database.Close()
 
-	epic := &models.Issue{Title: "Epic in review", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Epic in review", Type: models.TypeEpic, Status: models.StatusBacklog}
 	database.CreateIssue(epic)
 
-	child1 := &models.Issue{Title: "Child 1", Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID}
+	child1 := &models.Issue{Title: "Child 1", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID}
 	database.CreateIssue(child1)
 
-	child2 := &models.Issue{Title: "Child 2", Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID}
+	child2 := &models.Issue{Title: "Child 2", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID}
 	database.CreateIssue(child2)
 
-	child1.Status = models.StatusInReview
+	child1.Status = models.StatusReview
 	database.UpdateIssue(child1)
 
 	now := time.Now()
-	child2.Status = models.StatusClosed
+	child2.Status = models.StatusShipped
 	child2.ClosedAt = &now
 	database.UpdateIssue(child2)
 
-	cascaded, _ := database.CascadeUpParentStatus(child1.ID, models.StatusInReview, "ses_review")
+	cascaded, _ := database.CascadeUpParentStatus(child1.ID, models.StatusReview, "ses_review")
 
 	if cascaded != 1 {
 		t.Errorf("Expected 1 cascaded, got %d", cascaded)
 	}
 
 	epic, _ = database.GetIssue(epic.ID)
-	if epic.Status != models.StatusInReview {
+	if epic.Status != models.StatusReview {
 		t.Errorf("Epic should be in_review, got %q", epic.Status)
 	}
 }
@@ -356,28 +356,28 @@ func TestCascadeCLIMixedStatusChildren(t *testing.T) {
 	database, _ := db.Initialize(dir)
 	defer database.Close()
 
-	epic := &models.Issue{Title: "Mixed epic", Type: models.TypeEpic, Status: models.StatusOpen}
+	epic := &models.Issue{Title: "Mixed epic", Type: models.TypeEpic, Status: models.StatusBacklog}
 	database.CreateIssue(epic)
 
-	child1 := &models.Issue{Title: "Open", Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID}
+	child1 := &models.Issue{Title: "Open", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID}
 	database.CreateIssue(child1)
 
-	child2 := &models.Issue{Title: "InProgress", Type: models.TypeTask, Status: models.StatusInProgress, ParentID: epic.ID}
+	child2 := &models.Issue{Title: "InProgress", Type: models.TypeTask, Status: models.StatusInFlight, ParentID: epic.ID}
 	database.CreateIssue(child2)
 
-	child3 := &models.Issue{Title: "Closed", Type: models.TypeTask, Status: models.StatusClosed, ParentID: epic.ID}
+	child3 := &models.Issue{Title: "Closed", Type: models.TypeTask, Status: models.StatusShipped, ParentID: epic.ID}
 	now := time.Now()
 	child3.ClosedAt = &now
 	database.CreateIssue(child3)
 
-	cascaded, _ := database.CascadeUpParentStatus(child3.ID, models.StatusClosed, "ses_mixed")
+	cascaded, _ := database.CascadeUpParentStatus(child3.ID, models.StatusShipped, "ses_mixed")
 
 	if cascaded != 0 {
 		t.Errorf("Should not cascade with mixed statuses, got %d", cascaded)
 	}
 
 	epic, _ = database.GetIssue(epic.ID)
-	if epic.Status != models.StatusOpen {
+	if epic.Status != models.StatusBacklog {
 		t.Errorf("Epic should remain open, got %q", epic.Status)
 	}
 }
@@ -389,17 +389,17 @@ func TestCascadeCLIAlreadyClosed(t *testing.T) {
 	defer database.Close()
 
 	now := time.Now()
-	epic := &models.Issue{Title: "Closed epic", Type: models.TypeEpic, Status: models.StatusClosed, ClosedAt: &now}
+	epic := &models.Issue{Title: "Closed epic", Type: models.TypeEpic, Status: models.StatusShipped, ClosedAt: &now}
 	database.CreateIssue(epic)
 
-	child := &models.Issue{Title: "Orphan child", Type: models.TypeTask, Status: models.StatusOpen, ParentID: epic.ID}
+	child := &models.Issue{Title: "Orphan child", Type: models.TypeTask, Status: models.StatusBacklog, ParentID: epic.ID}
 	database.CreateIssue(child)
 
-	child.Status = models.StatusClosed
+	child.Status = models.StatusShipped
 	child.ClosedAt = &now
 	database.UpdateIssue(child)
 
-	cascaded, _ := database.CascadeUpParentStatus(child.ID, models.StatusClosed, "ses_already_closed")
+	cascaded, _ := database.CascadeUpParentStatus(child.ID, models.StatusShipped, "ses_already_closed")
 
 	if cascaded != 0 {
 		t.Errorf("Should not cascade to already-closed parent, got %d", cascaded)

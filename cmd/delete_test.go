@@ -18,7 +18,7 @@ func TestDeleteSingleIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -51,9 +51,9 @@ func TestDeleteMultipleIssues(t *testing.T) {
 	defer database.Close()
 
 	issues := []*models.Issue{
-		{Title: "Issue 1", Status: models.StatusOpen},
-		{Title: "Issue 2", Status: models.StatusInProgress},
-		{Title: "Issue 3", Status: models.StatusOpen},
+		{Title: "Issue 1", Status: models.StatusBacklog},
+		{Title: "Issue 2", Status: models.StatusInFlight},
+		{Title: "Issue 3", Status: models.StatusBacklog},
 	}
 
 	issueIDs := make([]string, 0)
@@ -93,7 +93,7 @@ func TestDeleteLogsAction(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -156,11 +156,11 @@ func TestDeleteFromDifferentStatuses(t *testing.T) {
 		name          string
 		initialStatus models.Status
 	}{
-		{"from open", models.StatusOpen},
-		{"from in_progress", models.StatusInProgress},
-		{"from in_review", models.StatusInReview},
-		{"from blocked", models.StatusBlocked},
-		{"from closed", models.StatusClosed},
+		{"from open", models.StatusBacklog},
+		{"from in_progress", models.StatusInFlight},
+		{"from in_review", models.StatusReview},
+		{"from blocked", models.StatusCanceled},
+		{"from closed", models.StatusShipped},
 	}
 
 	for _, tc := range testCases {
@@ -194,7 +194,7 @@ func TestDeleteAlreadyDeletedIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Already Deleted",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -223,8 +223,8 @@ func TestDeleteWithDependencies(t *testing.T) {
 	defer database.Close()
 
 	// Create two related issues
-	parent := &models.Issue{Title: "Parent", Status: models.StatusOpen}
-	child := &models.Issue{Title: "Child", Status: models.StatusOpen}
+	parent := &models.Issue{Title: "Parent", Status: models.StatusBacklog}
+	child := &models.Issue{Title: "Child", Status: models.StatusBacklog}
 
 	database.CreateIssue(parent)
 	database.CreateIssue(child)
@@ -267,7 +267,7 @@ func TestDeleteUpdatesTimestamp(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -296,7 +296,7 @@ func TestDeletePreservesIssueData(t *testing.T) {
 	issue := &models.Issue{
 		Title:       "Test Issue",
 		Description: "Important description",
-		Status:      models.StatusInProgress,
+		Status:      models.StatusInFlight,
 		Type:        models.TypeFeature,
 		Priority:    models.PriorityP1,
 		Points:      8,
@@ -341,11 +341,11 @@ func TestDeleteMultipleWithMixedStatuses(t *testing.T) {
 	defer database.Close()
 
 	statuses := []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
-		models.StatusInReview,
-		models.StatusBlocked,
-		models.StatusClosed,
+		models.StatusBacklog,
+		models.StatusInFlight,
+		models.StatusReview,
+		models.StatusCanceled,
+		models.StatusShipped,
 	}
 
 	issueIDs := make([]string, 0)
@@ -381,8 +381,8 @@ func TestDeletePartialFailure(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
 
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)

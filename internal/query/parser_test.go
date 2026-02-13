@@ -332,19 +332,19 @@ func TestEnumValueNormalization(t *testing.T) {
 		// Priority: legacy word forms
 		{"priority = high", "P1"},
 		{"priority = critical", "P0"},
-		// Status: uppercase/mixed → lowercase
-		{"status = OPEN", "open"},
-		{"status = Open", "open"},
-		{"status = IN_PROGRESS", "in_progress"},
+		// Status: uppercase/mixed → canonical (with legacy mapping)
+		{"status = OPEN", "backlog"},
+		{"status = Open", "backlog"},
+		{"status = IN_PROGRESS", "in_flight"},
 		// Status: legacy hyphenated forms
-		{"status = in-review", "in_review"},
-		{"status:open", "open"},
+		{"status = in-review", "review"},
+		{"status:open", "backlog"},
 		// Type: uppercase → lowercase
 		{"type = BUG", "bug"},
 		{"type = Feature", "feature"},
 		// Already canonical
 		{"priority = P0", "P0"},
-		{"status = open", "open"},
+		{"status = open", "backlog"},
 		{"type = bug", "bug"},
 	}
 

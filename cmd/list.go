@@ -106,8 +106,8 @@ var listCmd = &cobra.Command{
 		// Check if --all flag is set
 		showAll, _ := cmd.Flags().GetBool("all")
 
-		// Parse status filter (supports both --status open --status closed and --status open,closed)
-		// Also accepts "review" as alias for "in_review" and "all" to show all statuses
+		// Parse status filter (supports both --status backlog --status shipped and --status backlog,shipped)
+		// Also accepts old status names via NormalizeStatus for backwards compat, and "all" to show all statuses
 		if statusStr, _ := cmd.Flags().GetStringArray("status"); len(statusStr) > 0 {
 			for _, s := range statusStr {
 				// Split on comma to support --status in_progress,in_review
@@ -121,7 +121,7 @@ var listCmd = &cobra.Command{
 						}
 						status := models.NormalizeStatus(part)
 						if !models.IsValidStatus(status) {
-							output.Error("invalid status: %s (valid: open, in_progress, blocked, in_review, closed, all)", part)
+							output.Error("invalid status: %s (valid: triage, backlog, prioritized, in_flight, review, shipped, canceled, duplicate, all)", part)
 							return fmt.Errorf("invalid status: %s", part)
 						}
 						opts.Status = append(opts.Status, status)
@@ -132,10 +132,10 @@ var listCmd = &cobra.Command{
 		if !showAll && len(opts.Status) == 0 {
 			// Default: exclude closed issues unless --all is specified
 			opts.Status = []models.Status{
-				models.StatusOpen,
-				models.StatusInProgress,
-				models.StatusBlocked,
-				models.StatusInReview,
+				models.StatusBacklog,
+				models.StatusInFlight,
+				models.StatusCanceled,
+				models.StatusReview,
 			}
 		}
 
@@ -212,9 +212,9 @@ var listCmd = &cobra.Command{
 			opts.Implementer = sess.ID
 		}
 
-		// Open shorthand (--open is equivalent to --status open)
+		// Open shorthand (--open is equivalent to --status backlog)
 		if open, _ := cmd.Flags().GetBool("open"); open {
-			opts.Status = []models.Status{models.StatusOpen}
+			opts.Status = []models.Status{models.StatusBacklog}
 		}
 
 		// Date filters
@@ -340,7 +340,7 @@ var blockedListCmd = &cobra.Command{
 	GroupID: "shortcuts",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		result, err := runListShortcut(db.ListIssuesOptions{
-			Status: []models.Status{models.StatusBlocked},
+			Status: []models.Status{models.StatusCanceled},
 		})
 		if err != nil {
 			return err
@@ -377,7 +377,7 @@ var inReviewCmd = &cobra.Command{
 		}
 
 		result, err := runListShortcut(db.ListIssuesOptions{
-			Status: []models.Status{models.StatusInReview},
+			Status: []models.Status{models.StatusReview},
 			SortBy: "priority",
 		})
 		if err != nil {
@@ -405,7 +405,7 @@ var readyCmd = &cobra.Command{
 	GroupID: "shortcuts",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		result, err := runListShortcut(db.ListIssuesOptions{
-			Status: []models.Status{models.StatusOpen},
+			Status: []models.Status{models.StatusBacklog},
 			SortBy: "priority",
 		})
 		if err != nil {
@@ -429,7 +429,7 @@ var nextCmd = &cobra.Command{
 	GroupID: "shortcuts",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		result, err := runListShortcut(db.ListIssuesOptions{
-			Status: []models.Status{models.StatusOpen},
+			Status: []models.Status{models.StatusBacklog},
 			SortBy: "priority",
 			Limit:  1,
 		})
@@ -586,7 +586,7 @@ func init() {
 	listCmd.Flags().String("parent", "", "Filter by parent issue ID")
 	listCmd.Flags().String("epic", "", "Filter by epic (shows all tasks within epic)")
 	listCmd.Flags().BoolP("mine", "m", false, "Show issues where you are the implementer")
-	listCmd.Flags().BoolP("open", "o", false, "Show only open issues (shorthand for --status open)")
+	listCmd.Flags().BoolP("open", "o", false, "Show only backlog issues (shorthand for --status backlog)")
 	listCmd.Flags().String("created", "", "Created date filter")
 	listCmd.Flags().String("updated", "", "Updated date filter")
 	listCmd.Flags().String("closed", "", "Closed date filter")
@@ -596,7 +596,7 @@ func init() {
 	listCmd.Flags().Bool("long", false, "Detailed output")
 	listCmd.Flags().Bool("short", false, "Compact output (default)")
 	listCmd.Flags().Bool("json", false, "JSON output")
-	listCmd.Flags().BoolP("all", "a", false, "Include closed issues (by default, closed issues are hidden)")
+	listCmd.Flags().BoolP("all", "a", false, "Include shipped/canceled/duplicate issues (by default, terminal statuses are hidden)")
 
 	deletedCmd.Flags().Bool("json", false, "JSON output")
 

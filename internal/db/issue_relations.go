@@ -191,7 +191,7 @@ func (db *DB) cascadeUpParentStatusLocked(issueID string, targetStatus models.St
 	}
 
 	// Parent already at or beyond target status - nothing to do
-	if parent.Status == targetStatus || parent.Status == models.StatusClosed {
+	if parent.Status == targetStatus || parent.Status == models.StatusShipped {
 		return cascadedCount, cascadedIDs
 	}
 
@@ -204,15 +204,15 @@ func (db *DB) cascadeUpParentStatusLocked(issueID string, targetStatus models.St
 	// Check if all children have reached the target status (or beyond)
 	allAtTarget := true
 	for _, child := range children {
-		if targetStatus == models.StatusInReview {
+		if targetStatus == models.StatusReview {
 			// For in_review, check if child is in_review or closed
-			if child.Status != models.StatusInReview && child.Status != models.StatusClosed {
+			if child.Status != models.StatusReview && child.Status != models.StatusShipped {
 				allAtTarget = false
 				break
 			}
-		} else if targetStatus == models.StatusClosed {
+		} else if targetStatus == models.StatusShipped {
 			// For closed, child must be closed
-			if child.Status != models.StatusClosed {
+			if child.Status != models.StatusShipped {
 				allAtTarget = false
 				break
 			}
@@ -225,13 +225,13 @@ func (db *DB) cascadeUpParentStatusLocked(issueID string, targetStatus models.St
 
 	// All children at target - update parent
 	parent.Status = targetStatus
-	if targetStatus == models.StatusClosed {
+	if targetStatus == models.StatusShipped {
 		now := time.Now()
 		parent.ClosedAt = &now
 	}
 
 	actionType := models.ActionReview
-	if targetStatus == models.StatusClosed {
+	if targetStatus == models.StatusShipped {
 		actionType = models.ActionClose
 	}
 
@@ -247,7 +247,7 @@ func (db *DB) cascadeUpParentStatusLocked(issueID string, targetStatus models.St
 	cascadedCount++
 
 	// Auto-unblock issues that depend on this newly-closed parent
-	if targetStatus == models.StatusClosed {
+	if targetStatus == models.StatusShipped {
 		uCount, uIDs := db.cascadeUnblockDependentsLocked(parent.ID, sessionID)
 		_ = uCount
 		_ = uIDs
@@ -292,7 +292,7 @@ func (db *DB) cascadeUnblockDependentsLocked(closedIssueID, sessionID string) (i
 			continue
 		}
 
-		if issue.Status != models.StatusBlocked {
+		if issue.Status != models.StatusCanceled {
 			continue
 		}
 
@@ -309,7 +309,7 @@ func (db *DB) cascadeUnblockDependentsLocked(closedIssueID, sessionID string) (i
 				allClosed = false
 				break
 			}
-			if depIssue.Status != models.StatusClosed {
+			if depIssue.Status != models.StatusShipped {
 				allClosed = false
 				break
 			}
@@ -319,7 +319,7 @@ func (db *DB) cascadeUnblockDependentsLocked(closedIssueID, sessionID string) (i
 			continue
 		}
 
-		issue.Status = models.StatusOpen
+		issue.Status = models.StatusBacklog
 		if err := db.updateIssueAndLog(issue, sessionID, models.ActionUnblock); err != nil {
 			continue
 		}
@@ -431,7 +431,7 @@ func (db *DB) GetIssuesWithOpenDeps() (map[string]bool, error) {
 		FROM issue_dependencies d
 		JOIN issues i ON d.depends_on_id = i.id
 		WHERE d.relation_type = 'depends_on'
-		  AND i.status != 'closed'
+		  AND i.status != 'shipped'
 		  AND i.deleted_at IS NULL
 	`)
 	if err != nil {

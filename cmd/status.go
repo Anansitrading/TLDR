@@ -69,7 +69,7 @@ func outputStatusDashboard(database *db.DB, baseDir, sessionID string) error {
 
 	// Get in-review issues
 	inReview, _ := database.ListIssues(db.ListIssuesOptions{
-		Status: []models.Status{models.StatusInReview},
+		Status: []models.Status{models.StatusReview},
 		SortBy: "priority",
 	})
 
@@ -89,7 +89,7 @@ func outputStatusDashboard(database *db.DB, baseDir, sessionID string) error {
 
 	// Get blocked issues
 	blocked, _ := database.ListIssues(db.ListIssuesOptions{
-		Status: []models.Status{models.StatusBlocked},
+		Status: []models.Status{models.StatusCanceled},
 		SortBy: "priority",
 	})
 
@@ -109,7 +109,7 @@ func outputStatusDashboard(database *db.DB, baseDir, sessionID string) error {
 
 	// Get ready to start issues
 	ready, _ := database.ListIssues(db.ListIssuesOptions{
-		Status: []models.Status{models.StatusOpen},
+		Status: []models.Status{models.StatusBacklog},
 		SortBy: "priority",
 		Limit:  10,
 	})
@@ -152,7 +152,7 @@ func outputStatusJSON(database *db.DB, baseDir, sessionID string) error {
 
 	// Get in-review issues
 	inReview, _ := database.ListIssues(db.ListIssuesOptions{
-		Status: []models.Status{models.StatusInReview},
+		Status: []models.Status{models.StatusReview},
 		SortBy: "priority",
 	})
 
@@ -166,7 +166,7 @@ func outputStatusJSON(database *db.DB, baseDir, sessionID string) error {
 		}
 	}
 
-	result["in_review"] = map[string]interface{}{
+	result["review"] = map[string]interface{}{
 		"reviewable_by_you":   reviewableByMe,
 		"implemented_by_you":  implementedByMe,
 		"total":               len(inReview),
@@ -174,7 +174,7 @@ func outputStatusJSON(database *db.DB, baseDir, sessionID string) error {
 
 	// Get blocked issues
 	blocked, _ := database.ListIssues(db.ListIssuesOptions{
-		Status: []models.Status{models.StatusBlocked},
+		Status: []models.Status{models.StatusCanceled},
 		SortBy: "priority",
 	})
 
@@ -190,7 +190,7 @@ func outputStatusJSON(database *db.DB, baseDir, sessionID string) error {
 
 	// Get ready to start issues
 	ready, _ := database.ListIssues(db.ListIssuesOptions{
-		Status: []models.Status{models.StatusOpen},
+		Status: []models.Status{models.StatusBacklog},
 		SortBy: "priority",
 		Limit:  10,
 	})

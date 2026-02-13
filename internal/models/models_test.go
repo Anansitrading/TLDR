@@ -145,11 +145,14 @@ func TestValidPointsOrder(t *testing.T) {
 // TestIsValidStatusValid tests all valid statuses
 func TestIsValidStatusValid(t *testing.T) {
 	validStatuses := []Status{
-		StatusOpen,
-		StatusInProgress,
-		StatusBlocked,
-		StatusInReview,
-		StatusClosed,
+		StatusTriage,
+		StatusBacklog,
+		StatusPrioritized,
+		StatusInFlight,
+		StatusReview,
+		StatusShipped,
+		StatusCanceled,
+		StatusDuplicate,
 	}
 
 	for _, s := range validStatuses {
@@ -171,20 +174,61 @@ func TestIsValidStatusInvalid(t *testing.T) {
 
 // TestIsValidStatusConstants tests status constant values
 func TestIsValidStatusConstants(t *testing.T) {
-	if StatusOpen != "open" {
-		t.Errorf("StatusOpen should be 'open', got %q", StatusOpen)
+	if StatusTriage != "triage" {
+		t.Errorf("StatusTriage should be 'triage', got %q", StatusTriage)
 	}
-	if StatusInProgress != "in_progress" {
-		t.Errorf("StatusInProgress should be 'in_progress', got %q", StatusInProgress)
+	if StatusBacklog != "backlog" {
+		t.Errorf("StatusBacklog should be 'backlog', got %q", StatusBacklog)
 	}
-	if StatusBlocked != "blocked" {
-		t.Errorf("StatusBlocked should be 'blocked', got %q", StatusBlocked)
+	if StatusPrioritized != "prioritized" {
+		t.Errorf("StatusPrioritized should be 'prioritized', got %q", StatusPrioritized)
 	}
-	if StatusInReview != "in_review" {
-		t.Errorf("StatusInReview should be 'in_review', got %q", StatusInReview)
+	if StatusInFlight != "in_flight" {
+		t.Errorf("StatusInFlight should be 'in_flight', got %q", StatusInFlight)
 	}
-	if StatusClosed != "closed" {
-		t.Errorf("StatusClosed should be 'closed', got %q", StatusClosed)
+	if StatusReview != "review" {
+		t.Errorf("StatusReview should be 'review', got %q", StatusReview)
+	}
+	if StatusShipped != "shipped" {
+		t.Errorf("StatusShipped should be 'shipped', got %q", StatusShipped)
+	}
+	if StatusCanceled != "canceled" {
+		t.Errorf("StatusCanceled should be 'canceled', got %q", StatusCanceled)
+	}
+	if StatusDuplicate != "duplicate" {
+		t.Errorf("StatusDuplicate should be 'duplicate', got %q", StatusDuplicate)
+	}
+}
+
+// TestNormalizeStatusBackwardsCompat tests that old status strings map to new ones
+func TestNormalizeStatusBackwardsCompat(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected Status
+	}{
+		{"open", StatusBacklog},
+		{"in_progress", StatusInFlight},
+		{"in_review", StatusReview},
+		{"in-review", StatusReview},
+		{"blocked", StatusBacklog},
+		{"closed", StatusShipped},
+		// New statuses pass through
+		{"triage", StatusTriage},
+		{"backlog", StatusBacklog},
+		{"prioritized", StatusPrioritized},
+		{"in_flight", StatusInFlight},
+		{"in-flight", StatusInFlight},
+		{"review", StatusReview},
+		{"shipped", StatusShipped},
+		{"canceled", StatusCanceled},
+		{"duplicate", StatusDuplicate},
+	}
+
+	for _, tc := range tests {
+		got := NormalizeStatus(tc.input)
+		if got != tc.expected {
+			t.Errorf("NormalizeStatus(%q) = %q, want %q", tc.input, got, tc.expected)
+		}
 	}
 }
 

@@ -1458,12 +1458,16 @@ func (m Model) toggleBoardClosed() (Model, tea.Cmd) {
 	if m.BoardMode.StatusFilter == nil {
 		m.BoardMode.StatusFilter = DefaultBoardStatusFilter()
 	}
-	m.BoardMode.StatusFilter[models.StatusClosed] = !m.BoardMode.StatusFilter[models.StatusClosed]
+	// Toggle all terminal statuses together
+	showTerminal := !m.BoardMode.StatusFilter[models.StatusShipped]
+	m.BoardMode.StatusFilter[models.StatusShipped] = showTerminal
+	m.BoardMode.StatusFilter[models.StatusCanceled] = showTerminal
+	m.BoardMode.StatusFilter[models.StatusDuplicate] = showTerminal
 
-	if m.BoardMode.StatusFilter[models.StatusClosed] {
-		m.StatusMessage = "Showing closed issues"
+	if showTerminal {
+		m.StatusMessage = "Showing shipped/canceled/duplicate issues"
 	} else {
-		m.StatusMessage = "Hiding closed issues"
+		m.StatusMessage = "Hiding shipped/canceled/duplicate issues"
 	}
 
 	return m, tea.Batch(

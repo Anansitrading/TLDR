@@ -18,11 +18,11 @@ func TestSearchByTitle(t *testing.T) {
 
 	issue1 := &models.Issue{
 		Title:  "Fix login button styling",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	issue2 := &models.Issue{
 		Title:  "Implement cache layer",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	database.CreateIssue(issue1)
@@ -65,7 +65,7 @@ func TestSearchByDescription(t *testing.T) {
 	issue := &models.Issue{
 		Title:       "Backend fix",
 		Description: "Database connection pool is exhausted",
-		Status:      models.StatusOpen,
+		Status:      models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -105,12 +105,12 @@ func TestSearchByLabel(t *testing.T) {
 	issue1 := &models.Issue{
 		Title:  "Backend fix",
 		Labels: []string{"backend", "urgent"},
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	issue2 := &models.Issue{
 		Title:  "Frontend update",
 		Labels: []string{"frontend", "ui"},
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	database.CreateIssue(issue1)
@@ -152,7 +152,7 @@ func TestSearchNoResults(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -180,11 +180,11 @@ func TestSearchWithStatusFilter(t *testing.T) {
 
 	issue1 := &models.Issue{
 		Title:  "Open issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	issue2 := &models.Issue{
 		Title:  "Closed issue",
-		Status: models.StatusClosed,
+		Status: models.StatusShipped,
 	}
 
 	database.CreateIssue(issue1)
@@ -192,7 +192,7 @@ func TestSearchWithStatusFilter(t *testing.T) {
 
 	opts := db.ListIssuesOptions{
 		Search: "issue",
-		Status: []models.Status{models.StatusOpen},
+		Status: []models.Status{models.StatusBacklog},
 	}
 	results, err := database.SearchIssuesRanked("issue", opts)
 	if err != nil {
@@ -201,7 +201,7 @@ func TestSearchWithStatusFilter(t *testing.T) {
 
 	// Should only find open issue
 	for _, r := range results {
-		if r.Issue.Status != models.StatusOpen {
+		if r.Issue.Status != models.StatusBacklog {
 			t.Errorf("Expected only open issues, got status %s", r.Issue.Status)
 		}
 	}
@@ -219,12 +219,12 @@ func TestSearchWithTypeFilter(t *testing.T) {
 	issue1 := &models.Issue{
 		Title:  "Bug fix",
 		Type:   models.TypeBug,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	issue2 := &models.Issue{
 		Title:  "New feature",
 		Type:   models.TypeFeature,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	database.CreateIssue(issue1)
@@ -259,12 +259,12 @@ func TestSearchWithPriorityFilter(t *testing.T) {
 	issue1 := &models.Issue{
 		Title:    "Critical bug priority",
 		Priority: models.PriorityP0,
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 	}
 	issue2 := &models.Issue{
 		Title:    "Minor bug priority",
 		Priority: models.PriorityP3,
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 	}
 
 	database.CreateIssue(issue1)
@@ -298,7 +298,7 @@ func TestSearchWithLimit(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		issue := &models.Issue{
 			Title:  "Test issue",
-			Status: models.StatusOpen,
+			Status: models.StatusBacklog,
 		}
 		database.CreateIssue(issue)
 	}
@@ -329,14 +329,14 @@ func TestSearchRelevanceScoring(t *testing.T) {
 	// Create issue with exact title match
 	exactMatch := &models.Issue{
 		Title:  "Database query optimization",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	// Create issue with keyword in description
 	descMatch := &models.Issue{
 		Title:       "Performance issue",
 		Description: "Database is slow on large queries",
-		Status:      models.StatusOpen,
+		Status:      models.StatusBacklog,
 	}
 
 	database.CreateIssue(exactMatch)
@@ -373,7 +373,7 @@ func TestSearchCaseInsensitive(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "FIX LOGIN BUTTON",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -403,11 +403,11 @@ func TestSearchMultipleKeywords(t *testing.T) {
 
 	issue1 := &models.Issue{
 		Title:  "Database connection pool",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	issue2 := &models.Issue{
 		Title:  "Database query optimization",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	database.CreateIssue(issue1)
@@ -440,7 +440,7 @@ func TestSearchEmptyQuery(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -468,7 +468,7 @@ func TestSearchSpecialCharacters(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Fix bug in auth_service.go",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -498,7 +498,7 @@ func TestSearchWithMultipleFilters(t *testing.T) {
 		Title:    "Critical database bug",
 		Type:     models.TypeBug,
 		Priority: models.PriorityP0,
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Labels:   []string{"backend", "critical"},
 	}
 	database.CreateIssue(issue)
@@ -507,7 +507,7 @@ func TestSearchWithMultipleFilters(t *testing.T) {
 		Search:   "database",
 		Type:     []models.Type{models.TypeBug},
 		Priority: string(models.PriorityP0),
-		Status:   []models.Status{models.StatusOpen},
+		Status:   []models.Status{models.StatusBacklog},
 		Labels:   []string{"critical"},
 	}
 	results, err := database.SearchIssuesRanked("database", opts)

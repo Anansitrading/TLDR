@@ -124,7 +124,7 @@ func (db *DB) GetExtendedStats() (*models.ExtendedStats, error) {
 		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE status = ? AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1
-	`, models.StatusOpen).Scan(
+	`, models.StatusBacklog).Scan(
 		&oldestIssue.ID, &oldestIssue.Title, &oldestIssue.Description, &oldestIssue.Status, &oldestIssue.Type,
 		&oldestIssue.Priority, &oldestIssue.Points, &labels, &parentID1, &acceptance1, &sprint1,
 		&assignee1, &linearID1, &linearIdentifier1, &projectTag1,
@@ -207,7 +207,7 @@ func (db *DB) GetExtendedStats() (*models.ExtendedStats, error) {
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE status = ? AND closed_at IS NOT NULL AND deleted_at IS NULL
 		ORDER BY closed_at DESC LIMIT 1
-	`, models.StatusClosed).Scan(
+	`, models.StatusShipped).Scan(
 		&closedIssue.ID, &closedIssue.Title, &closedIssue.Description, &closedIssue.Status, &closedIssue.Type,
 		&closedIssue.Priority, &closedIssue.Points, &labels, &parentID3, &acceptance3, &sprint3,
 		&assignee3, &linearID3, &linearIdentifier3, &projectTag3,
@@ -237,7 +237,7 @@ func (db *DB) GetExtendedStats() (*models.ExtendedStats, error) {
 	// Derived stats
 	if stats.Total > 0 {
 		stats.AvgPointsPerTask = float64(stats.TotalPoints) / float64(stats.Total)
-		closedCount := stats.ByStatus[models.StatusClosed]
+		closedCount := stats.ByStatus[models.StatusShipped]
 		stats.CompletionRate = float64(closedCount) / float64(stats.Total)
 	}
 

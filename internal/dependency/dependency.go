@@ -153,7 +153,7 @@ func getTransitiveBlockedFiltered(database *db.DB, issueID string, visited map[s
 		}
 		if excludeClosed {
 			issue, err := database.GetIssue(id)
-			if err != nil || issue.Status == models.StatusClosed {
+			if err != nil || issue.Status == models.StatusShipped {
 				visited[id] = true
 				continue
 			}

@@ -68,10 +68,10 @@ var epicListCmd = &cobra.Command{
 		// Default: exclude closed epics unless --all is specified
 		if !showAll {
 			opts.Status = []models.Status{
-				models.StatusOpen,
-				models.StatusInProgress,
-				models.StatusBlocked,
-				models.StatusInReview,
+				models.StatusBacklog,
+				models.StatusInFlight,
+				models.StatusCanceled,
+				models.StatusReview,
 			}
 		}
 

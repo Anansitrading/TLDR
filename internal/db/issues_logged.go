@@ -75,7 +75,7 @@ func (db *DB) scanIssueRow(id string) (*models.Issue, error) {
 func (db *DB) CreateIssueLogged(issue *models.Issue, sessionID string) error {
 	return db.withWriteLock(func() error {
 		if issue.Status == "" {
-			issue.Status = models.StatusOpen
+			issue.Status = models.StatusBacklog
 		}
 		if issue.Type == "" {
 			issue.Type = models.TypeTask

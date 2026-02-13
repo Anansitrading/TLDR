@@ -46,12 +46,12 @@ func (m Model) markForReview() (tea.Model, tea.Cmd) {
 
 	// Validate transition with state machine
 	sm := workflow.DefaultMachine()
-	if !sm.IsValidTransition(issue.Status, models.StatusInReview) {
+	if !sm.IsValidTransition(issue.Status, models.StatusReview) {
 		return m, nil
 	}
 
 	// Update status
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	if issue.ImplementerSession == "" {
 		issue.ImplementerSession = m.SessionID
 	}
@@ -62,12 +62,12 @@ func (m Model) markForReview() (tea.Model, tea.Cmd) {
 	// Cascade DOWN to descendants if this is a parent issue (epic)
 	if hasChildren, _ := m.DB.HasChildren(issueID); hasChildren {
 		descendants, err := m.DB.GetDescendantIssues(issueID, []models.Status{
-			models.StatusOpen,
-			models.StatusInProgress,
+			models.StatusBacklog,
+			models.StatusInFlight,
 		})
 		if err == nil && len(descendants) > 0 {
 			for _, child := range descendants {
-				child.Status = models.StatusInReview
+				child.Status = models.StatusReview
 				if child.ImplementerSession == "" {
 					child.ImplementerSession = m.SessionID
 				}
@@ -83,7 +83,7 @@ func (m Model) markForReview() (tea.Model, tea.Cmd) {
 	}
 
 	// Cascade up to parent epic if all siblings are ready
-	m.DB.CascadeUpParentStatus(issueID, models.StatusInReview, m.SessionID)
+	m.DB.CascadeUpParentStatus(issueID, models.StatusReview, m.SessionID)
 
 	// If we're in a modal, refresh instead of closing to keep context
 	if modal := m.CurrentModal(); modal != nil {
@@ -184,7 +184,7 @@ func (m Model) confirmClose() (tea.Model, tea.Cmd) {
 	}
 
 	// Can't close already-closed issues
-	if issue.Status == models.StatusClosed {
+	if issue.Status == models.StatusShipped {
 		return m, nil
 	}
 
@@ -213,14 +213,14 @@ func (m Model) executeCloseWithReason() (tea.Model, tea.Cmd) {
 
 	// Validate transition with state machine
 	sm := workflow.DefaultMachine()
-	if !sm.IsValidTransition(issue.Status, models.StatusClosed) {
+	if !sm.IsValidTransition(issue.Status, models.StatusShipped) {
 		m.closeCloseConfirmModal()
 		return m, nil
 	}
 
 	// Update status
 	now := time.Now()
-	issue.Status = models.StatusClosed
+	issue.Status = models.StatusShipped
 	issue.ClosedAt = &now
 	if err := m.DB.UpdateIssueLogged(issue, m.SessionID, models.ActionClose); err != nil {
 		m.closeCloseConfirmModal()
@@ -242,14 +242,14 @@ func (m Model) executeCloseWithReason() (tea.Model, tea.Cmd) {
 	// Cascade DOWN to descendants if this is a parent issue (epic)
 	if hasChildren, _ := m.DB.HasChildren(issueID); hasChildren {
 		descendants, err := m.DB.GetDescendantIssues(issueID, []models.Status{
-			models.StatusOpen,
-			models.StatusInProgress,
-			models.StatusInReview,
+			models.StatusBacklog,
+			models.StatusInFlight,
+			models.StatusReview,
 		})
 		if err == nil && len(descendants) > 0 {
 			now := time.Now()
 			for _, child := range descendants {
-				child.Status = models.StatusClosed
+				child.Status = models.StatusShipped
 				child.ClosedAt = &now
 				if child.ImplementerSession == "" {
 					child.ImplementerSession = m.SessionID
@@ -267,7 +267,7 @@ func (m Model) executeCloseWithReason() (tea.Model, tea.Cmd) {
 	}
 
 	// Cascade up to parent epic if all siblings are closed
-	m.DB.CascadeUpParentStatus(issueID, models.StatusClosed, m.SessionID)
+	m.DB.CascadeUpParentStatus(issueID, models.StatusShipped, m.SessionID)
 
 	// Auto-unblock dependents whose dependencies are now all closed
 	m.DB.CascadeUnblockDependents(issueID, m.SessionID)
@@ -310,7 +310,7 @@ func (m Model) approveIssue() (tea.Model, tea.Cmd) {
 
 	// Validate transition with state machine
 	sm := workflow.DefaultMachine()
-	if !sm.IsValidTransition(issue.Status, models.StatusClosed) {
+	if !sm.IsValidTransition(issue.Status, models.StatusShipped) {
 		return m, nil
 	}
 
@@ -321,7 +321,7 @@ func (m Model) approveIssue() (tea.Model, tea.Cmd) {
 
 	// Update status
 	now := time.Now()
-	issue.Status = models.StatusClosed
+	issue.Status = models.StatusShipped
 	issue.ReviewerSession = m.SessionID
 	issue.ClosedAt = &now
 	if err := m.DB.UpdateIssueLogged(issue, m.SessionID, models.ActionApprove); err != nil {
@@ -334,14 +334,14 @@ func (m Model) approveIssue() (tea.Model, tea.Cmd) {
 	// Cascade DOWN to descendants if this is a parent issue (epic)
 	if hasChildren, _ := m.DB.HasChildren(issue.ID); hasChildren {
 		descendants, err := m.DB.GetDescendantIssues(issue.ID, []models.Status{
-			models.StatusOpen,
-			models.StatusInProgress,
-			models.StatusInReview,
+			models.StatusBacklog,
+			models.StatusInFlight,
+			models.StatusReview,
 		})
 		if err == nil && len(descendants) > 0 {
 			now := time.Now()
 			for _, child := range descendants {
-				child.Status = models.StatusClosed
+				child.Status = models.StatusShipped
 				child.ClosedAt = &now
 				child.ReviewerSession = m.SessionID
 				if child.ImplementerSession == "" {
@@ -360,7 +360,7 @@ func (m Model) approveIssue() (tea.Model, tea.Cmd) {
 	}
 
 	// Cascade up to parent epic if all siblings are closed
-	m.DB.CascadeUpParentStatus(issue.ID, models.StatusClosed, m.SessionID)
+	m.DB.CascadeUpParentStatus(issue.ID, models.StatusShipped, m.SessionID)
 
 	// Auto-unblock dependents whose dependencies are now all closed
 	m.DB.CascadeUnblockDependents(issue.ID, m.SessionID)
@@ -407,7 +407,7 @@ func (m Model) reopenIssue() (tea.Model, tea.Cmd) {
 
 	// Validate transition with state machine
 	sm := workflow.DefaultMachine()
-	if !sm.IsValidTransition(issue.Status, models.StatusOpen) {
+	if !sm.IsValidTransition(issue.Status, models.StatusBacklog) {
 		m.StatusMessage = "Cannot reopen from " + string(issue.Status)
 		m.StatusIsError = true
 		return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
@@ -416,7 +416,7 @@ func (m Model) reopenIssue() (tea.Model, tea.Cmd) {
 	}
 
 	// Update status
-	issue.Status = models.StatusOpen
+	issue.Status = models.StatusBacklog
 	issue.ReviewerSession = ""
 	issue.ClosedAt = nil
 	if err := m.DB.UpdateIssueLogged(issue, m.SessionID, models.ActionReopen); err != nil {
@@ -434,7 +434,7 @@ func (m Model) reopenIssue() (tea.Model, tea.Cmd) {
 	if modal := m.CurrentModal(); modal != nil {
 		// Update inline for immediate feedback
 		if modal.Issue != nil && modal.IssueID == issueID {
-			modal.Issue.Status = models.StatusOpen
+			modal.Issue.Status = models.StatusBacklog
 			modal.Issue.ClosedAt = nil
 		}
 		return m, tea.Batch(
@@ -571,7 +571,7 @@ func (m Model) sendToWorktree() (tea.Model, tea.Cmd) {
 func filterActiveBlockers(blockers []models.Issue) []models.Issue {
 	var active []models.Issue
 	for _, b := range blockers {
-		if b.Status != models.StatusClosed {
+		if b.Status != models.StatusShipped {
 			active = append(active, b)
 		}
 	}

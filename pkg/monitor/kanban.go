@@ -11,11 +11,14 @@ import (
 
 // kanbanStatusOrder defines the display order for kanban columns
 var kanbanStatusOrder = []models.Status{
-	models.StatusOpen,
-	models.StatusInProgress,
-	models.StatusInReview,
-	models.StatusBlocked,
-	models.StatusClosed,
+	models.StatusTriage,
+	models.StatusBacklog,
+	models.StatusPrioritized,
+	models.StatusInFlight,
+	models.StatusReview,
+	models.StatusShipped,
+	models.StatusCanceled,
+	models.StatusDuplicate,
 }
 
 // rebuildKanbanState rebuilds the kanban column data from current board issues.

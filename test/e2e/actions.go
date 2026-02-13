@@ -59,7 +59,7 @@ func execCreate(e *ChaosEngine, actor string) ActionResult {
 		return ActionResult{Action: "create", Actor: actor, Output: out}
 	}
 
-	e.Issues[id] = &IssueState{ID: id, Status: "open", Owner: actor}
+	e.Issues[id] = &IssueState{ID: id, Status: "backlog", Owner: actor}
 	e.IssueOrder = append(e.IssueOrder, id)
 
 	if parent != "" {
@@ -233,7 +233,7 @@ func execRestore(e *ChaosEngine, actor string) ActionResult {
 // --- Status transitions ---
 
 func execStart(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("open")
+	id := e.selectIssue("backlog")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("start")
@@ -246,12 +246,12 @@ func execStart(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "start", Actor: actor, Target: id, Output: out}
 	}
-	e.Issues[id].Status = "in_progress"
+	e.Issues[id].Status = "in_flight"
 	return ActionResult{Action: "start", Actor: actor, Target: id, OK: true, Output: out}
 }
 
 func execUnstart(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("in_progress")
+	id := e.selectIssue("in_flight")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("unstart")
@@ -264,12 +264,12 @@ func execUnstart(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "unstart", Actor: actor, Target: id, Output: out}
 	}
-	e.Issues[id].Status = "open"
+	e.Issues[id].Status = "backlog"
 	return ActionResult{Action: "unstart", Actor: actor, Target: id, OK: true, Output: out}
 }
 
 func execReview(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("in_progress")
+	id := e.selectIssue("in_flight")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("review")
@@ -282,12 +282,12 @@ func execReview(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "review", Actor: actor, Target: id, Output: out}
 	}
-	e.Issues[id].Status = "in_review"
+	e.Issues[id].Status = "review"
 	return ActionResult{Action: "review", Actor: actor, Target: id, OK: true, Output: out}
 }
 
 func execApprove(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("in_review")
+	id := e.selectIssue("review")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("approve")
@@ -307,12 +307,12 @@ func execApprove(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "approve", Actor: approver, Target: id, Output: out}
 	}
-	e.Issues[id].Status = "closed"
+	e.Issues[id].Status = "shipped"
 	return ActionResult{Action: "approve", Actor: approver, Target: id, OK: true, Output: out}
 }
 
 func execReject(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("in_review")
+	id := e.selectIssue("review")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("reject")
@@ -325,7 +325,7 @@ func execReject(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "reject", Actor: actor, Target: id, Output: out}
 	}
-	e.Issues[id].Status = "in_progress"
+	e.Issues[id].Status = "in_flight"
 	return ActionResult{Action: "reject", Actor: actor, Target: id, OK: true, Output: out}
 }
 
@@ -335,7 +335,7 @@ func execClose(e *ChaosEngine, actor string) ActionResult {
 		e.Stats.Skipped++
 		return skip("close")
 	}
-	if e.Issues[id].Status == "closed" {
+	if e.Issues[id].Status == "shipped" {
 		e.Stats.Skipped++
 		return skip("close")
 	}
@@ -347,12 +347,12 @@ func execClose(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "close", Actor: actor, Target: id, Output: out}
 	}
-	e.Issues[id].Status = "closed"
+	e.Issues[id].Status = "shipped"
 	return ActionResult{Action: "close", Actor: actor, Target: id, OK: true, Output: out}
 }
 
 func execReopen(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("closed")
+	id := e.selectIssue("shipped")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("reopen")
@@ -365,7 +365,7 @@ func execReopen(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "reopen", Actor: actor, Target: id, Output: out}
 	}
-	e.Issues[id].Status = "open"
+	e.Issues[id].Status = "backlog"
 	return ActionResult{Action: "reopen", Actor: actor, Target: id, OK: true, Output: out}
 }
 
@@ -376,7 +376,7 @@ func execBulkStart(e *ChaosEngine, actor string) ActionResult {
 	seen := make(map[string]bool)
 	var ids []string
 	for range count {
-		id := e.selectIssue("open")
+		id := e.selectIssue("backlog")
 		if id != "" && !seen[id] {
 			seen[id] = true
 			ids = append(ids, id)
@@ -397,7 +397,7 @@ func execBulkStart(e *ChaosEngine, actor string) ActionResult {
 		return ActionResult{Action: "bulk_start", Actor: actor, Target: strings.Join(ids, ","), Output: out}
 	}
 	for _, id := range ids {
-		e.Issues[id].Status = "in_progress"
+		e.Issues[id].Status = "in_flight"
 	}
 	return ActionResult{Action: "bulk_start", Actor: actor, Target: strings.Join(ids, ","), OK: true, Output: out}
 }
@@ -407,7 +407,7 @@ func execBulkReview(e *ChaosEngine, actor string) ActionResult {
 	seen := make(map[string]bool)
 	var ids []string
 	for range count {
-		id := e.selectIssue("in_progress")
+		id := e.selectIssue("in_flight")
 		if id != "" && !seen[id] {
 			seen[id] = true
 			ids = append(ids, id)
@@ -428,7 +428,7 @@ func execBulkReview(e *ChaosEngine, actor string) ActionResult {
 		return ActionResult{Action: "bulk_review", Actor: actor, Target: strings.Join(ids, ","), Output: out}
 	}
 	for _, id := range ids {
-		e.Issues[id].Status = "in_review"
+		e.Issues[id].Status = "review"
 	}
 	return ActionResult{Action: "bulk_review", Actor: actor, Target: strings.Join(ids, ","), OK: true, Output: out}
 }
@@ -439,7 +439,7 @@ func execBulkClose(e *ChaosEngine, actor string) ActionResult {
 	var ids []string
 	for range count {
 		id := e.selectIssue("not_deleted")
-		if id != "" && !seen[id] && e.Issues[id].Status != "closed" {
+		if id != "" && !seen[id] && e.Issues[id].Status != "shipped" {
 			seen[id] = true
 			ids = append(ids, id)
 		}
@@ -459,7 +459,7 @@ func execBulkClose(e *ChaosEngine, actor string) ActionResult {
 		return ActionResult{Action: "bulk_close", Actor: actor, Target: strings.Join(ids, ","), Output: out}
 	}
 	for _, id := range ids {
-		e.Issues[id].Status = "closed"
+		e.Issues[id].Status = "shipped"
 	}
 	return ActionResult{Action: "bulk_close", Actor: actor, Target: strings.Join(ids, ","), OK: true, Output: out}
 }
@@ -467,9 +467,9 @@ func execBulkClose(e *ChaosEngine, actor string) ActionResult {
 // --- Block/Unblock ---
 
 func execBlock(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("open")
+	id := e.selectIssue("backlog")
 	if id == "" {
-		id = e.selectIssue("in_progress")
+		id = e.selectIssue("in_flight")
 	}
 	if id == "" {
 		e.Stats.Skipped++
@@ -478,13 +478,13 @@ func execBlock(e *ChaosEngine, actor string) ActionResult {
 
 	out, err := e.Harness.Td(actor, "block", id, "--reason", "chaos block")
 	if err == nil && !isExpectedFailure(out) && !strings.Contains(strings.ToLower(out), "error") {
-		e.Issues[id].Status = "blocked"
+		e.Issues[id].Status = "canceled"
 	}
 	return ActionResult{Action: "block", Actor: actor, Target: id, OK: true, Output: out}
 }
 
 func execUnblock(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("blocked")
+	id := e.selectIssue("canceled")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("unblock")
@@ -492,7 +492,7 @@ func execUnblock(e *ChaosEngine, actor string) ActionResult {
 
 	out, err := e.Harness.Td(actor, "unblock", id, "--reason", "chaos unblock")
 	if err == nil && !isExpectedFailure(out) && !strings.Contains(strings.ToLower(out), "error") {
-		e.Issues[id].Status = "open"
+		e.Issues[id].Status = "backlog"
 	}
 	return ActionResult{Action: "unblock", Actor: actor, Target: id, OK: true, Output: out}
 }
@@ -775,7 +775,7 @@ func execBoardViewMode(e *ChaosEngine, actor string) ActionResult {
 // --- Handoffs ---
 
 func execHandoff(e *ChaosEngine, actor string) ActionResult {
-	id := e.selectIssue("in_progress")
+	id := e.selectIssue("in_flight")
 	if id == "" {
 		e.Stats.Skipped++
 		return skip("handoff")
@@ -835,7 +835,7 @@ func execCreateChild(e *ChaosEngine, actor string) ActionResult {
 		return ActionResult{Action: "create_child", Actor: actor, Target: parent, Output: out}
 	}
 
-	e.Issues[id] = &IssueState{ID: id, Status: "open", Owner: actor}
+	e.Issues[id] = &IssueState{ID: id, Status: "backlog", Owner: actor}
 	e.IssueOrder = append(e.IssueOrder, id)
 	e.ParentChild[id] = parent
 	return ActionResult{Action: "create_child", Actor: actor, Target: id, OK: true, Output: out}
@@ -847,7 +847,7 @@ func execCascadeHandoff(e *ChaosEngine, actor string) ActionResult {
 	for childID, pID := range e.ParentChild {
 		pSt, pOK := e.Issues[pID]
 		cSt, cOK := e.Issues[childID]
-		if pOK && cOK && !pSt.Deleted && !cSt.Deleted && pSt.Status == "in_progress" {
+		if pOK && cOK && !pSt.Deleted && !cSt.Deleted && pSt.Status == "in_flight" {
 			parentID = pID
 			break
 		}
@@ -876,7 +876,7 @@ func execCascadeReview(e *ChaosEngine, actor string) ActionResult {
 	for childID, pID := range e.ParentChild {
 		pSt, pOK := e.Issues[pID]
 		cSt, cOK := e.Issues[childID]
-		if pOK && cOK && !pSt.Deleted && !cSt.Deleted && pSt.Status == "in_progress" && cSt.Status == "in_progress" {
+		if pOK && cOK && !pSt.Deleted && !cSt.Deleted && pSt.Status == "in_flight" && cSt.Status == "in_flight" {
 			parentID = pID
 			break
 		}
@@ -893,13 +893,13 @@ func execCascadeReview(e *ChaosEngine, actor string) ActionResult {
 		}
 		return ActionResult{Action: "cascade_review", Actor: actor, Target: parentID, Output: out}
 	}
-	e.Issues[parentID].Status = "in_review"
+	e.Issues[parentID].Status = "review"
 	// Update children that were in_progress to in_review (best-effort tracker update)
 	for childID, pID := range e.ParentChild {
 		if pID == parentID {
 			cSt := e.Issues[childID]
-			if cSt != nil && !cSt.Deleted && (cSt.Status == "in_progress" || cSt.Status == "open") {
-				cSt.Status = "in_review"
+			if cSt != nil && !cSt.Deleted && (cSt.Status == "in_flight" || cSt.Status == "backlog") {
+				cSt.Status = "review"
 			}
 		}
 	}

@@ -103,7 +103,7 @@ func TestUndoIssueCreate(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -147,7 +147,7 @@ func TestUndoIssueDelete(t *testing.T) {
 	// Create and delete an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -188,7 +188,7 @@ func TestUndoIssueUpdate(t *testing.T) {
 	// Create issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -198,7 +198,7 @@ func TestUndoIssueUpdate(t *testing.T) {
 	originalJSON, _ := json.Marshal(issue)
 
 	// Change status
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	if err := database.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
@@ -219,8 +219,8 @@ func TestUndoIssueUpdate(t *testing.T) {
 
 	// Verify status is restored
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusOpen {
-		t.Errorf("Status not restored: got %q, want %q", retrieved.Status, models.StatusOpen)
+	if retrieved.Status != models.StatusBacklog {
+		t.Errorf("Status not restored: got %q, want %q", retrieved.Status, models.StatusBacklog)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestUndoIssueStart(t *testing.T) {
 	// Create issue in open state
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -244,7 +244,7 @@ func TestUndoIssueStart(t *testing.T) {
 	originalJSON, _ := json.Marshal(issue)
 
 	// Start the issue
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	if err := database.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
@@ -264,8 +264,8 @@ func TestUndoIssueStart(t *testing.T) {
 	}
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusOpen {
-		t.Errorf("Status not reverted: got %q, want %q", retrieved.Status, models.StatusOpen)
+	if retrieved.Status != models.StatusBacklog {
+		t.Errorf("Status not reverted: got %q, want %q", retrieved.Status, models.StatusBacklog)
 	}
 }
 
@@ -279,8 +279,8 @@ func TestUndoDependencyAdd(t *testing.T) {
 	defer database.Close()
 
 	// Create two issues
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 
@@ -329,8 +329,8 @@ func TestUndoDependencyRemove(t *testing.T) {
 	defer database.Close()
 
 	// Create two issues
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 
@@ -374,7 +374,7 @@ func TestUndoFileLinkAdd(t *testing.T) {
 	defer database.Close()
 
 	// Create issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Link a file
@@ -426,7 +426,7 @@ func TestUndoFileLinkRemove(t *testing.T) {
 	defer database.Close()
 
 	// Create issue
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Create action log for unlink
@@ -473,7 +473,7 @@ func TestPerformUndoDispatch(t *testing.T) {
 	defer database.Close()
 
 	// Create an issue for testing
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	tests := []struct {
@@ -515,7 +515,7 @@ func TestUndoUpdateWithoutPreviousData(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	action := &models.ActionLog{
@@ -541,7 +541,7 @@ func TestUndoWithInvalidPreviousData(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	action := &models.ActionLog{
@@ -572,7 +572,7 @@ func TestUndoBoardUnposition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateBoard failed: %v", err)
 	}
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
@@ -628,7 +628,7 @@ func TestUndoBoardSetPosition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateBoard failed: %v", err)
 	}
-	issue := &models.Issue{Title: "Test Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test Issue", Status: models.StatusBacklog}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}

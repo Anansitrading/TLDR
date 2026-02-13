@@ -165,24 +165,24 @@ func TestUpdateIssueStatus(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Test", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Test", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Open -> In Progress
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	database.UpdateIssue(issue)
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusInProgress {
+	if retrieved.Status != models.StatusInFlight {
 		t.Errorf("Status not updated: got %q", retrieved.Status)
 	}
 
 	// In Progress -> In Review
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	database.UpdateIssue(issue)
 
 	retrieved, _ = database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusInReview {
+	if retrieved.Status != models.StatusReview {
 		t.Errorf("Status not updated to in_review: got %q", retrieved.Status)
 	}
 }

@@ -98,7 +98,7 @@ func TestReviewRequiresHandoff(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -131,7 +131,7 @@ func TestApproveRequiresDifferentSession(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusInReview,
+		Status: models.StatusReview,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -165,22 +165,22 @@ func TestRejectResetsToInProgress(t *testing.T) {
 	// Create an issue in review
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusInReview,
+		Status: models.StatusReview,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
 	}
 
 	// Update to in_progress (simulating reject)
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	if err := database.UpdateIssue(issue); err != nil {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
 
 	// Verify status changed
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusInProgress {
-		t.Errorf("Status not updated: got %q, want %q", retrieved.Status, models.StatusInProgress)
+	if retrieved.Status != models.StatusInFlight {
+		t.Errorf("Status not updated: got %q, want %q", retrieved.Status, models.StatusInFlight)
 	}
 }
 
@@ -196,7 +196,7 @@ func TestCloseSetsClosedAt(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -208,7 +208,7 @@ func TestCloseSetsClosedAt(t *testing.T) {
 	}
 
 	// Update to closed with ClosedAt
-	issue.Status = models.StatusClosed
+	issue.Status = models.StatusShipped
 	now := issue.UpdatedAt
 	issue.ClosedAt = &now
 	if err := database.UpdateIssue(issue); err != nil {
@@ -220,8 +220,8 @@ func TestCloseSetsClosedAt(t *testing.T) {
 	if retrieved.ClosedAt == nil {
 		t.Error("ClosedAt should be set after closing")
 	}
-	if retrieved.Status != models.StatusClosed {
-		t.Errorf("Status not updated: got %q, want %q", retrieved.Status, models.StatusClosed)
+	if retrieved.Status != models.StatusShipped {
+		t.Errorf("Status not updated: got %q, want %q", retrieved.Status, models.StatusShipped)
 	}
 }
 
@@ -240,7 +240,7 @@ func TestApproveAddsReviewerSession(t *testing.T) {
 	// Create an issue with implementer
 	issue := &models.Issue{
 		Title:              "Test Issue",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: implSession,
 	}
 	if err := database.CreateIssue(issue); err != nil {
@@ -248,7 +248,7 @@ func TestApproveAddsReviewerSession(t *testing.T) {
 	}
 
 	// Update with reviewer (simulating approve)
-	issue.Status = models.StatusClosed
+	issue.Status = models.StatusShipped
 	issue.ReviewerSession = reviewSession
 	now := issue.UpdatedAt
 	issue.ClosedAt = &now
@@ -278,7 +278,7 @@ func TestReviewAddsLogEntry(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -321,7 +321,7 @@ func TestHasChildren(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -339,7 +339,7 @@ func TestHasChildren(t *testing.T) {
 	// Create child
 	child := &models.Issue{
 		Title:    "Child",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child); err != nil {
@@ -369,7 +369,7 @@ func TestGetDescendantIssues(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -378,7 +378,7 @@ func TestGetDescendantIssues(t *testing.T) {
 	subEpic := &models.Issue{
 		Title:    "Sub-Epic",
 		Type:     models.TypeEpic,
-		Status:   models.StatusInProgress,
+		Status:   models.StatusInFlight,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(subEpic); err != nil {
@@ -387,7 +387,7 @@ func TestGetDescendantIssues(t *testing.T) {
 
 	task := &models.Issue{
 		Title:    "Task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: subEpic.ID,
 	}
 	if err := database.CreateIssue(task); err != nil {
@@ -396,7 +396,7 @@ func TestGetDescendantIssues(t *testing.T) {
 
 	closedTask := &models.Issue{
 		Title:    "Closed Task",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(closedTask); err != nil {
@@ -414,8 +414,8 @@ func TestGetDescendantIssues(t *testing.T) {
 
 	// Get only open/in_progress descendants
 	active, err := database.GetDescendantIssues(epic.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -426,7 +426,7 @@ func TestGetDescendantIssues(t *testing.T) {
 
 	// Verify closed task was filtered out
 	for _, issue := range active {
-		if issue.Status == models.StatusClosed {
+		if issue.Status == models.StatusShipped {
 			t.Error("Should not include closed issues when filtering")
 		}
 	}
@@ -445,7 +445,7 @@ func TestCascadeReviewMarksDescendants(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -453,7 +453,7 @@ func TestCascadeReviewMarksDescendants(t *testing.T) {
 
 	child1 := &models.Issue{
 		Title:    "Child 1",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child1); err != nil {
@@ -462,7 +462,7 @@ func TestCascadeReviewMarksDescendants(t *testing.T) {
 
 	child2 := &models.Issue{
 		Title:    "Child 2",
-		Status:   models.StatusInProgress,
+		Status:   models.StatusInFlight,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child2); err != nil {
@@ -471,7 +471,7 @@ func TestCascadeReviewMarksDescendants(t *testing.T) {
 
 	closedChild := &models.Issue{
 		Title:    "Closed Child",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(closedChild); err != nil {
@@ -481,15 +481,15 @@ func TestCascadeReviewMarksDescendants(t *testing.T) {
 	// Simulate cascade review logic
 	sessionID := "ses_test"
 	descendants, err := database.GetDescendantIssues(epic.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
 	}
 
 	for _, child := range descendants {
-		child.Status = models.StatusInReview
+		child.Status = models.StatusReview
 		if child.ImplementerSession == "" {
 			child.ImplementerSession = sessionID
 		}
@@ -500,21 +500,21 @@ func TestCascadeReviewMarksDescendants(t *testing.T) {
 
 	// Verify child1 and child2 are now in_review
 	c1, _ := database.GetIssue(child1.ID)
-	if c1.Status != models.StatusInReview {
-		t.Errorf("child1 status: got %q, want %q", c1.Status, models.StatusInReview)
+	if c1.Status != models.StatusReview {
+		t.Errorf("child1 status: got %q, want %q", c1.Status, models.StatusReview)
 	}
 	if c1.ImplementerSession != sessionID {
 		t.Errorf("child1 implementer: got %q, want %q", c1.ImplementerSession, sessionID)
 	}
 
 	c2, _ := database.GetIssue(child2.ID)
-	if c2.Status != models.StatusInReview {
-		t.Errorf("child2 status: got %q, want %q", c2.Status, models.StatusInReview)
+	if c2.Status != models.StatusReview {
+		t.Errorf("child2 status: got %q, want %q", c2.Status, models.StatusReview)
 	}
 
 	// Verify closedChild is unchanged
 	cc, _ := database.GetIssue(closedChild.ID)
-	if cc.Status != models.StatusClosed {
+	if cc.Status != models.StatusShipped {
 		t.Errorf("closedChild status should remain closed: got %q", cc.Status)
 	}
 }
@@ -532,7 +532,7 @@ func TestCascadeReviewNestedEpics(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -541,7 +541,7 @@ func TestCascadeReviewNestedEpics(t *testing.T) {
 	subEpic := &models.Issue{
 		Title:    "Sub-Epic",
 		Type:     models.TypeEpic,
-		Status:   models.StatusInProgress,
+		Status:   models.StatusInFlight,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(subEpic); err != nil {
@@ -550,7 +550,7 @@ func TestCascadeReviewNestedEpics(t *testing.T) {
 
 	task := &models.Issue{
 		Title:    "Deeply Nested Task",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: subEpic.ID,
 	}
 	if err := database.CreateIssue(task); err != nil {
@@ -559,8 +559,8 @@ func TestCascadeReviewNestedEpics(t *testing.T) {
 
 	// Get descendants from top-level epic
 	descendants, err := database.GetDescendantIssues(epic.ID, []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
+		models.StatusBacklog,
+		models.StatusInFlight,
 	})
 	if err != nil {
 		t.Fatalf("GetDescendantIssues failed: %v", err)
@@ -573,19 +573,19 @@ func TestCascadeReviewNestedEpics(t *testing.T) {
 
 	// Mark all for review
 	for _, d := range descendants {
-		d.Status = models.StatusInReview
+		d.Status = models.StatusReview
 		database.UpdateIssue(d)
 	}
 
 	// Verify all are in_review
 	se, _ := database.GetIssue(subEpic.ID)
-	if se.Status != models.StatusInReview {
-		t.Errorf("sub-epic status: got %q, want %q", se.Status, models.StatusInReview)
+	if se.Status != models.StatusReview {
+		t.Errorf("sub-epic status: got %q, want %q", se.Status, models.StatusReview)
 	}
 
 	tk, _ := database.GetIssue(task.ID)
-	if tk.Status != models.StatusInReview {
-		t.Errorf("task status: got %q, want %q", tk.Status, models.StatusInReview)
+	if tk.Status != models.StatusReview {
+		t.Errorf("task status: got %q, want %q", tk.Status, models.StatusReview)
 	}
 }
 
@@ -604,7 +604,7 @@ func TestCascadeUpToReviewAllChildrenReview(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -612,7 +612,7 @@ func TestCascadeUpToReviewAllChildrenReview(t *testing.T) {
 
 	child1 := &models.Issue{
 		Title:    "Child 1",
-		Status:   models.StatusInReview,
+		Status:   models.StatusReview,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child1); err != nil {
@@ -621,7 +621,7 @@ func TestCascadeUpToReviewAllChildrenReview(t *testing.T) {
 
 	child2 := &models.Issue{
 		Title:    "Child 2",
-		Status:   models.StatusInProgress,
+		Status:   models.StatusInFlight,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child2); err != nil {
@@ -631,26 +631,26 @@ func TestCascadeUpToReviewAllChildrenReview(t *testing.T) {
 	sessionID := "ses_test"
 
 	// First, cascade up should NOT update epic (child2 still in_progress)
-	database.CascadeUpParentStatus(child1.ID, models.StatusInReview, sessionID)
+	database.CascadeUpParentStatus(child1.ID, models.StatusReview, sessionID)
 
 	e, _ := database.GetIssue(epic.ID)
-	if e.Status != models.StatusOpen {
+	if e.Status != models.StatusBacklog {
 		t.Errorf("Epic should remain open: got %q", e.Status)
 	}
 
 	// Now mark child2 as in_review
-	child2.Status = models.StatusInReview
+	child2.Status = models.StatusReview
 	database.UpdateIssue(child2)
 
 	// Cascade up should now update epic
-	cascaded, _ := database.CascadeUpParentStatus( child2.ID, models.StatusInReview, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus( child2.ID, models.StatusReview, sessionID)
 
 	if cascaded != 1 {
 		t.Errorf("Expected 1 cascaded, got %d", cascaded)
 	}
 
 	e, _ = database.GetIssue(epic.ID)
-	if e.Status != models.StatusInReview {
+	if e.Status != models.StatusReview {
 		t.Errorf("Epic should be in_review: got %q", e.Status)
 	}
 }
@@ -668,7 +668,7 @@ func TestCascadeUpToClosedAllChildrenClosed(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusInReview,
+		Status: models.StatusReview,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -676,7 +676,7 @@ func TestCascadeUpToClosedAllChildrenClosed(t *testing.T) {
 
 	child1 := &models.Issue{
 		Title:    "Child 1",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child1); err != nil {
@@ -685,7 +685,7 @@ func TestCascadeUpToClosedAllChildrenClosed(t *testing.T) {
 
 	child2 := &models.Issue{
 		Title:    "Child 2",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child2); err != nil {
@@ -695,14 +695,14 @@ func TestCascadeUpToClosedAllChildrenClosed(t *testing.T) {
 	sessionID := "ses_test"
 
 	// All children closed, cascade up should update epic
-	cascaded, _ := database.CascadeUpParentStatus( child2.ID, models.StatusClosed, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus( child2.ID, models.StatusShipped, sessionID)
 
 	if cascaded != 1 {
 		t.Errorf("Expected 1 cascaded, got %d", cascaded)
 	}
 
 	e, _ := database.GetIssue(epic.ID)
-	if e.Status != models.StatusClosed {
+	if e.Status != models.StatusShipped {
 		t.Errorf("Epic should be closed: got %q", e.Status)
 	}
 	if e.ClosedAt == nil {
@@ -723,7 +723,7 @@ func TestCascadeUpRecursive(t *testing.T) {
 	grandparent := &models.Issue{
 		Title:  "Grandparent Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(grandparent); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -732,7 +732,7 @@ func TestCascadeUpRecursive(t *testing.T) {
 	parent := &models.Issue{
 		Title:    "Parent Epic",
 		Type:     models.TypeEpic,
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		ParentID: grandparent.ID,
 	}
 	if err := database.CreateIssue(parent); err != nil {
@@ -741,7 +741,7 @@ func TestCascadeUpRecursive(t *testing.T) {
 
 	child := &models.Issue{
 		Title:    "Child Task",
-		Status:   models.StatusInReview,
+		Status:   models.StatusReview,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(child); err != nil {
@@ -752,19 +752,19 @@ func TestCascadeUpRecursive(t *testing.T) {
 
 	// Child is only child of parent, parent is only child of grandparent
 	// Cascade up from child should update both parent and grandparent
-	cascaded, _ := database.CascadeUpParentStatus( child.ID, models.StatusInReview, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus( child.ID, models.StatusReview, sessionID)
 
 	if cascaded != 2 {
 		t.Errorf("Expected 2 cascaded (parent + grandparent), got %d", cascaded)
 	}
 
 	p, _ := database.GetIssue(parent.ID)
-	if p.Status != models.StatusInReview {
+	if p.Status != models.StatusReview {
 		t.Errorf("Parent should be in_review: got %q", p.Status)
 	}
 
 	gp, _ := database.GetIssue(grandparent.ID)
-	if gp.Status != models.StatusInReview {
+	if gp.Status != models.StatusReview {
 		t.Errorf("Grandparent should be in_review: got %q", gp.Status)
 	}
 }
@@ -782,7 +782,7 @@ func TestCascadeUpNoActionNonEpicParent(t *testing.T) {
 	parent := &models.Issue{
 		Title:  "Parent Task",
 		Type:   models.TypeTask,
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	if err := database.CreateIssue(parent); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -790,7 +790,7 @@ func TestCascadeUpNoActionNonEpicParent(t *testing.T) {
 
 	child := &models.Issue{
 		Title:    "Child Task",
-		Status:   models.StatusInReview,
+		Status:   models.StatusReview,
 		ParentID: parent.ID,
 	}
 	if err := database.CreateIssue(child); err != nil {
@@ -800,14 +800,14 @@ func TestCascadeUpNoActionNonEpicParent(t *testing.T) {
 	sessionID := "ses_test"
 
 	// Should NOT cascade up to non-epic parent
-	cascaded, _ := database.CascadeUpParentStatus( child.ID, models.StatusInReview, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus( child.ID, models.StatusReview, sessionID)
 
 	if cascaded != 0 {
 		t.Errorf("Expected 0 cascaded (parent not epic), got %d", cascaded)
 	}
 
 	p, _ := database.GetIssue(parent.ID)
-	if p.Status != models.StatusInProgress {
+	if p.Status != models.StatusInFlight {
 		t.Errorf("Parent status should be unchanged: got %q", p.Status)
 	}
 }
@@ -825,7 +825,7 @@ func TestCascadeUpNoActionNotAllChildrenReady(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -833,7 +833,7 @@ func TestCascadeUpNoActionNotAllChildrenReady(t *testing.T) {
 
 	child1 := &models.Issue{
 		Title:    "Child 1",
-		Status:   models.StatusInReview,
+		Status:   models.StatusReview,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child1); err != nil {
@@ -842,7 +842,7 @@ func TestCascadeUpNoActionNotAllChildrenReady(t *testing.T) {
 
 	child2 := &models.Issue{
 		Title:    "Child 2",
-		Status:   models.StatusOpen, // Not in_review yet
+		Status:   models.StatusBacklog, // Not in_review yet
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child2); err != nil {
@@ -852,14 +852,14 @@ func TestCascadeUpNoActionNotAllChildrenReady(t *testing.T) {
 	sessionID := "ses_test"
 
 	// Should NOT cascade up because child2 is still open
-	cascaded, _ := database.CascadeUpParentStatus( child1.ID, models.StatusInReview, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus( child1.ID, models.StatusReview, sessionID)
 
 	if cascaded != 0 {
 		t.Errorf("Expected 0 cascaded (not all children ready), got %d", cascaded)
 	}
 
 	e, _ := database.GetIssue(epic.ID)
-	if e.Status != models.StatusOpen {
+	if e.Status != models.StatusBacklog {
 		t.Errorf("Epic status should be unchanged: got %q", e.Status)
 	}
 }
@@ -877,7 +877,7 @@ func TestCascadeUpReviewAllowsClosedSiblings(t *testing.T) {
 	epic := &models.Issue{
 		Title:  "Epic",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(epic); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -885,7 +885,7 @@ func TestCascadeUpReviewAllowsClosedSiblings(t *testing.T) {
 
 	child1 := &models.Issue{
 		Title:    "Child 1",
-		Status:   models.StatusInReview,
+		Status:   models.StatusReview,
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child1); err != nil {
@@ -894,7 +894,7 @@ func TestCascadeUpReviewAllowsClosedSiblings(t *testing.T) {
 
 	child2 := &models.Issue{
 		Title:    "Child 2",
-		Status:   models.StatusClosed, // Already closed
+		Status:   models.StatusShipped, // Already closed
 		ParentID: epic.ID,
 	}
 	if err := database.CreateIssue(child2); err != nil {
@@ -904,14 +904,14 @@ func TestCascadeUpReviewAllowsClosedSiblings(t *testing.T) {
 	sessionID := "ses_test"
 
 	// For in_review target, closed siblings should count as "ready"
-	cascaded, _ := database.CascadeUpParentStatus( child1.ID, models.StatusInReview, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus( child1.ID, models.StatusReview, sessionID)
 
 	if cascaded != 1 {
 		t.Errorf("Expected 1 cascaded, got %d", cascaded)
 	}
 
 	e, _ := database.GetIssue(epic.ID)
-	if e.Status != models.StatusInReview {
+	if e.Status != models.StatusReview {
 		t.Errorf("Epic should be in_review: got %q", e.Status)
 	}
 }
@@ -1033,7 +1033,7 @@ func TestCloseSelfCloseScenarios(t *testing.T) {
 	// Scenario 1: Issue with ImplementerSession set (would trigger self-close check)
 	issueWithImpl := &models.Issue{
 		Title:              "Implemented Issue",
-		Status:             models.StatusInProgress,
+		Status:             models.StatusInFlight,
 		ImplementerSession: sessionID,
 	}
 	if err := database.CreateIssue(issueWithImpl); err != nil {
@@ -1061,7 +1061,7 @@ func TestCloseSelfCloseScenarios(t *testing.T) {
 	// Scenario 2: Issue with no ImplementerSession (never worked on, should bypass check)
 	issueNoImpl := &models.Issue{
 		Title:  "Never Started Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 		// ImplementerSession is empty
 	}
 	if err := database.CreateIssue(issueNoImpl); err != nil {
@@ -1094,7 +1094,7 @@ func TestCloseSelfCloseExceptionLogMessage(t *testing.T) {
 	// Create issue with implementer
 	issue := &models.Issue{
 		Title:              "Self Close Test",
-		Status:             models.StatusInProgress,
+		Status:             models.StatusInFlight,
 		ImplementerSession: sessionID,
 	}
 	if err := database.CreateIssue(issue); err != nil {
@@ -1138,7 +1138,7 @@ func TestCascadeUpNoActionNoParent(t *testing.T) {
 	// Create task with no parent
 	task := &models.Issue{
 		Title:  "Orphan Task",
-		Status: models.StatusInReview,
+		Status: models.StatusReview,
 	}
 	if err := database.CreateIssue(task); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -1147,7 +1147,7 @@ func TestCascadeUpNoActionNoParent(t *testing.T) {
 	sessionID := "ses_test"
 
 	// Should return 0 since no parent
-	cascaded, _ := database.CascadeUpParentStatus( task.ID, models.StatusInReview, sessionID)
+	cascaded, _ := database.CascadeUpParentStatus( task.ID, models.StatusReview, sessionID)
 
 	if cascaded != 0 {
 		t.Errorf("Expected 0 cascaded (no parent), got %d", cascaded)
@@ -1184,7 +1184,7 @@ func TestReviewAutoCreatesHandoffWhenMissing(t *testing.T) {
 	// Create an issue in_progress
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -1242,7 +1242,7 @@ func TestReviewPreservesExistingHandoff(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -1314,7 +1314,7 @@ func TestReviewWithWorkSessionTaggedIssue(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -1393,7 +1393,7 @@ func TestApproveAutoUnblocksDependents(t *testing.T) {
 	// Create blocker (in_review, ready to be approved)
 	blocker := &models.Issue{
 		Title:              "Blocker",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: "ses_impl",
 	}
 	database.CreateIssue(blocker)
@@ -1401,19 +1401,19 @@ func TestApproveAutoUnblocksDependents(t *testing.T) {
 	// Create dependent (blocked, depends on blocker)
 	dependent := &models.Issue{
 		Title:  "Dependent",
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	database.CreateIssue(dependent)
 	database.AddDependency(dependent.ID, blocker.ID, "depends_on")
 
 	// Simulate approve: close the blocker then cascade unblock
-	blocker.Status = models.StatusClosed
+	blocker.Status = models.StatusShipped
 	database.UpdateIssue(blocker)
 	database.CascadeUnblockDependents(blocker.ID, "ses_reviewer")
 
 	// Verify dependent is now open
 	updated, _ := database.GetIssue(dependent.ID)
-	if updated.Status != models.StatusOpen {
+	if updated.Status != models.StatusBacklog {
 		t.Errorf("dependent should be open after blocker approved, got %s", updated.Status)
 	}
 }
@@ -1428,24 +1428,24 @@ func TestCloseAutoUnblocksDependents(t *testing.T) {
 
 	blocker := &models.Issue{
 		Title:  "Blocker",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(blocker)
 
 	dependent := &models.Issue{
 		Title:  "Dependent",
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	database.CreateIssue(dependent)
 	database.AddDependency(dependent.ID, blocker.ID, "depends_on")
 
 	// Simulate close: set closed then cascade unblock
-	blocker.Status = models.StatusClosed
+	blocker.Status = models.StatusShipped
 	database.UpdateIssue(blocker)
 	database.CascadeUnblockDependents(blocker.ID, "ses_closer")
 
 	updated, _ := database.GetIssue(dependent.ID)
-	if updated.Status != models.StatusOpen {
+	if updated.Status != models.StatusBacklog {
 		t.Errorf("dependent should be open after blocker closed, got %s", updated.Status)
 	}
 }
@@ -1460,16 +1460,16 @@ func TestApproveAutoUnblockPartialDeps(t *testing.T) {
 
 	a1 := &models.Issue{
 		Title:              "A1",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: "ses_impl",
 	}
 	a2 := &models.Issue{
 		Title:  "A2",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	dependent := &models.Issue{
 		Title:  "Dependent",
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	database.CreateIssue(a1)
 	database.CreateIssue(a2)
@@ -1478,13 +1478,13 @@ func TestApproveAutoUnblockPartialDeps(t *testing.T) {
 	database.AddDependency(dependent.ID, a2.ID, "depends_on")
 
 	// Approve only A1
-	a1.Status = models.StatusClosed
+	a1.Status = models.StatusShipped
 	database.UpdateIssue(a1)
 	database.CascadeUnblockDependents(a1.ID, "ses_reviewer")
 
 	// Dependent should still be blocked (A2 not closed)
 	updated, _ := database.GetIssue(dependent.ID)
-	if updated.Status != models.StatusBlocked {
+	if updated.Status != models.StatusCanceled {
 		t.Errorf("dependent should remain blocked (A2 still open), got %s", updated.Status)
 	}
 }

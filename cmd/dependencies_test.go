@@ -19,8 +19,8 @@ func TestWouldCreateCycleSimple(t *testing.T) {
 	defer database.Close()
 
 	// Create two issues
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 
@@ -43,9 +43,9 @@ func TestWouldCreateCycleTransitive(t *testing.T) {
 	defer database.Close()
 
 	// Create chain: issue3 -> issue2 -> issue1
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
-	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
+	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 	database.CreateIssue(issue3)
@@ -74,9 +74,9 @@ func TestWouldCreateCycleNoCycle(t *testing.T) {
 	defer database.Close()
 
 	// Create independent issues
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
-	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
+	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 	database.CreateIssue(issue3)
@@ -104,7 +104,7 @@ func TestGetTransitiveBlockedEmpty(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Standalone Issue", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Standalone Issue", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	blocked := dependency.GetTransitiveBlocked(database, issue.ID, make(map[string]bool))
@@ -123,9 +123,9 @@ func TestGetTransitiveBlockedDirect(t *testing.T) {
 	defer database.Close()
 
 	// Create blocker and blockee
-	blocker := &models.Issue{Title: "Blocker", Status: models.StatusOpen}
-	blocked1 := &models.Issue{Title: "Blocked 1", Status: models.StatusOpen}
-	blocked2 := &models.Issue{Title: "Blocked 2", Status: models.StatusOpen}
+	blocker := &models.Issue{Title: "Blocker", Status: models.StatusBacklog}
+	blocked1 := &models.Issue{Title: "Blocked 1", Status: models.StatusBacklog}
+	blocked2 := &models.Issue{Title: "Blocked 2", Status: models.StatusBacklog}
 	database.CreateIssue(blocker)
 	database.CreateIssue(blocked1)
 	database.CreateIssue(blocked2)
@@ -150,10 +150,10 @@ func TestGetTransitiveBlockedChain(t *testing.T) {
 	defer database.Close()
 
 	// Create chain: issue4 -> issue3 -> issue2 -> issue1
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
-	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusOpen}
-	issue4 := &models.Issue{Title: "Issue 4", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
+	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusBacklog}
+	issue4 := &models.Issue{Title: "Issue 4", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 	database.CreateIssue(issue3)
@@ -191,10 +191,10 @@ func TestGetTransitiveBlockedDiamond(t *testing.T) {
 	//  mid1  mid2
 	//    \   /
 	//    bottom
-	top := &models.Issue{Title: "Top", Status: models.StatusOpen}
-	mid1 := &models.Issue{Title: "Mid1", Status: models.StatusOpen}
-	mid2 := &models.Issue{Title: "Mid2", Status: models.StatusOpen}
-	bottom := &models.Issue{Title: "Bottom", Status: models.StatusOpen}
+	top := &models.Issue{Title: "Top", Status: models.StatusBacklog}
+	mid1 := &models.Issue{Title: "Mid1", Status: models.StatusBacklog}
+	mid2 := &models.Issue{Title: "Mid2", Status: models.StatusBacklog}
+	bottom := &models.Issue{Title: "Bottom", Status: models.StatusBacklog}
 	database.CreateIssue(top)
 	database.CreateIssue(mid1)
 	database.CreateIssue(mid2)
@@ -223,7 +223,7 @@ func TestSelfReferenceDetection(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Self Loop", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Self Loop", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	// Direct self-reference via WouldCreateCycle
@@ -259,7 +259,7 @@ func TestBuildCriticalPathSequenceSingle(t *testing.T) {
 	}
 	defer database.Close()
 
-	issue := &models.Issue{Title: "Single", Status: models.StatusOpen}
+	issue := &models.Issue{Title: "Single", Status: models.StatusBacklog}
 	database.CreateIssue(issue)
 
 	issueMap := map[string]*models.Issue{issue.ID: issue}
@@ -281,9 +281,9 @@ func TestBuildCriticalPathSequenceChain(t *testing.T) {
 	defer database.Close()
 
 	// Chain: issue3 -> issue2 -> issue1
-	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
-	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
+	issue3 := &models.Issue{Title: "Issue 3", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 	database.CreateIssue(issue3)
@@ -321,8 +321,8 @@ func TestBuildCriticalPathSkipsClosedIssues(t *testing.T) {
 	}
 	defer database.Close()
 
-	openIssue := &models.Issue{Title: "Open", Status: models.StatusOpen}
-	closedIssue := &models.Issue{Title: "Closed", Status: models.StatusClosed}
+	openIssue := &models.Issue{Title: "Open", Status: models.StatusBacklog}
+	closedIssue := &models.Issue{Title: "Closed", Status: models.StatusShipped}
 	database.CreateIssue(openIssue)
 	database.CreateIssue(closedIssue)
 
@@ -376,8 +376,8 @@ func TestAddDependencySingle(t *testing.T) {
 	defer database.Close()
 
 	// Create two issues
-	issue1 := &models.Issue{Title: "Setup Database", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Implement API", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Setup Database", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Implement API", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 
@@ -432,14 +432,14 @@ func TestAddDependencyMultiple(t *testing.T) {
 			defer database.Close()
 
 			// Create main issue and dependency issues
-			mainIssue := &models.Issue{Title: "Integrations", Status: models.StatusOpen}
+			mainIssue := &models.Issue{Title: "Integrations", Status: models.StatusBacklog}
 			database.CreateIssue(mainIssue)
 
 			depIssueIDs := make([]string, tt.numDeps)
 			for i := 0; i < tt.numDeps; i++ {
 				issue := &models.Issue{
 					Title:  fmt.Sprintf("Dependency %d", i+1),
-					Status: models.StatusOpen,
+					Status: models.StatusBacklog,
 				}
 				database.CreateIssue(issue)
 				depIssueIDs[i] = issue.ID
@@ -546,7 +546,7 @@ func TestAddDependencyCircularDetection(t *testing.T) {
 			for i := 0; i < 4; i++ {
 				issues[i] = &models.Issue{
 					Title:  fmt.Sprintf("Issue %d", i+1),
-					Status: models.StatusOpen,
+					Status: models.StatusBacklog,
 				}
 				database.CreateIssue(issues[i])
 			}
@@ -575,7 +575,7 @@ func TestAddDependencyValidation(t *testing.T) {
 		{
 			name: "issue not found source",
 			setup: func(database *db.DB) (string, string) {
-				issue := &models.Issue{Title: "Exists", Status: models.StatusOpen}
+				issue := &models.Issue{Title: "Exists", Status: models.StatusBacklog}
 				database.CreateIssue(issue)
 				return "nonexistent", issue.ID
 			},
@@ -585,7 +585,7 @@ func TestAddDependencyValidation(t *testing.T) {
 		{
 			name: "issue not found target",
 			setup: func(database *db.DB) (string, string) {
-				issue := &models.Issue{Title: "Exists", Status: models.StatusOpen}
+				issue := &models.Issue{Title: "Exists", Status: models.StatusBacklog}
 				database.CreateIssue(issue)
 				return issue.ID, "nonexistent"
 			},
@@ -595,8 +595,8 @@ func TestAddDependencyValidation(t *testing.T) {
 		{
 			name: "duplicate dependency",
 			setup: func(database *db.DB) (string, string) {
-				issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusOpen}
-				issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusOpen}
+				issue1 := &models.Issue{Title: "Issue 1", Status: models.StatusBacklog}
+				issue2 := &models.Issue{Title: "Issue 2", Status: models.StatusBacklog}
 				database.CreateIssue(issue1)
 				database.CreateIssue(issue2)
 				// Add dependency first time
@@ -609,8 +609,8 @@ func TestAddDependencyValidation(t *testing.T) {
 		{
 			name: "valid dependency open issues",
 			setup: func(database *db.DB) (string, string) {
-				issue1 := &models.Issue{Title: "Backend", Status: models.StatusOpen}
-				issue2 := &models.Issue{Title: "Database", Status: models.StatusOpen}
+				issue1 := &models.Issue{Title: "Backend", Status: models.StatusBacklog}
+				issue2 := &models.Issue{Title: "Database", Status: models.StatusBacklog}
 				database.CreateIssue(issue1)
 				database.CreateIssue(issue2)
 				return issue1.ID, issue2.ID
@@ -621,8 +621,8 @@ func TestAddDependencyValidation(t *testing.T) {
 		{
 			name: "depends on closed issue allowed",
 			setup: func(database *db.DB) (string, string) {
-				issue1 := &models.Issue{Title: "Resolved API", Status: models.StatusClosed}
-				issue2 := &models.Issue{Title: "New Feature", Status: models.StatusOpen}
+				issue1 := &models.Issue{Title: "Resolved API", Status: models.StatusShipped}
+				issue2 := &models.Issue{Title: "New Feature", Status: models.StatusBacklog}
 				database.CreateIssue(issue1)
 				database.CreateIssue(issue2)
 				return issue2.ID, issue1.ID
@@ -633,8 +633,8 @@ func TestAddDependencyValidation(t *testing.T) {
 		{
 			name: "mixed statuses allowed",
 			setup: func(database *db.DB) (string, string) {
-				issue1 := &models.Issue{Title: "In Progress", Status: models.StatusInProgress}
-				issue2 := &models.Issue{Title: "Blocked", Status: models.StatusBlocked}
+				issue1 := &models.Issue{Title: "In Progress", Status: models.StatusInFlight}
+				issue2 := &models.Issue{Title: "Blocked", Status: models.StatusCanceled}
 				database.CreateIssue(issue1)
 				database.CreateIssue(issue2)
 				return issue2.ID, issue1.ID
@@ -671,9 +671,9 @@ func TestAddDependencyPersistence(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	issue1 := &models.Issue{Title: "Step 1", Status: models.StatusOpen}
-	issue2 := &models.Issue{Title: "Step 2", Status: models.StatusOpen}
-	issue3 := &models.Issue{Title: "Step 3", Status: models.StatusOpen}
+	issue1 := &models.Issue{Title: "Step 1", Status: models.StatusBacklog}
+	issue2 := &models.Issue{Title: "Step 2", Status: models.StatusBacklog}
+	issue3 := &models.Issue{Title: "Step 3", Status: models.StatusBacklog}
 	database.CreateIssue(issue1)
 	database.CreateIssue(issue2)
 	database.CreateIssue(issue3)
@@ -803,7 +803,7 @@ func TestAddDependencyComplexGraph(t *testing.T) {
 			for _, label := range []string{"A", "B", "C", "D", "E", "F"} {
 				issue := &models.Issue{
 					Title:  fmt.Sprintf("Issue %s", label),
-					Status: models.StatusOpen,
+					Status: models.StatusBacklog,
 				}
 				database.CreateIssue(issue)
 				issues[label] = issue

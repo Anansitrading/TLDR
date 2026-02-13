@@ -33,7 +33,7 @@ func TestEngine(t *testing.T) {
 			if err == nil {
 				id := e2e.ExtractIssueID(out)
 				if id != "" {
-					engine.TrackCreatedIssue(id, "open", actor)
+					engine.TrackCreatedIssue(id, "backlog", actor)
 				}
 			}
 		}

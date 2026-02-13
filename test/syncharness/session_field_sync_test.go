@@ -17,7 +17,7 @@ func TestSessionFields_SyncConvergence(t *testing.T) {
 	// Step 1: Client A creates an issue with creator_session set
 	err := h.Mutate("client-A", "create", "issues", issueID, map[string]any{
 		"title":           "Session sync test",
-		"status":          "open",
+		"status":          "backlog",
 		"type":            "task",
 		"priority":        "P2",
 		"creator_session": "ses-creator-A",
@@ -29,7 +29,7 @@ func TestSessionFields_SyncConvergence(t *testing.T) {
 	// Step 2: Client A sets implementer_session (simulates starting work)
 	err = h.Mutate("client-A", "update", "issues", issueID, map[string]any{
 		"title":               "Session sync test",
-		"status":              "in_progress",
+		"status":              "in_flight",
 		"type":                "task",
 		"priority":            "P2",
 		"creator_session":     "ses-creator-A",
@@ -62,7 +62,7 @@ func TestSessionFields_SyncConvergence(t *testing.T) {
 	// Step 5: Client B sets reviewer_session (simulates review)
 	err = h.Mutate("client-B", "update", "issues", issueID, map[string]any{
 		"title":               "Session sync test",
-		"status":              "in_review",
+		"status":              "review",
 		"type":                "task",
 		"priority":            "P2",
 		"creator_session":     "ses-creator-A",
@@ -111,7 +111,7 @@ func TestSessionFields_EmptyStringSyncs(t *testing.T) {
 	// Client A creates issue with implementer_session set, others empty
 	err := h.Mutate("client-A", "create", "issues", issueID, map[string]any{
 		"title":               "Empty session test",
-		"status":              "in_progress",
+		"status":              "in_flight",
 		"type":                "task",
 		"priority":            "P2",
 		"implementer_session": "ses-impl-X",
@@ -166,7 +166,7 @@ func TestSessionFields_NotOverwrittenBySync(t *testing.T) {
 	// Client A creates issue with all session fields set
 	err := h.Mutate("client-A", "create", "issues", issueID, map[string]any{
 		"title":               "Overwrite test",
-		"status":              "in_progress",
+		"status":              "in_flight",
 		"type":                "task",
 		"priority":            "P2",
 		"implementer_session": "ses-impl-orig",
@@ -189,7 +189,7 @@ func TestSessionFields_NotOverwrittenBySync(t *testing.T) {
 	// (as the sync system does INSERT OR REPLACE with full row)
 	err = h.Mutate("client-B", "update", "issues", issueID, map[string]any{
 		"title":               "Overwrite test - updated",
-		"status":              "in_progress",
+		"status":              "in_flight",
 		"type":                "task",
 		"priority":            "P2",
 		"implementer_session": "ses-impl-orig",

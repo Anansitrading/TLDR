@@ -19,7 +19,7 @@ func TestTreeSingleIssue(t *testing.T) {
 	issue := &models.Issue{
 		Title:  "Root Issue",
 		Type:   models.TypeEpic,
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	database.CreateIssue(issue)
 
@@ -274,16 +274,16 @@ func TestTreeWithDifferentStatuses(t *testing.T) {
 	parent := &models.Issue{
 		Title:  "Parent",
 		Type:   models.TypeEpic,
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 	database.CreateIssue(parent)
 
 	statuses := []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
-		models.StatusBlocked,
-		models.StatusInReview,
-		models.StatusClosed,
+		models.StatusBacklog,
+		models.StatusInFlight,
+		models.StatusCanceled,
+		models.StatusReview,
+		models.StatusShipped,
 	}
 
 	for _, status := range statuses {
@@ -451,25 +451,25 @@ func TestTreeBlockedParent(t *testing.T) {
 	parent := &models.Issue{
 		Title:  "Blocked Parent",
 		Type:   models.TypeEpic,
-		Status: models.StatusBlocked,
+		Status: models.StatusCanceled,
 	}
 	child := &models.Issue{
 		Title:    "Child",
 		ParentID: parent.ID,
 		Type:     models.TypeTask,
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 	}
 
 	database.CreateIssue(parent)
 	database.CreateIssue(child)
 
 	pRetrieved, _ := database.GetIssue(parent.ID)
-	if pRetrieved.Status != models.StatusBlocked {
+	if pRetrieved.Status != models.StatusCanceled {
 		t.Error("Parent status should be blocked")
 	}
 
 	cRetrieved, _ := database.GetIssue(child.ID)
-	if cRetrieved.Status != models.StatusOpen {
+	if cRetrieved.Status != models.StatusBacklog {
 		t.Error("Child can be open even if parent is blocked")
 	}
 }

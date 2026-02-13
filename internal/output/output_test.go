@@ -141,11 +141,11 @@ func TestFormatPointsSuffix(t *testing.T) {
 // TestFormatStatus tests all status values
 func TestFormatStatus(t *testing.T) {
 	statuses := []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
-		models.StatusBlocked,
-		models.StatusInReview,
-		models.StatusClosed,
+		models.StatusBacklog,
+		models.StatusInFlight,
+		models.StatusCanceled,
+		models.StatusReview,
+		models.StatusShipped,
 	}
 
 	for _, s := range statuses {
@@ -213,7 +213,7 @@ func TestFormatIssueShort(t *testing.T) {
 	issue := &models.Issue{
 		ID:       "td-abc1",
 		Title:    "Test issue title",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeBug,
 		Priority: models.PriorityP1,
 		Points:   5,
@@ -241,7 +241,7 @@ func TestFormatIssueShortNoPoints(t *testing.T) {
 	issue := &models.Issue{
 		ID:       "td-def2",
 		Title:    "No points issue",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP3,
 		Points:   0,
@@ -262,7 +262,7 @@ func TestFormatIssueDeleted(t *testing.T) {
 	issue := &models.Issue{
 		ID:       "td-del1",
 		Title:    "Deleted issue",
-		Status:   models.StatusClosed,
+		Status:   models.StatusShipped,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -284,7 +284,7 @@ func TestFormatIssueLong(t *testing.T) {
 		Title:       "Long format issue",
 		Description: "This is a detailed description",
 		Acceptance:  "Acceptance criteria text",
-		Status:      models.StatusInProgress,
+		Status:      models.StatusInFlight,
 		Type:        models.TypeFeature,
 		Priority:    models.PriorityP1,
 		Points:      8,
@@ -372,7 +372,7 @@ func TestFormatIssueLongNoOptional(t *testing.T) {
 	issue := &models.Issue{
 		ID:       "td-min1",
 		Title:    "Minimal issue",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -407,7 +407,7 @@ func TestFormatIssueLongInReview(t *testing.T) {
 	issue := &models.Issue{
 		ID:       "td-rev1",
 		Title:    "Review issue",
-		Status:   models.StatusInReview,
+		Status:   models.StatusReview,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -492,7 +492,7 @@ func TestFormatIssueLongWithEmptyHandoffSections(t *testing.T) {
 	issue := &models.Issue{
 		ID:       "td-hand1",
 		Title:    "Handoff test",
-		Status:   models.StatusInProgress,
+		Status:   models.StatusInFlight,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 	}
@@ -537,7 +537,7 @@ func TestIssueOneLiner(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-abc1",
 		Title:  "Fix login bug",
-		Status: models.StatusInProgress,
+		Status: models.StatusInFlight,
 	}
 
 	result := IssueOneLiner(issue)
@@ -548,7 +548,7 @@ func TestIssueOneLiner(t *testing.T) {
 	if !strings.Contains(result, "Fix login bug") {
 		t.Error("Should contain title")
 	}
-	if !strings.Contains(result, "in_progress") {
+	if !strings.Contains(result, "in_flight") {
 		t.Error("Should contain status")
 	}
 }
@@ -558,11 +558,11 @@ func TestIssueOneLinerPlain(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-xyz2",
 		Title:  "Add feature",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	result := IssueOneLinerPlain(issue)
-	expected := `td-xyz2 "Add feature" [open]`
+	expected := `td-xyz2 "Add feature" [backlog]`
 
 	if result != expected {
 		t.Errorf("IssueOneLinerPlain() = %q, want %q", result, expected)
@@ -575,11 +575,11 @@ func TestStatusBadge(t *testing.T) {
 		status   models.Status
 		contains string
 	}{
-		{models.StatusOpen, "○"},
-		{models.StatusInProgress, "▶"},
-		{models.StatusBlocked, "✗"},
-		{models.StatusInReview, "◎"},
-		{models.StatusClosed, "✓"},
+		{models.StatusBacklog, "○"},
+		{models.StatusInFlight, "▶"},
+		{models.StatusCanceled, "✗"},
+		{models.StatusReview, "◎"},
+		{models.StatusShipped, "✓"},
 	}
 
 	for _, tc := range tests {
@@ -699,7 +699,7 @@ func TestDependencyLine(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-dep1",
 		Title:  "Dependency task",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	result := DependencyLine(issue, false)
@@ -719,7 +719,7 @@ func TestDependencyLineResolved(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-res1",
 		Title:  "Resolved task",
-		Status: models.StatusClosed,
+		Status: models.StatusShipped,
 	}
 
 	result := DependencyLine(issue, true)
@@ -733,7 +733,7 @@ func TestDependencyLineNotResolved(t *testing.T) {
 	issue := &models.Issue{
 		ID:     "td-open1",
 		Title:  "Open task",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 
 	result := DependencyLine(issue, true)

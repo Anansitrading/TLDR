@@ -21,7 +21,7 @@ func TestFocusSingleIssue(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:  "Test Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(issue); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -134,11 +134,11 @@ func TestFocusWithDifferentStatuses(t *testing.T) {
 	defer database.Close()
 
 	statuses := []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
-		models.StatusInReview,
-		models.StatusBlocked,
-		models.StatusClosed,
+		models.StatusBacklog,
+		models.StatusInFlight,
+		models.StatusReview,
+		models.StatusCanceled,
+		models.StatusShipped,
 	}
 
 	for _, status := range statuses {

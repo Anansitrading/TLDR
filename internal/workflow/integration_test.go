@@ -12,17 +12,17 @@ func TestIntegrationWorkflowScenarios(t *testing.T) {
 		sm := DefaultMachine()
 
 		// open → in_progress (start)
-		if !sm.IsValidTransition(models.StatusOpen, models.StatusInProgress) {
+		if !sm.IsValidTransition(models.StatusBacklog, models.StatusInFlight) {
 			t.Error("Should allow open → in_progress")
 		}
 
 		// in_progress → in_review (review)
-		if !sm.IsValidTransition(models.StatusInProgress, models.StatusInReview) {
+		if !sm.IsValidTransition(models.StatusInFlight, models.StatusReview) {
 			t.Error("Should allow in_progress → in_review")
 		}
 
 		// in_review → closed (approve)
-		if !sm.IsValidTransition(models.StatusInReview, models.StatusClosed) {
+		if !sm.IsValidTransition(models.StatusReview, models.StatusShipped) {
 			t.Error("Should allow in_review → closed")
 		}
 	})
@@ -31,17 +31,17 @@ func TestIntegrationWorkflowScenarios(t *testing.T) {
 		sm := DefaultMachine()
 
 		// open → blocked
-		if !sm.IsValidTransition(models.StatusOpen, models.StatusBlocked) {
+		if !sm.IsValidTransition(models.StatusBacklog, models.StatusCanceled) {
 			t.Error("Should allow open → blocked")
 		}
 
 		// blocked → in_progress (with force)
-		if !sm.IsValidTransition(models.StatusBlocked, models.StatusInProgress) {
+		if !sm.IsValidTransition(models.StatusCanceled, models.StatusInFlight) {
 			t.Error("Should allow blocked → in_progress")
 		}
 
 		// blocked → open (unblock)
-		if !sm.IsValidTransition(models.StatusBlocked, models.StatusOpen) {
+		if !sm.IsValidTransition(models.StatusCanceled, models.StatusBacklog) {
 			t.Error("Should allow blocked → open")
 		}
 	})
@@ -50,12 +50,12 @@ func TestIntegrationWorkflowScenarios(t *testing.T) {
 		sm := DefaultMachine()
 
 		// in_review → in_progress (reject)
-		if !sm.IsValidTransition(models.StatusInReview, models.StatusInProgress) {
+		if !sm.IsValidTransition(models.StatusReview, models.StatusInFlight) {
 			t.Error("Should allow in_review → in_progress")
 		}
 
 		// in_review → open (reject to open)
-		if !sm.IsValidTransition(models.StatusInReview, models.StatusOpen) {
+		if !sm.IsValidTransition(models.StatusReview, models.StatusBacklog) {
 			t.Error("Should allow in_review → open")
 		}
 	})
@@ -64,12 +64,12 @@ func TestIntegrationWorkflowScenarios(t *testing.T) {
 		sm := DefaultMachine()
 
 		// closed → open (reopen)
-		if !sm.IsValidTransition(models.StatusClosed, models.StatusOpen) {
+		if !sm.IsValidTransition(models.StatusShipped, models.StatusBacklog) {
 			t.Error("Should allow closed → open")
 		}
 
 		// closed cannot go to anything else
-		if sm.IsValidTransition(models.StatusClosed, models.StatusInProgress) {
+		if sm.IsValidTransition(models.StatusShipped, models.StatusInFlight) {
 			t.Error("Should not allow closed → in_progress directly")
 		}
 	})
@@ -78,17 +78,17 @@ func TestIntegrationWorkflowScenarios(t *testing.T) {
 		sm := DefaultMachine()
 
 		// open → closed (admin close)
-		if !sm.IsValidTransition(models.StatusOpen, models.StatusClosed) {
+		if !sm.IsValidTransition(models.StatusBacklog, models.StatusShipped) {
 			t.Error("Should allow open → closed")
 		}
 
 		// in_progress → closed (close without review)
-		if !sm.IsValidTransition(models.StatusInProgress, models.StatusClosed) {
+		if !sm.IsValidTransition(models.StatusInFlight, models.StatusShipped) {
 			t.Error("Should allow in_progress → closed")
 		}
 
 		// blocked → closed (close blocked issue)
-		if !sm.IsValidTransition(models.StatusBlocked, models.StatusClosed) {
+		if !sm.IsValidTransition(models.StatusCanceled, models.StatusShipped) {
 			t.Error("Should allow blocked → closed")
 		}
 	})
@@ -101,14 +101,14 @@ func TestIntegrationGuardBehavior(t *testing.T) {
 
 		issue := &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusBlocked,
+			Status:             models.StatusCanceled,
 			ImplementerSession: "session-1",
 		}
 
 		ctx := &TransitionContext{
 			Issue:      issue,
-			FromStatus: models.StatusBlocked,
-			ToStatus:   models.StatusInProgress,
+			FromStatus: models.StatusCanceled,
+			ToStatus:   models.StatusInFlight,
 			SessionID:  "session-1",
 			Force:      false, // Not forcing
 		}
@@ -124,14 +124,14 @@ func TestIntegrationGuardBehavior(t *testing.T) {
 
 		issue := &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusBlocked,
+			Status:             models.StatusCanceled,
 			ImplementerSession: "session-1",
 		}
 
 		ctx := &TransitionContext{
 			Issue:      issue,
-			FromStatus: models.StatusBlocked,
-			ToStatus:   models.StatusInProgress,
+			FromStatus: models.StatusCanceled,
+			ToStatus:   models.StatusInFlight,
 			SessionID:  "session-1",
 			Force:      false,
 		}
@@ -150,14 +150,14 @@ func TestIntegrationGuardBehavior(t *testing.T) {
 
 		issue := &models.Issue{
 			ID:                 "test-1",
-			Status:             models.StatusBlocked,
+			Status:             models.StatusCanceled,
 			ImplementerSession: "session-1",
 		}
 
 		ctx := &TransitionContext{
 			Issue:      issue,
-			FromStatus: models.StatusBlocked,
-			ToStatus:   models.StatusInProgress,
+			FromStatus: models.StatusCanceled,
+			ToStatus:   models.StatusInFlight,
 			SessionID:  "session-1",
 			Force:      false,
 		}
@@ -178,15 +178,15 @@ func TestIntegrationInvalidTransitions(t *testing.T) {
 		to   models.Status
 	}{
 		// blocked cannot go to in_review
-		{models.StatusBlocked, models.StatusInReview},
+		{models.StatusCanceled, models.StatusReview},
 
 		// in_review cannot go to blocked
-		{models.StatusInReview, models.StatusBlocked},
+		{models.StatusReview, models.StatusCanceled},
 
 		// closed can only go to open
-		{models.StatusClosed, models.StatusInProgress},
-		{models.StatusClosed, models.StatusBlocked},
-		{models.StatusClosed, models.StatusInReview},
+		{models.StatusShipped, models.StatusInFlight},
+		{models.StatusShipped, models.StatusCanceled},
+		{models.StatusShipped, models.StatusReview},
 	}
 
 	for _, tt := range invalidTransitions {

@@ -4,12 +4,12 @@
 // and Strict modes. In Liberal mode (default), guards are skipped.
 //
 // Currently active guards (attached to transitions):
-//   - BlockedGuard: Requires --force to start blocked issues
 //   - DifferentReviewerGuard: Prevents self-approval
 //
 // Future guards (defined but not yet attached to transitions):
-//   - EpicChildrenGuard: Warns when closing epic with open children
-//   - SelfCloseGuard: Prevents self-closing without exception
+//   - BlockedGuard: Requires --force to start canceled issues
+//   - EpicChildrenGuard: Warns when shipping epic with open children
+//   - SelfCloseGuard: Prevents self-shipping without exception
 //   - InProgressRequiredGuard: Validates review source status
 //
 // These future guards require caller modifications to pass necessary context
@@ -21,8 +21,8 @@ import (
 	"github.com/marcus/td/internal/models"
 )
 
-// BlockedGuard warns when starting a blocked issue without --force.
-// Active: Attached to blocked → in_progress transition.
+// BlockedGuard warns when starting a canceled issue without --force.
+// Active: Attached to canceled → in_flight transition.
 type BlockedGuard struct{}
 
 func (g *BlockedGuard) Name() string {
@@ -35,20 +35,20 @@ func (g *BlockedGuard) Check(ctx *TransitionContext) GuardResult {
 		return GuardResult{Passed: true}
 	}
 
-	// Allow if not transitioning from blocked
-	if ctx.FromStatus != models.StatusBlocked {
+	// Allow if not transitioning from canceled
+	if ctx.FromStatus != models.StatusCanceled {
 		return GuardResult{Passed: true}
 	}
 
-	// Fail - starting blocked issue without --force
+	// Fail - starting canceled issue without --force
 	return GuardResult{
 		Passed:  false,
-		Message: "cannot start blocked issue without --force",
+		Message: "cannot start canceled issue without --force",
 	}
 }
 
 // DifferentReviewerGuard ensures approvals come from different session than implementer.
-// Active: Attached to in_review → closed transition.
+// Active: Attached to review → shipped transition.
 type DifferentReviewerGuard struct{}
 
 func (g *DifferentReviewerGuard) Name() string {
@@ -104,7 +104,7 @@ func (g *EpicChildrenGuard) Name() string {
 
 func (g *EpicChildrenGuard) Check(ctx *TransitionContext) GuardResult {
 	// Only applies to closing transitions
-	if ctx.ToStatus != models.StatusClosed {
+	if ctx.ToStatus != models.StatusShipped {
 		return GuardResult{Passed: true}
 	}
 
@@ -137,7 +137,7 @@ func (g *SelfCloseGuard) Name() string {
 
 func (g *SelfCloseGuard) Check(ctx *TransitionContext) GuardResult {
 	// Allow if not closing
-	if ctx.ToStatus != models.StatusClosed {
+	if ctx.ToStatus != models.StatusShipped {
 		return GuardResult{Passed: true}
 	}
 
@@ -175,9 +175,9 @@ func (g *SelfCloseGuard) Check(ctx *TransitionContext) GuardResult {
 	return GuardResult{Passed: true}
 }
 
-// InProgressRequiredGuard ensures issue is in progress before review.
+// InProgressRequiredGuard ensures issue is in flight before review.
 // Future: Not yet attached to transitions. Transition definitions already
-// prevent most invalid paths (e.g., blocked → in_review).
+// prevent most invalid paths.
 type InProgressRequiredGuard struct{}
 
 func (g *InProgressRequiredGuard) Name() string {
@@ -186,22 +186,22 @@ func (g *InProgressRequiredGuard) Name() string {
 
 func (g *InProgressRequiredGuard) Check(ctx *TransitionContext) GuardResult {
 	// Only applies when going to review
-	if ctx.ToStatus != models.StatusInReview {
+	if ctx.ToStatus != models.StatusReview {
 		return GuardResult{Passed: true}
 	}
 
 	// Allow from in_progress
-	if ctx.FromStatus == models.StatusInProgress {
+	if ctx.FromStatus == models.StatusInFlight {
 		return GuardResult{Passed: true}
 	}
 
 	// Allow from open (direct submission)
-	if ctx.FromStatus == models.StatusOpen {
+	if ctx.FromStatus == models.StatusBacklog {
 		return GuardResult{Passed: true}
 	}
 
 	return GuardResult{
 		Passed:  false,
-		Message: "can only submit for review from open or in_progress status",
+		Message: "can only submit for review from backlog or in_flight status",
 	}
 }

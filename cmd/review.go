@@ -35,7 +35,7 @@ func submitIssueForReview(database *db.DB, issue *models.Issue, sess *session.Se
 	ctx := &workflow.TransitionContext{
 		Issue:      issue,
 		FromStatus: issue.Status,
-		ToStatus:   models.StatusInReview,
+		ToStatus:   models.StatusReview,
 		SessionID:  sess.ID,
 		Context:    workflow.ContextCLI,
 	}
@@ -46,7 +46,7 @@ func submitIssueForReview(database *db.DB, issue *models.Issue, sess *session.Se
 			Message: fmt.Sprintf("cannot review %s: %v", issue.ID, err),
 		}
 	}
-	if !sm.IsValidTransition(issue.Status, models.StatusInReview) {
+	if !sm.IsValidTransition(issue.Status, models.StatusReview) {
 		return SubmitReviewResult{
 			Success: false,
 			Message: fmt.Sprintf("cannot review %s: invalid transition from %s", issue.ID, issue.Status),
@@ -54,7 +54,7 @@ func submitIssueForReview(database *db.DB, issue *models.Issue, sess *session.Se
 	}
 
 	// Update issue (atomic update + action log)
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	if issue.ImplementerSession == "" {
 		issue.ImplementerSession = sess.ID
 	}
@@ -193,8 +193,8 @@ Supports bulk operations:
 			hasChildren, _ := database.HasChildren(issueID)
 			if hasChildren {
 				descendants, err := database.GetDescendantIssues(issueID, []models.Status{
-					models.StatusOpen,
-					models.StatusInProgress,
+					models.StatusBacklog,
+					models.StatusInFlight,
 				})
 				if err == nil && len(descendants) > 0 {
 					cascaded := 0
@@ -214,9 +214,9 @@ Supports bulk operations:
 			}
 
 			// Cascade up: if all siblings are in_review (or closed), update parent epic
-			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusInReview, sess.ID); count > 0 {
+			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusReview, sess.ID); count > 0 {
 				for _, id := range ids {
-					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusInReview)
+					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusReview)
 				}
 			}
 
@@ -309,7 +309,7 @@ Supports bulk operations:
 
 			// Validate transition with state machine
 			sm := workflow.DefaultMachine()
-			if !sm.IsValidTransition(issue.Status, models.StatusClosed) {
+			if !sm.IsValidTransition(issue.Status, models.StatusShipped) {
 				if !all {
 					if jsonOutput {
 						output.JSONError(output.ErrCodeDatabaseError, fmt.Sprintf("cannot approve %s: invalid transition from %s", issueID, issue.Status))
@@ -348,7 +348,7 @@ Supports bulk operations:
 			}
 
 			// Update issue (atomic update + action log)
-			issue.Status = models.StatusClosed
+			issue.Status = models.StatusShipped
 			issue.ReviewerSession = sess.ID
 			now := issue.UpdatedAt
 			issue.ClosedAt = &now
@@ -386,9 +386,9 @@ Supports bulk operations:
 			fmt.Printf("APPROVED %s (reviewer: %s)\n", issueID, sess.ID)
 
 			// Cascade up: if all siblings are closed, update parent epic
-			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusClosed, sess.ID); count > 0 {
+			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusShipped, sess.ID); count > 0 {
 				for _, id := range ids {
-					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusClosed)
+					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusShipped)
 				}
 			}
 
@@ -459,7 +459,7 @@ Supports bulk operations:
 
 			// Validate transition with state machine
 			sm := workflow.DefaultMachine()
-			if !sm.IsValidTransition(issue.Status, models.StatusInProgress) {
+			if !sm.IsValidTransition(issue.Status, models.StatusInFlight) {
 				if jsonOutput {
 					output.JSONError(output.ErrCodeDatabaseError, fmt.Sprintf("cannot reject %s: invalid transition from %s", issueID, issue.Status))
 				} else {
@@ -470,7 +470,7 @@ Supports bulk operations:
 			}
 
 			// Update issue (atomic update + action log)
-			issue.Status = models.StatusInProgress
+			issue.Status = models.StatusInFlight
 
 			if err := database.UpdateIssueLogged(issue, sess.ID, models.ActionReject); err != nil {
 				if jsonOutput {
@@ -501,7 +501,7 @@ Supports bulk operations:
 			if jsonOutput {
 				result := map[string]interface{}{
 					"id":      issueID,
-					"status":  "in_progress",
+					"status":  "in_flight",
 					"action":  "rejected",
 					"session": sess.ID,
 				}
@@ -580,7 +580,7 @@ Examples:
 
 			// Validate transition with state machine
 			sm := workflow.DefaultMachine()
-			if !sm.IsValidTransition(issue.Status, models.StatusClosed) {
+			if !sm.IsValidTransition(issue.Status, models.StatusShipped) {
 				output.Warning("cannot close %s: invalid transition from %s", issueID, issue.Status)
 				skipped++
 				continue
@@ -634,7 +634,7 @@ Examples:
 			}
 
 			// Update issue (atomic update + action log)
-			issue.Status = models.StatusClosed
+			issue.Status = models.StatusShipped
 			now := issue.UpdatedAt
 			issue.ClosedAt = &now
 
@@ -687,9 +687,9 @@ Examples:
 			}
 
 			// Cascade up: if all siblings are closed, update parent epic
-			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusClosed, sess.ID); count > 0 {
+			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusShipped, sess.ID); count > 0 {
 				for _, id := range ids {
-					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusClosed)
+					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusShipped)
 				}
 			}
 

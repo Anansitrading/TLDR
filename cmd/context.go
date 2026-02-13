@@ -80,7 +80,7 @@ var usageCmd = &cobra.Command{
 
 		// Get in-progress issues for this session
 		inProgress, _ := database.ListIssues(db.ListIssuesOptions{
-			Status:      []models.Status{models.StatusInProgress},
+			Status:      []models.Status{models.StatusInFlight},
 			Implementer: sess.ID,
 			SortBy:      "priority",
 		})
@@ -92,7 +92,7 @@ var usageCmd = &cobra.Command{
 
 		// Get ready issues (open, not blocked by dependencies)
 		openIssues, _ := database.ListIssues(db.ListIssuesOptions{
-			Status: []models.Status{models.StatusOpen},
+			Status: []models.Status{models.StatusBacklog},
 			SortBy: "priority",
 		})
 		var ready []models.Issue
@@ -101,7 +101,7 @@ var usageCmd = &cobra.Command{
 			isBlocked := false
 			for _, depID := range deps {
 				depIssue, err := database.GetIssue(depID)
-				if err == nil && depIssue.Status != models.StatusClosed {
+				if err == nil && depIssue.Status != models.StatusShipped {
 					isBlocked = true
 					break
 				}

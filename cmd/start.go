@@ -42,7 +42,7 @@ Examples:
 
 		// Check for too many in-progress issues
 		inProgress, _ := database.ListIssues(db.ListIssuesOptions{
-			Status:      []models.Status{models.StatusInProgress},
+			Status:      []models.Status{models.StatusInFlight},
 			Implementer: sess.ID,
 		})
 		if len(inProgress) > 4 {
@@ -80,20 +80,20 @@ Examples:
 			ctx := &workflow.TransitionContext{
 				Issue:      issue,
 				FromStatus: issue.Status,
-				ToStatus:   models.StatusInProgress,
+				ToStatus:   models.StatusInFlight,
 				SessionID:  sess.ID,
 				Force:      force,
 				Context:    workflow.ContextCLI,
 			}
 
-			if !sm.IsValidTransition(issue.Status, models.StatusInProgress) {
+			if !sm.IsValidTransition(issue.Status, models.StatusInFlight) {
 				output.Warning("cannot start %s: invalid transition from %s", issueID, issue.Status)
 				skipped++
 				continue
 			}
 
 			// Check if blocked without force (preserving existing behavior)
-			if issue.Status == models.StatusBlocked && !force {
+			if issue.Status == models.StatusCanceled && !force {
 				output.Warning("cannot start blocked issue: %s (use --force to override)", issueID)
 				skipped++
 				continue
@@ -109,7 +109,7 @@ Examples:
 			}
 
 			// Update issue (atomic update + action log)
-			issue.Status = models.StatusInProgress
+			issue.Status = models.StatusInFlight
 			issue.ImplementerSession = sess.ID
 
 			if err := database.UpdateIssueLogged(issue, sess.ID, models.ActionStart); err != nil {

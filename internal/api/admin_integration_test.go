@@ -282,30 +282,30 @@ func TestIntegration_SnapshotQuery_StatusFilter(t *testing.T) {
 	pid := state.ProjectID("proj1")
 	userToken := state.UserToken("user@test.com")
 
-	// Push issues with mixed statuses: 3 open, 2 closed
+	// Push issues with mixed statuses: 3 backlog, 2 shipped
 	h.PushEvents(userToken, pid, []EventInput{
 		{ClientActionID: 1, ActionType: "create", EntityType: "issues", EntityID: "td-sqsf001",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"open1","status":"open","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"backlog1","status":"backlog","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:00Z"},
 		{ClientActionID: 2, ActionType: "create", EntityType: "issues", EntityID: "td-sqsf002",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"closed1","status":"closed","type":"bug","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"shipped1","status":"shipped","type":"bug","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:01Z"},
 		{ClientActionID: 3, ActionType: "create", EntityType: "issues", EntityID: "td-sqsf003",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"open2","status":"open","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"backlog2","status":"backlog","type":"task","priority":"P1"}}`), ClientTimestamp: "2025-01-01T00:00:02Z"},
 		{ClientActionID: 4, ActionType: "create", EntityType: "issues", EntityID: "td-sqsf004",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"closed2","status":"closed","type":"task","priority":"P3"}}`), ClientTimestamp: "2025-01-01T00:00:03Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"shipped2","status":"shipped","type":"task","priority":"P3"}}`), ClientTimestamp: "2025-01-01T00:00:03Z"},
 		{ClientActionID: 5, ActionType: "create", EntityType: "issues", EntityID: "td-sqsf005",
-			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"open3","status":"open","type":"feature","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:04Z"},
+			Payload: json.RawMessage(`{"schema_version":1,"new_data":{"title":"backlog3","status":"backlog","type":"feature","priority":"P2"}}`), ClientTimestamp: "2025-01-01T00:00:04Z"},
 	})
 
-	// Query for open issues (snapshot auto-built)
+	// Query for backlog issues (snapshot auto-built)
 	var resp snapshotQueryResponse
-	h.DoJSON("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open", pid), token, nil, &resp)
+	h.DoJSON("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog", pid), token, nil, &resp)
 
 	if len(resp.Data) != 3 {
-		t.Fatalf("expected 3 open issues, got %d", len(resp.Data))
+		t.Fatalf("expected 3 backlog issues, got %d", len(resp.Data))
 	}
 	for _, issue := range resp.Data {
-		if issue.Status != "open" {
-			t.Fatalf("expected all results to be open, got status=%q for %s", issue.Status, issue.ID)
+		if issue.Status != "backlog" {
+			t.Fatalf("expected all results to be backlog, got status=%q for %s", issue.Status, issue.ID)
 		}
 	}
 }
@@ -323,7 +323,7 @@ func TestIntegration_SnapshotQuery_Pagination(t *testing.T) {
 	pid := state.ProjectID("proj1")
 	userToken := state.UserToken("user@test.com")
 
-	// Push 5 open issues
+	// Push 5 backlog issues
 	events := make([]EventInput, 5)
 	for i := 0; i < 5; i++ {
 		events[i] = EventInput{
@@ -332,14 +332,14 @@ func TestIntegration_SnapshotQuery_Pagination(t *testing.T) {
 			EntityType:     "issues",
 			EntityID:       fmt.Sprintf("td-sqpg%04d", i+1),
 			Payload: json.RawMessage(fmt.Sprintf(
-				`{"schema_version":1,"new_data":{"title":"issue %d","status":"open","type":"task","priority":"P1"}}`, i+1)),
+				`{"schema_version":1,"new_data":{"title":"issue %d","status":"backlog","type":"task","priority":"P1"}}`, i+1)),
 			ClientTimestamp: fmt.Sprintf("2025-01-01T00:00:%02dZ", i),
 		}
 	}
 	h.PushEvents(userToken, pid, events)
 
 	// Page 1: limit=2
-	resp1 := h.Do("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open&limit=2", pid), token, nil)
+	resp1 := h.Do("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog&limit=2", pid), token, nil)
 	page1 := ReadJSON[snapshotQueryResponse](t, resp1)
 	if len(page1.Data) != 2 {
 		t.Fatalf("page1: expected 2 issues, got %d", len(page1.Data))
@@ -352,7 +352,7 @@ func TestIntegration_SnapshotQuery_Pagination(t *testing.T) {
 	}
 
 	// Page 2: use cursor
-	resp2 := h.Do("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open&limit=2&cursor=%s", pid, *page1.NextCursor), token, nil)
+	resp2 := h.Do("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog&limit=2&cursor=%s", pid, *page1.NextCursor), token, nil)
 	page2 := ReadJSON[snapshotQueryResponse](t, resp2)
 	if len(page2.Data) != 2 {
 		t.Fatalf("page2: expected 2 issues, got %d", len(page2.Data))
@@ -362,7 +362,7 @@ func TestIntegration_SnapshotQuery_Pagination(t *testing.T) {
 	}
 
 	// Page 3: last page
-	resp3 := h.Do("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+open&limit=2&cursor=%s", pid, *page2.NextCursor), token, nil)
+	resp3 := h.Do("GET", fmt.Sprintf("/v1/admin/projects/%s/snapshot/query?q=status+%%3D+backlog&limit=2&cursor=%s", pid, *page2.NextCursor), token, nil)
 	page3 := ReadJSON[snapshotQueryResponse](t, resp3)
 	if len(page3.Data) != 1 {
 		t.Fatalf("page3: expected 1 issue, got %d", len(page3.Data))

@@ -73,7 +73,7 @@ func TestMarkForReviewCommandExecution(t *testing.T) {
 				Cursor:      map[Panel]int{PanelTaskList: 0},
 				SelectedID:  map[Panel]string{},
 				TaskListRows: []TaskListRow{
-					{Issue: models.Issue{ID: "td-001", Status: models.StatusOpen}},
+					{Issue: models.Issue{ID: "td-001", Status: models.StatusBacklog}},
 				},
 			},
 			context:     keymap.ContextMain,
@@ -115,36 +115,36 @@ func TestSubmitToReviewStateTransition(t *testing.T) {
 	}{
 		{
 			name:            "open issue transitions to in_review",
-			initialStatus:   models.StatusOpen,
-			expectedStatus:  models.StatusInReview,
+			initialStatus:   models.StatusBacklog,
+			expectedStatus:  models.StatusReview,
 			shouldTransition: true,
 			description:     "Ready issues can be submitted for review",
 		},
 		{
 			name:            "in_progress issue transitions to in_review",
-			initialStatus:   models.StatusInProgress,
-			expectedStatus:  models.StatusInReview,
+			initialStatus:   models.StatusInFlight,
+			expectedStatus:  models.StatusReview,
 			shouldTransition: true,
 			description:     "In-progress issues can be submitted for review",
 		},
 		{
 			name:            "in_review issue stays in_review",
-			initialStatus:   models.StatusInReview,
-			expectedStatus:  models.StatusInReview,
+			initialStatus:   models.StatusReview,
+			expectedStatus:  models.StatusReview,
 			shouldTransition: false,
 			description:     "Already reviewed issues cannot be re-reviewed",
 		},
 		{
 			name:            "closed issue stays closed",
-			initialStatus:   models.StatusClosed,
-			expectedStatus:  models.StatusClosed,
+			initialStatus:   models.StatusShipped,
+			expectedStatus:  models.StatusShipped,
 			shouldTransition: false,
 			description:     "Closed issues cannot be submitted for review",
 		},
 		{
 			name:            "blocked issue stays blocked",
-			initialStatus:   models.StatusBlocked,
-			expectedStatus:  models.StatusBlocked,
+			initialStatus:   models.StatusCanceled,
+			expectedStatus:  models.StatusCanceled,
 			shouldTransition: false,
 			description:     "Blocked issues cannot be submitted for review",
 		},
@@ -160,8 +160,8 @@ func TestSubmitToReviewStateTransition(t *testing.T) {
 			}
 
 			// Simulate the validation logic from markForReview
-			allowReview := (issue.Status == models.StatusInProgress ||
-			                issue.Status == models.StatusOpen)
+			allowReview := (issue.Status == models.StatusInFlight ||
+			                issue.Status == models.StatusBacklog)
 
 			if tt.shouldTransition {
 				if !allowReview {
@@ -170,7 +170,7 @@ func TestSubmitToReviewStateTransition(t *testing.T) {
 				}
 
 				// If allowed, apply transition
-				issue.Status = models.StatusInReview
+				issue.Status = models.StatusReview
 				if issue.Status != tt.expectedStatus {
 					t.Errorf("status after transition = %v, want %v",
 						issue.Status, tt.expectedStatus)
@@ -222,7 +222,7 @@ func TestSubmitToReviewModalHandling(t *testing.T) {
 			if tt.modalOpen {
 				m.ModalStack = append(m.ModalStack, ModalEntry{
 					IssueID: "td-001",
-					Issue:   &models.Issue{ID: "td-001", Status: models.StatusInProgress},
+					Issue:   &models.Issue{ID: "td-001", Status: models.StatusInFlight},
 					Loading: false,
 				})
 			}
@@ -261,8 +261,8 @@ func TestMarkForReviewFromTaskListPanel(t *testing.T) {
 			name:      "select first ready issue",
 			cursorPos: 0,
 			panelRows: []TaskListRow{
-				{Issue: models.Issue{ID: "td-001", Status: models.StatusOpen}, Category: CategoryReady},
-				{Issue: models.Issue{ID: "td-002", Status: models.StatusOpen}, Category: CategoryReady},
+				{Issue: models.Issue{ID: "td-001", Status: models.StatusBacklog}, Category: CategoryReady},
+				{Issue: models.Issue{ID: "td-002", Status: models.StatusBacklog}, Category: CategoryReady},
 			},
 			expectedIssue: "td-001",
 		},
@@ -270,9 +270,9 @@ func TestMarkForReviewFromTaskListPanel(t *testing.T) {
 			name:      "select middle issue",
 			cursorPos: 1,
 			panelRows: []TaskListRow{
-				{Issue: models.Issue{ID: "td-001", Status: models.StatusOpen}, Category: CategoryReady},
-				{Issue: models.Issue{ID: "td-002", Status: models.StatusOpen}, Category: CategoryReady},
-				{Issue: models.Issue{ID: "td-003", Status: models.StatusOpen}, Category: CategoryReady},
+				{Issue: models.Issue{ID: "td-001", Status: models.StatusBacklog}, Category: CategoryReady},
+				{Issue: models.Issue{ID: "td-002", Status: models.StatusBacklog}, Category: CategoryReady},
+				{Issue: models.Issue{ID: "td-003", Status: models.StatusBacklog}, Category: CategoryReady},
 			},
 			expectedIssue: "td-002",
 		},
@@ -280,8 +280,8 @@ func TestMarkForReviewFromTaskListPanel(t *testing.T) {
 			name:      "select reviewable issue",
 			cursorPos: 0,
 			panelRows: []TaskListRow{
-				{Issue: models.Issue{ID: "td-review", Status: models.StatusInReview}, Category: CategoryReviewable},
-				{Issue: models.Issue{ID: "td-002", Status: models.StatusOpen}, Category: CategoryReady},
+				{Issue: models.Issue{ID: "td-review", Status: models.StatusReview}, Category: CategoryReviewable},
+				{Issue: models.Issue{ID: "td-002", Status: models.StatusBacklog}, Category: CategoryReady},
 			},
 			expectedIssue: "td-review",
 		},
@@ -319,20 +319,20 @@ func TestMarkForReviewFromCurrentWorkPanel(t *testing.T) {
 	}{
 		{
 			name:         "select focused issue",
-			focusedIssue: &models.Issue{ID: "focused-001", Status: models.StatusInProgress},
+			focusedIssue: &models.Issue{ID: "focused-001", Status: models.StatusInFlight},
 			inProgress: []models.Issue{
-				{ID: "ip-001", Status: models.StatusInProgress},
-				{ID: "ip-002", Status: models.StatusInProgress},
+				{ID: "ip-001", Status: models.StatusInFlight},
+				{ID: "ip-002", Status: models.StatusInFlight},
 			},
 			cursorPos:     0,
 			expectedIssue: "focused-001",
 		},
 		{
 			name:         "select in-progress issue",
-			focusedIssue: &models.Issue{ID: "focused-001", Status: models.StatusInProgress},
+			focusedIssue: &models.Issue{ID: "focused-001", Status: models.StatusInFlight},
 			inProgress: []models.Issue{
-				{ID: "focused-001", Status: models.StatusInProgress},
-				{ID: "ip-002", Status: models.StatusInProgress},
+				{ID: "focused-001", Status: models.StatusInFlight},
+				{ID: "ip-002", Status: models.StatusInFlight},
 			},
 			cursorPos:     1,
 			expectedIssue: "ip-002",
@@ -377,7 +377,7 @@ func TestMarkForReviewFromModal(t *testing.T) {
 			modalStack: []ModalEntry{
 				{
 					IssueID: "td-001",
-					Issue:   &models.Issue{ID: "td-001", Status: models.StatusInProgress},
+					Issue:   &models.Issue{ID: "td-001", Status: models.StatusInFlight},
 				},
 			},
 			expectedIssue: "td-001",
@@ -388,11 +388,11 @@ func TestMarkForReviewFromModal(t *testing.T) {
 			modalStack: []ModalEntry{
 				{
 					IssueID: "td-001",
-					Issue:   &models.Issue{ID: "td-001", Status: models.StatusOpen},
+					Issue:   &models.Issue{ID: "td-001", Status: models.StatusBacklog},
 				},
 				{
 					IssueID: "td-002",
-					Issue:   &models.Issue{ID: "td-002", Status: models.StatusInProgress},
+					Issue:   &models.Issue{ID: "td-002", Status: models.StatusInFlight},
 				},
 			},
 			expectedIssue: "td-002",
@@ -473,11 +473,11 @@ func TestHandleKeyShiftRInMainContext(t *testing.T) {
 			switch tt.activePanel {
 			case PanelTaskList:
 				m.TaskListRows = []TaskListRow{
-					{Issue: models.Issue{ID: "td-001", Status: models.StatusOpen}},
+					{Issue: models.Issue{ID: "td-001", Status: models.StatusBacklog}},
 				}
 				m.Cursor[PanelTaskList] = 0
 			case PanelCurrentWork:
-				m.FocusedIssue = &models.Issue{ID: "focused-001", Status: models.StatusInProgress}
+				m.FocusedIssue = &models.Issue{ID: "focused-001", Status: models.StatusInFlight}
 				m.buildCurrentWorkRows()
 				m.Cursor[PanelCurrentWork] = 0
 			case PanelActivity:
@@ -512,7 +512,7 @@ func TestHandleKeyShiftRInModalContext(t *testing.T) {
 		ModalStack: []ModalEntry{
 			{
 				IssueID: "td-001",
-				Issue:   &models.Issue{ID: "td-001", Status: models.StatusInProgress},
+				Issue:   &models.Issue{ID: "td-001", Status: models.StatusInFlight},
 			},
 		},
 	}

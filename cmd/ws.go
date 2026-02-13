@@ -132,14 +132,14 @@ var wsTagCmd = &cobra.Command{
 
 			// Start the issue if not already started (unless --no-start)
 			noStart, _ := cmd.Flags().GetBool("no-start")
-			if !noStart && issue.Status == models.StatusOpen {
+			if !noStart && issue.Status == models.StatusBacklog {
 				// Validate transition with state machine
 				sm := workflow.DefaultMachine()
-				if !sm.IsValidTransition(issue.Status, models.StatusInProgress) {
+				if !sm.IsValidTransition(issue.Status, models.StatusInFlight) {
 					output.Warning("cannot auto-start %s: invalid transition from %s", issueID, issue.Status)
 					continue
 				}
-				issue.Status = models.StatusInProgress
+				issue.Status = models.StatusInFlight
 				issue.ImplementerSession = sess.ID
 				database.UpdateIssueLogged(issue, sess.ID, models.ActionStart)
 
@@ -536,7 +536,7 @@ Flags support values, stdin (-), or file (@path):
 		if submitReview {
 			for _, issueID := range issueIDs {
 				issue, _ := database.GetIssue(issueID)
-				if issue != nil && issue.Status == models.StatusInProgress {
+				if issue != nil && issue.Status == models.StatusInFlight {
 					result := submitIssueForReview(database, issue, sess, baseDir, "Submitted for review via ws handoff --review")
 					if !result.Success {
 						output.Warning("%s", result.Message)
@@ -696,7 +696,7 @@ var wsShowCmd = &cobra.Command{
 				continue
 			}
 			statusMark := ""
-			if issue.Status == models.StatusClosed {
+			if issue.Status == models.StatusShipped {
 				statusMark = " ✓"
 			}
 			fmt.Printf("  %s  %s  %s%s\n", issue.ID, issue.Title, output.FormatStatus(issue.Status), statusMark)

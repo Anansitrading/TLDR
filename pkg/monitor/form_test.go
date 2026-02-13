@@ -704,7 +704,7 @@ func TestFormStatePreservesAllIssueFields(t *testing.T) {
 		Points:      13,
 		Acceptance:  "- [ ] Test 1\n- [ ] Test 2\n- [ ] Test 3",
 		Minor:       true,
-		Status:      models.StatusOpen,
+		Status:      models.StatusBacklog,
 	}
 
 	// Create form state from issue

@@ -142,13 +142,13 @@ func formatEpicAsMarkdown(epic *models.Issue, children []models.Issue) string {
 // statusIcon returns a status indicator for markdown.
 func statusIcon(status models.Status) string {
 	switch status {
-	case models.StatusClosed:
+	case models.StatusShipped:
 		return "[x]"
-	case models.StatusInProgress:
+	case models.StatusInFlight:
 		return "[-]"
-	case models.StatusInReview:
+	case models.StatusReview:
 		return "[~]"
-	case models.StatusBlocked:
+	case models.StatusCanceled:
 		return "[!]"
 	default:
 		return "[ ]"

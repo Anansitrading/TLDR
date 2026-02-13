@@ -21,7 +21,7 @@ func TestMultiUserIssueIndependence(t *testing.T) {
 	userASession := "ses_user_a"
 	issueA := &models.Issue{
 		Title:          "Task for User A",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		CreatorSession: userASession,
 		Type:           models.TypeTask,
 		Priority:       models.PriorityP1,
@@ -34,7 +34,7 @@ func TestMultiUserIssueIndependence(t *testing.T) {
 	userBSession := "ses_user_b"
 	issueB := &models.Issue{
 		Title:          "Task for User B",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		CreatorSession: userBSession,
 		Type:           models.TypeTask,
 		Priority:       models.PriorityP2,
@@ -79,7 +79,7 @@ func TestIssuesVisibleAcrossUsers(t *testing.T) {
 	userASession := "ses_creator_a"
 	issue := &models.Issue{
 		Title:          "Shared task",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		CreatorSession: userASession,
 		Type:           models.TypeFeature,
 		Priority:       models.PriorityP1,
@@ -130,7 +130,7 @@ func TestSessionHistoryTracking(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:    "Tracked issue",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 	}
@@ -189,7 +189,7 @@ func TestConcurrentUserOperations(t *testing.T) {
 	// Create a shared issue
 	shared := &models.Issue{
 		Title:    "Concurrent work",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 	}
@@ -209,7 +209,7 @@ func TestConcurrentUserOperations(t *testing.T) {
 			return
 		}
 		issue.ImplementerSession = userASession
-		issue.Status = models.StatusInProgress
+		issue.Status = models.StatusInFlight
 		done <- db.UpdateIssue(issue)
 	}()
 
@@ -238,7 +238,7 @@ func TestConcurrentUserOperations(t *testing.T) {
 		t.Fatalf("GetIssue failed: %v", err)
 	}
 
-	if final.Status != models.StatusInProgress {
+	if final.Status != models.StatusInFlight {
 		t.Errorf("Status should be in_progress, got %s", final.Status)
 	}
 
@@ -278,7 +278,7 @@ func TestReviewableByLogic(t *testing.T) {
 	// Test 1: Non-implementer, non-creator can review clean task
 	issue1 := &models.Issue{
 		Title:              "Clean task for A",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionB,
 		CreatorSession:     sessionC,
 		Type:               models.TypeTask,
@@ -290,7 +290,7 @@ func TestReviewableByLogic(t *testing.T) {
 	// Test 2: Creator cannot review
 	issue2 := &models.Issue{
 		Title:              "Creator is reviewer",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionB,
 		CreatorSession:     sessionA,
 		Type:               models.TypeTask,
@@ -302,7 +302,7 @@ func TestReviewableByLogic(t *testing.T) {
 	// Test 3: Implementer cannot review non-minor
 	issue3 := &models.Issue{
 		Title:              "Impl cannot review",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionC,
 		Type:               models.TypeTask,
@@ -314,7 +314,7 @@ func TestReviewableByLogic(t *testing.T) {
 	// Test 4: Minor task - implementer can self-review
 	issue4 := &models.Issue{
 		Title:              "Minor self-review",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionC,
 		Type:               models.TypeTask,
@@ -369,7 +369,7 @@ func TestMultipleIssuesPerUser(t *testing.T) {
 	for i := 0; i < issueCount; i++ {
 		issue := &models.Issue{
 			Title:          "Issue " + string(rune('A'+i)),
-			Status:         models.StatusOpen,
+			Status:         models.StatusBacklog,
 			CreatorSession: userSession,
 			Type:           models.TypeTask,
 			Priority:       models.PriorityP2,
@@ -393,11 +393,11 @@ func TestMultipleIssuesPerUser(t *testing.T) {
 
 	// Update different issues with different statuses
 	statusProgression := []models.Status{
-		models.StatusInProgress,
-		models.StatusInReview,
-		models.StatusClosed,
-		models.StatusBlocked,
-		models.StatusOpen,
+		models.StatusInFlight,
+		models.StatusReview,
+		models.StatusShipped,
+		models.StatusCanceled,
+		models.StatusBacklog,
 	}
 
 	for i, id := range issueIDs {
@@ -435,7 +435,7 @@ func TestSessionInvolvementTracking(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:    "Involvement test",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 	}
@@ -500,7 +500,7 @@ func TestMultiUserWorkSession(t *testing.T) {
 	for i := 0; i < issueCount; i++ {
 		issue := &models.Issue{
 			Title:          "Feature part " + string(rune('A'+i)),
-			Status:         models.StatusOpen,
+			Status:         models.StatusBacklog,
 			CreatorSession: creatorIDs[i],
 			Type:           models.TypeFeature,
 			Priority:       models.PriorityP1,
@@ -561,7 +561,7 @@ func TestReviewerAssignmentAcrossUsers(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:              "Code review task",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		ImplementerSession: implSession,
 		ReviewerSession:    reviewSession,
 		CreatorSession:     creatorSession,
@@ -624,7 +624,7 @@ func TestLogEntriesPerSession(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:    "Logged work",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 	}
@@ -711,7 +711,7 @@ func TestConcurrentIssueCreation(t *testing.T) {
 			for i := 0; i < issuesPerUser; i++ {
 				issue := &models.Issue{
 					Title:          fmt.Sprintf("Issue %d-%d", idx, i),
-					Status:         models.StatusOpen,
+					Status:         models.StatusBacklog,
 					CreatorSession: sessionID,
 					Type:           models.TypeTask,
 					Priority:       models.PriorityP2,
@@ -766,7 +766,7 @@ func TestConcurrentStatusUpdates(t *testing.T) {
 	// Create a shared issue
 	shared := &models.Issue{
 		Title:    "Concurrent update test",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 	}
@@ -776,9 +776,9 @@ func TestConcurrentStatusUpdates(t *testing.T) {
 
 	// Simulate 3 users updating status concurrently
 	statusUpdates := []models.Status{
-		models.StatusInProgress,
-		models.StatusInReview,
-		models.StatusClosed,
+		models.StatusInFlight,
+		models.StatusReview,
+		models.StatusShipped,
 	}
 
 	done := make(chan error, len(statusUpdates))
@@ -904,7 +904,7 @@ func TestDataConsistencyAcrossUsers(t *testing.T) {
 			// Create issue with test data
 			issue := &models.Issue{
 				Title:    "Data consistency test",
-				Status:   models.StatusOpen,
+				Status:   models.StatusBacklog,
 				Type:     models.TypeTask,
 				Priority: models.PriorityP2,
 			}
@@ -925,7 +925,7 @@ func TestDataConsistencyAcrossUsers(t *testing.T) {
 			}
 
 			// Update status and verify data consistency
-			retrieved.Status = models.StatusInProgress
+			retrieved.Status = models.StatusInFlight
 			if err := db.UpdateIssue(retrieved); err != nil {
 				t.Fatalf("UpdateIssue failed: %v", err)
 			}
@@ -953,7 +953,7 @@ func TestConflictingReviewers(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:    "Multi-reviewer test",
-		Status:   models.StatusInReview,
+		Status:   models.StatusReview,
 		Type:     models.TypeFeature,
 		Priority: models.PriorityP1,
 	}
@@ -1025,7 +1025,7 @@ func TestMultiUserWorkFlow(t *testing.T) {
 	issue := &models.Issue{
 		Title:          "Complete workflow task",
 		Description:    "This task will go through full workflow",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		Type:           models.TypeFeature,
 		Priority:       models.PriorityP1,
 		CreatorSession: sessionCreator,
@@ -1037,20 +1037,20 @@ func TestMultiUserWorkFlow(t *testing.T) {
 
 	// Step 2: Implementer starts the issue
 	issue, _ = db.GetIssue(issueID)
-	issue.Status = models.StatusInProgress
+	issue.Status = models.StatusInFlight
 	issue.ImplementerSession = sessionImpl
 	if err := db.UpdateIssue(issue); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
 
 	retrieved, _ := db.GetIssue(issueID)
-	if retrieved.Status != models.StatusInProgress {
+	if retrieved.Status != models.StatusInFlight {
 		t.Errorf("Expected in_progress, got %s", retrieved.Status)
 	}
 
 	// Step 3: Implementer submits for review
 	issue, _ = db.GetIssue(issueID)
-	issue.Status = models.StatusInReview
+	issue.Status = models.StatusReview
 	if err := db.UpdateIssue(issue); err != nil {
 		t.Fatalf("Submit for review failed: %v", err)
 	}
@@ -1064,14 +1064,14 @@ func TestMultiUserWorkFlow(t *testing.T) {
 
 	// Step 5: Reviewer approves
 	issue, _ = db.GetIssue(issueID)
-	issue.Status = models.StatusClosed
+	issue.Status = models.StatusShipped
 	if err := db.UpdateIssue(issue); err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
 
 	// Verify final state
 	final, _ := db.GetIssue(issueID)
-	if final.Status != models.StatusClosed {
+	if final.Status != models.StatusShipped {
 		t.Errorf("Expected closed, got %s", final.Status)
 	}
 	if final.CreatorSession != sessionCreator {
@@ -1113,7 +1113,7 @@ func TestIsolationBetweenUsers(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		issA := &models.Issue{
 			Title:          fmt.Sprintf("Issue A-%d", i),
-			Status:         models.StatusOpen,
+			Status:         models.StatusBacklog,
 			Type:           models.TypeTask,
 			Priority:       models.PriorityP2,
 			CreatorSession: sessionA,
@@ -1123,7 +1123,7 @@ func TestIsolationBetweenUsers(t *testing.T) {
 
 		issB := &models.Issue{
 			Title:          fmt.Sprintf("Issue B-%d", i),
-			Status:         models.StatusOpen,
+			Status:         models.StatusBacklog,
 			Type:           models.TypeTask,
 			Priority:       models.PriorityP2,
 			CreatorSession: sessionB,
@@ -1136,7 +1136,7 @@ func TestIsolationBetweenUsers(t *testing.T) {
 	for i, issue := range issueA {
 		issue, _ := db.GetIssue(issue.ID)
 		issue.Title = fmt.Sprintf("Updated by A-%d", i)
-		issue.Status = models.StatusInProgress
+		issue.Status = models.StatusInFlight
 		db.UpdateIssue(issue)
 	}
 
@@ -1147,9 +1147,9 @@ func TestIsolationBetweenUsers(t *testing.T) {
 			t.Errorf("User B's issue was modified: expected %q, got %q",
 				fmt.Sprintf("Issue B-%d", i), retrieved.Title)
 		}
-		if retrieved.Status != models.StatusOpen {
+		if retrieved.Status != models.StatusBacklog {
 			t.Errorf("User B's issue status changed: expected %s, got %s",
-				models.StatusOpen, retrieved.Status)
+				models.StatusBacklog, retrieved.Status)
 		}
 	}
 
@@ -1173,7 +1173,7 @@ func TestConcurrentLabelModification(t *testing.T) {
 	// Create an issue
 	issue := &models.Issue{
 		Title:    "Label modification test",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP2,
 		Labels:   []string{"initial"},
@@ -1242,7 +1242,7 @@ func TestSessionHistoryAccuracy(t *testing.T) {
 
 	issue := &models.Issue{
 		Title:    "History tracking test",
-		Status:   models.StatusOpen,
+		Status:   models.StatusBacklog,
 		Type:     models.TypeTask,
 		Priority: models.PriorityP1,
 	}
@@ -1302,7 +1302,7 @@ func TestUserPermissionBoundaries(t *testing.T) {
 	creatorSession := "ses_perm_creator"
 	issue := &models.Issue{
 		Title:          "Permission boundary test",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		Type:           models.TypeTask,
 		Priority:       models.PriorityP1,
 		CreatorSession: creatorSession,
@@ -1314,7 +1314,7 @@ func TestUserPermissionBoundaries(t *testing.T) {
 	// Any user should be able to read the issue
 	other := &models.Issue{
 		Title:          "Check by other user",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		Type:           models.TypeTask,
 		Priority:       models.PriorityP1,
 		CreatorSession: "ses_perm_other",
@@ -1367,11 +1367,11 @@ func TestMultiUserIssueListFiltering(t *testing.T) {
 		priority    models.Priority
 		implementer string
 	}{
-		{"Issue A1", "ses_user_a", models.StatusOpen, models.PriorityP1, ""},
-		{"Issue A2", "ses_user_a", models.StatusInProgress, models.PriorityP2, "ses_user_a"},
-		{"Issue B1", "ses_user_b", models.StatusOpen, models.PriorityP1, ""},
-		{"Issue B2", "ses_user_b", models.StatusClosed, models.PriorityP3, "ses_user_b"},
-		{"Issue C1", "ses_user_c", models.StatusInReview, models.PriorityP2, "ses_user_c"},
+		{"Issue A1", "ses_user_a", models.StatusBacklog, models.PriorityP1, ""},
+		{"Issue A2", "ses_user_a", models.StatusInFlight, models.PriorityP2, "ses_user_a"},
+		{"Issue B1", "ses_user_b", models.StatusBacklog, models.PriorityP1, ""},
+		{"Issue B2", "ses_user_b", models.StatusShipped, models.PriorityP3, "ses_user_b"},
+		{"Issue C1", "ses_user_c", models.StatusReview, models.PriorityP2, "ses_user_c"},
 	}
 
 	for _, scenario := range scenarios {
@@ -1396,7 +1396,7 @@ func TestMultiUserIssueListFiltering(t *testing.T) {
 	}{
 		{
 			name:     "All open issues",
-			opts:     ListIssuesOptions{Status: []models.Status{models.StatusOpen}},
+			opts:     ListIssuesOptions{Status: []models.Status{models.StatusBacklog}},
 			expected: 2,
 		},
 		{
@@ -1438,7 +1438,7 @@ func TestBlockedIssueAcrossUsers(t *testing.T) {
 
 	blocker := &models.Issue{
 		Title:          "Blocker issue",
-		Status:         models.StatusOpen,
+		Status:         models.StatusBacklog,
 		Type:           models.TypeBug,
 		Priority:       models.PriorityP0,
 		CreatorSession: blockerSession,
@@ -1449,7 +1449,7 @@ func TestBlockedIssueAcrossUsers(t *testing.T) {
 
 	blocked := &models.Issue{
 		Title:          "Blocked task",
-		Status:         models.StatusBlocked,
+		Status:         models.StatusCanceled,
 		Type:           models.TypeTask,
 		Priority:       models.PriorityP1,
 		CreatorSession: blockedSession,
@@ -1474,7 +1474,7 @@ func TestBlockedIssueAcrossUsers(t *testing.T) {
 		t.Fatalf("GetIssue failed: %v", err)
 	}
 
-	if blocked.Status != models.StatusBlocked {
+	if blocked.Status != models.StatusCanceled {
 		t.Errorf("Blocked status not preserved: got %s", blocked.Status)
 	}
 }

@@ -66,7 +66,7 @@ var chaosSentences = []string{
 
 var chaosLabels = []string{
 	"bug", "feature", "enhancement", "refactor", "docs", "testing", "infra", "security",
-	"performance", "ux", "tech-debt", "ci", "backend", "frontend", "api", "urgent", "blocked",
+	"performance", "ux", "tech-debt", "ci", "backend", "frontend", "api", "urgent", "canceled",
 	"needs-design", "needs-review", "good-first-issue",
 }
 

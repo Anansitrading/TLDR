@@ -133,7 +133,7 @@ func TestCreateIssueWithDependency(t *testing.T) {
 	// Create prerequisite issue
 	prereq := &models.Issue{
 		Title:  "Prerequisite",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(prereq); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -142,7 +142,7 @@ func TestCreateIssueWithDependency(t *testing.T) {
 	// Create dependent issue
 	dependent := &models.Issue{
 		Title:  "Dependent Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(dependent); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -176,7 +176,7 @@ func TestCreateIssueWithBlocks(t *testing.T) {
 	// Create blocked issue first
 	blocked := &models.Issue{
 		Title:  "Blocked Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(blocked); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -185,7 +185,7 @@ func TestCreateIssueWithBlocks(t *testing.T) {
 	// Create blocker issue
 	blocker := &models.Issue{
 		Title:  "Blocker Issue",
-		Status: models.StatusOpen,
+		Status: models.StatusBacklog,
 	}
 	if err := database.CreateIssue(blocker); err != nil {
 		t.Fatalf("CreateIssue failed: %v", err)
@@ -279,7 +279,7 @@ func TestIssueDefaultStatus(t *testing.T) {
 	database.CreateIssue(issue)
 
 	retrieved, _ := database.GetIssue(issue.ID)
-	if retrieved.Status != models.StatusOpen {
+	if retrieved.Status != models.StatusBacklog {
 		t.Errorf("Expected status 'open', got %q", retrieved.Status)
 	}
 }
@@ -489,7 +489,7 @@ func TestMinorTaskAllowsSelfReview(t *testing.T) {
 	// Create a minor issue by creator
 	issue := &models.Issue{
 		Title:              "Minor: Fix typo",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              true,
 		ImplementerSession: sessionID,
 		CreatorSession:     sessionID,
@@ -536,7 +536,7 @@ func TestNormalTaskDoesNotAllowSelfReview(t *testing.T) {
 	// Create a normal (non-minor) issue where session is both implementer and creator
 	issue := &models.Issue{
 		Title:              "Normal Task",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              false, // Normal task
 		ImplementerSession: sessionID,
 		CreatorSession:     sessionID,
@@ -584,7 +584,7 @@ func TestMinorTaskBypass(t *testing.T) {
 	// Create a minor task implemented by A, created by A
 	minorIssue := &models.Issue{
 		Title:              "Minor fix",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              true,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
@@ -650,7 +650,7 @@ func TestMinorVsNormalWorkflow(t *testing.T) {
 	// Scenario 1: Minor task (self-reviewable)
 	minorIssue := &models.Issue{
 		Title:              "Minor: Typo fix",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              true,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
@@ -667,7 +667,7 @@ func TestMinorVsNormalWorkflow(t *testing.T) {
 	// Scenario 2: Normal task (requires external review)
 	normalIssue := &models.Issue{
 		Title:              "Normal: Feature implementation",
-		Status:             models.StatusInReview,
+		Status:             models.StatusReview,
 		Minor:              false,
 		ImplementerSession: sessionA,
 		CreatorSession:     sessionA,
@@ -753,7 +753,7 @@ func TestMinorTaskDoesNotAppearToOthersAsNormalTask(t *testing.T) {
 	}
 
 	// Verify it stays true through updates
-	retrieved.Status = models.StatusInProgress
+	retrieved.Status = models.StatusInFlight
 	retrieved.ImplementerSession = "ses_test"
 
 	if err := database.UpdateIssue(retrieved); err != nil {
@@ -810,7 +810,7 @@ func TestMultipleMinorTasksByCreator(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		issue := &models.Issue{
 			Title:              fmt.Sprintf("Minor task %d", i),
-			Status:             models.StatusInReview,
+			Status:             models.StatusReview,
 			Minor:              true,
 			ImplementerSession: sessionA,
 			CreatorSession:     sessionA,

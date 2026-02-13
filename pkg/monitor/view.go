@@ -1137,7 +1137,7 @@ func (m Model) renderModal() string {
 	if len(modal.BlockedBy) > 0 {
 		var activeBlockers, resolvedDeps []models.Issue
 		for _, dep := range modal.BlockedBy {
-			if dep.Status == models.StatusClosed {
+			if dep.Status == models.StatusShipped {
 				resolvedDeps = append(resolvedDeps, dep)
 			} else {
 				activeBlockers = append(activeBlockers, dep)
@@ -1667,11 +1667,14 @@ func (m Model) renderStatusBarChart(stats *models.ExtendedStats, width int) stri
 	var lines []string
 
 	statuses := []models.Status{
-		models.StatusOpen,
-		models.StatusInProgress,
-		models.StatusBlocked,
-		models.StatusInReview,
-		models.StatusClosed,
+		models.StatusTriage,
+		models.StatusBacklog,
+		models.StatusPrioritized,
+		models.StatusInFlight,
+		models.StatusReview,
+		models.StatusShipped,
+		models.StatusCanceled,
+		models.StatusDuplicate,
 	}
 
 	// Find max count for scaling

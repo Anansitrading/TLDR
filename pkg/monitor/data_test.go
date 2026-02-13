@@ -31,25 +31,30 @@ func TestComputeBoardIssueCategories(t *testing.T) {
 	defer database.Close()
 
 	// Create a blocker issue (open)
-	blocker := createTestIssue(t, database, "Blocker issue", models.StatusOpen)
+	blocker := createTestIssue(t, database, "Blocker issue", models.StatusBacklog)
 
 	// Create a blocked issue (open, depends on blocker)
-	blocked := createTestIssue(t, database, "Blocked issue", models.StatusOpen)
+	blocked := createTestIssue(t, database, "Blocked issue", models.StatusBacklog)
 	if err := database.AddDependency(blocked.ID, blocker.ID, "depends_on"); err != nil {
 		t.Fatalf("failed to add dependency: %v", err)
 	}
 
 	// Create a ready issue (open, no dependencies)
-	ready := createTestIssue(t, database, "Ready issue", models.StatusOpen)
+	ready := createTestIssue(t, database, "Ready issue", models.StatusBacklog)
 
-	// Create an explicitly blocked issue
-	explicitBlocked := createTestIssue(t, database, "Explicit blocked", models.StatusBlocked)
+	// Create an explicitly blocked issue (blocked via dependency, not status)
+	explicitBlocker := createTestIssue(t, database, "Explicit blocker", models.StatusBacklog)
+	explicitBlocked := createTestIssue(t, database, "Explicit blocked", models.StatusBacklog)
+	if err := database.AddDependency(explicitBlocked.ID, explicitBlocker.ID, "depends_on"); err != nil {
+		t.Fatalf("failed to add dependency for explicit blocked: %v", err)
+	}
 
 	// Build BoardIssueViews
 	issues := []models.BoardIssueView{
 		{Issue: *blocker},
 		{Issue: *blocked},
 		{Issue: *ready},
+		{Issue: *explicitBlocker},
 		{Issue: *explicitBlocked},
 	}
 
@@ -65,6 +70,7 @@ func TestComputeBoardIssueCategories(t *testing.T) {
 		{"blocker is ready", blocker.ID, CategoryReady},
 		{"blocked by dep is blocked", blocked.ID, CategoryBlocked},
 		{"ready issue is ready", ready.ID, CategoryReady},
+		{"explicit blocker is ready", explicitBlocker.ID, CategoryReady},
 		{"explicit blocked is blocked", explicitBlocked.ID, CategoryBlocked},
 	}
 
@@ -288,10 +294,10 @@ func TestComputeBoardIssueCategoriesClosedDepUnblocks(t *testing.T) {
 	defer database.Close()
 
 	// Create a blocker issue (closed)
-	blocker := createTestIssue(t, database, "Blocker issue", models.StatusClosed)
+	blocker := createTestIssue(t, database, "Blocker issue", models.StatusShipped)
 
 	// Create dependent issue (should be ready since blocker is closed)
-	dependent := createTestIssue(t, database, "Dependent issue", models.StatusOpen)
+	dependent := createTestIssue(t, database, "Dependent issue", models.StatusBacklog)
 	if err := database.AddDependency(dependent.ID, blocker.ID, "depends_on"); err != nil {
 		t.Fatalf("failed to add dependency: %v", err)
 	}

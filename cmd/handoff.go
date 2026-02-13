@@ -186,8 +186,8 @@ Or use flags with values, stdin (-), or file (@path):
 		}
 		if hasChildren {
 			descendants, err := database.GetDescendantIssues(issueID, []models.Status{
-				models.StatusOpen,
-				models.StatusInProgress,
+				models.StatusBacklog,
+				models.StatusInFlight,
 			})
 			if err == nil && len(descendants) > 0 {
 				cascaded := 0

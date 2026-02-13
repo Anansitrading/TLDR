@@ -42,7 +42,7 @@ Examples:
 			} else {
 				// Try to find in_progress issues
 				inProgress, _ := database.ListIssues(db.ListIssuesOptions{
-					Status: []models.Status{models.StatusInProgress},
+					Status: []models.Status{models.StatusInFlight},
 					Limit:  5,
 				})
 				if len(inProgress) == 1 {

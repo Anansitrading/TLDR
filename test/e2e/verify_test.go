@@ -244,8 +244,8 @@ func TestVerifyReadYourWrites(t *testing.T) {
 
 	// Build a minimal engine to track state
 	engine := e2e.NewChaosEngine(h, 42, 2)
-	engine.TrackCreatedIssue(aliceID, "open", "alice")
-	engine.TrackCreatedIssue(bobID, "open", "bob")
+	engine.TrackCreatedIssue(aliceID, "backlog", "alice")
+	engine.TrackCreatedIssue(bobID, "backlog", "bob")
 
 	v := e2e.NewVerifier(h)
 	v.VerifyReadYourWrites(engine)
@@ -289,8 +289,8 @@ func TestVerifyAll(t *testing.T) {
 	}
 
 	engine := e2e.NewChaosEngine(h, 99, 2)
-	engine.TrackCreatedIssue(id1, "open", "alice")
-	engine.TrackCreatedIssue(id2, "open", "bob")
+	engine.TrackCreatedIssue(id1, "backlog", "alice")
+	engine.TrackCreatedIssue(id2, "backlog", "bob")
 
 	v := e2e.NewVerifier(h)
 

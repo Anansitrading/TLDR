@@ -95,7 +95,7 @@ Example in bash: td check-handoff || echo "Don't forget to run td handoff!"`,
 
 		// Check for in-progress issues by this session
 		inProgress, _ := database.ListIssues(db.ListIssuesOptions{
-			Status:      []models.Status{models.StatusInProgress},
+			Status:      []models.Status{models.StatusInFlight},
 			Implementer: sess.ID,
 		})
 
