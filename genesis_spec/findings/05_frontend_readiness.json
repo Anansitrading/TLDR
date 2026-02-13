@@ -1,0 +1,576 @@
+{
+  "agent": "TUI Readiness Assessor",
+  "timestamp": "2026-02-13",
+  "summary": "The td TUI is a mature, feature-rich terminal application built on charmbracelet/bubbletea with extensive keyboard, mouse, and modal support. The codebase demonstrates strong architecture: a declarative modal system, centralized keymap registry with user-configurable bindings, hit-region-based mouse tracking, drag-to-resize panes, and a well-structured Elm-architecture state machine. Three board view modes (swimlanes, backlog, kanban), comprehensive CRUD forms, a query language (TDQ), and an embeddable API for sidecar integration are all fully implemented. Test coverage spans 17 test files across core subsystems. The main concerns are cosmetic: some rendering code duplication across view modes, and reliance on ANSI 256-color palette without true-color or light-theme support.",
+
+  "view_modes": [
+    {
+      "name": "Panel View (Categorized)",
+      "completeness": "complete",
+      "description": "Three vertically-stacked, resizable panels: Current Work, Task List (categorized by status), Activity Log. Full scroll indicators, cursor tracking, position counters.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/view.go:196-313 (renderCurrentWorkPanel)",
+        "/home/devuser/td/pkg/monitor/view.go:484-630 (renderTaskListPanel)",
+        "/home/devuser/td/pkg/monitor/view.go:375-480 (renderActivityPanel)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Board View - Backlog",
+      "completeness": "complete",
+      "description": "Flat ordered list with position indicators (numbered or bullet), status tags, type icons. Drag-to-reorder via J/K/Ctrl+J/Ctrl+K with position-on-demand sparse keys. Scroll indicators, cursor restoration after move ops.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/view.go:632-772 (renderTaskListBoardView)",
+        "/home/devuser/td/pkg/monitor/commands.go:1581-1773 (moveIssueInBoard/moveIssueInBacklog)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Board View - Swimlanes",
+      "completeness": "complete",
+      "description": "Status-categorized view within a board (REVIEW, REWORK, READY, BLOCKED, CLOSED lanes). Reuses the category header rendering from Panel View. Position-aware sorting. Move-within-category enforcement.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/view.go:774+ (renderBoardSwimlanesView)",
+        "/home/devuser/td/pkg/monitor/data.go:519-566 (CategorizeBoardIssues)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Board View - Kanban",
+      "completeness": "complete",
+      "description": "Side-by-side status columns with colored headers, per-column cursors and scroll offsets. Column navigation via h/l, vertical navigation via j/k. Scroll indicators per column. Status filter and view mode cycling.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/kanban.go:1-406 (full implementation)",
+        "/home/devuser/td/pkg/monitor/kanban.go:178-247 (renderBoardKanbanView)",
+        "/home/devuser/td/pkg/monitor/kanban.go:250-405 (renderKanbanColumn)"
+      ],
+      "issues": [
+        "No horizontal scroll support for columns with many issues in narrow terminals",
+        "Column width division is equal - no dynamic sizing based on column content count"
+      ]
+    },
+    {
+      "name": "Issue Detail Modal",
+      "completeness": "complete",
+      "description": "Full modal stack (push/pop) with breadcrumb trail. Async markdown rendering, epic task lists, parent epic navigation, blocked-by/blocks sections with Tab-based focus cycling. Scroll with viewport clamping. Copy to clipboard, edit, delete, close/reopen actions inline.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/modal.go (modal stack management)",
+        "/home/devuser/td/pkg/monitor/types.go:289-337 (ModalEntry struct)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Form Modal (Create/Edit)",
+      "completeness": "complete",
+      "description": "Built on charmbracelet/huh forms. Standard fields (title, type, priority, description, labels) with toggleable extended fields (parent epic, points, acceptance criteria, minor flag, dependencies). Tab/Shift+Tab button navigation, Ctrl+O external editor support, Ctrl+S submit, Ctrl+X toggle extended.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/form.go:1-200",
+        "/home/devuser/td/pkg/monitor/form_modal.go",
+        "/home/devuser/td/pkg/monitor/form_operations.go"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Stats Modal",
+      "completeness": "complete",
+      "description": "Declarative modal with extended statistics. Loading state, error handling, scroll support. Async data fetch, refresh support.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/model.go:596-608 (StatsDataMsg handler)",
+        "/home/devuser/td/pkg/monitor/data.go:427-438 (FetchStats)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Handoffs Modal",
+      "completeness": "complete",
+      "description": "List-based modal showing recent handoffs with cursor navigation, open-issue-from-handoff action, refresh. Declarative modal with loading/error states.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/model.go:610-622 (HandoffsDataMsg handler)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Board Picker Modal",
+      "completeness": "complete",
+      "description": "List-based declarative modal for board selection. Supports edit (e), new (n), board info, with board editor overlay.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/board_editor.go",
+        "/home/devuser/td/pkg/monitor/commands.go:1331-1371 (selectBoard)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Board Editor Modal",
+      "completeness": "complete",
+      "description": "Create/edit/info modes with name input, TDQ query textarea, live query preview with 300ms debounce, delete confirmation sub-modal. Shared pointer pattern for stale closure survivability.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/board_editor.go",
+        "/home/devuser/td/pkg/monitor/types.go:449-458 (boardEditorPreviewData)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Getting Started Modal",
+      "completeness": "complete",
+      "description": "First-run onboarding with agent file detection, I-to-install instructions, and sync prompt chain. Compact layout for 80x24 terminals.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/getting_started.go:1-51"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Sync Prompt Modal",
+      "completeness": "complete",
+      "description": "Multi-phase modal for linking to remote sync projects. List phase for existing projects, create phase with name input.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/sync_prompt.go"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Help Modal",
+      "completeness": "complete",
+      "description": "Scrollable help overlay with comprehensive keybinding documentation organized by context (navigation, modals, epic tasks, CRUD, confirmation, forms, actions, boards, kanban, search, mouse). Dynamic height calculation (80% of terminal, clamped 15-40).",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/keymap/help.go:29-201 (GenerateHelp)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "TDQ Help Modal",
+      "completeness": "complete",
+      "description": "Dedicated query language reference modal accessible from search mode via ?. Covers operators, boolean logic, fields, functions, cross-entity queries, special values, sorting, and examples.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/keymap/help.go:205-309 (GenerateTDQHelp)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Delete Confirmation Dialog",
+      "completeness": "complete",
+      "description": "Declarative modal with Y/N quick keys, tab-cycle buttons, keyboard and mouse support.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/commands.go:350-369 (handleKey for delete confirm)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Close Confirmation Dialog",
+      "completeness": "complete",
+      "description": "Declarative modal with text input for close reason, tab cycling between input and buttons.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/commands.go:372-394 (handleKey for close confirm)"
+      ],
+      "issues": []
+    },
+    {
+      "name": "Search Bar",
+      "completeness": "complete",
+      "description": "Integrated search with textinput widget supporting cursor movement, TDQ query detection, live-as-you-type filtering. Auto-refresh on query change. Sort mode indicator, type filter integration.",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/commands.go:396-424 (search mode key handling)",
+        "/home/devuser/td/pkg/monitor/view.go:116-119 (search bar rendering)"
+      ],
+      "issues": []
+    }
+  ],
+
+  "input_handling": {
+    "keyboard": {
+      "quality": "excellent",
+      "pattern": "Centralized keymap registry with context-based dispatch. Registry supports multi-key sequences (g g) with 500ms timeout. 19 distinct UI contexts (global, main, modal, stats, search, confirm, epic-tasks, parent-epic-focused, blocked-by-focused, blocks-focused, handoffs, form, help, board-picker, board, getting-started, tdq-help, board-editor, board-kanban, close-confirm, sync-prompt). Over 200 key bindings defined.",
+      "vim_support": "Full vim-style navigation: j/k, h/l, G/gg, Ctrl+d/u, Ctrl+f/b, half/full page moves",
+      "arrow_keys": "Full arrow key support alongside vim keys in all contexts",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/keymap/registry.go:206-234 (Lookup with sequence support)",
+        "/home/devuser/td/pkg/monitor/keymap/bindings.go:1-446 (DefaultBindings)"
+      ],
+      "issues": []
+    },
+    "mouse": {
+      "quality": "excellent",
+      "pattern": "Hit-region-based mouse tracking via mouse.HitMap. Supports click, double-click (400ms window), hover, scroll (vertical + horizontal via Shift), drag, drag-end. Backdrop click dismisses modals. Per-panel hit testing with scroll indicator awareness.",
+      "features": [
+        "Click to select panel and row",
+        "Double-click to open issue details",
+        "Scroll wheel per-panel (hovered panel receives scroll)",
+        "Shift+scroll for horizontal scrolling",
+        "Drag-to-resize panes (2 dividers between 3 panes, persisted to config)",
+        "Modal button hover styling",
+        "Divider hover/active styling (cyan/orange)"
+      ],
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/mouse/mouse.go:1-315 (full mouse handler)",
+        "/home/devuser/td/pkg/monitor/input.go:1-500 (HitTestPanel, HitTestRow, hitTestTaskListRow, hitTestBoardRow, hitTestSwimlaneRow, hitTestCurrentWorkRow, hitTestActivityRow)"
+      ],
+      "issues": [
+        "Mouse click handling in kanban view lacks per-column hit-testing (no click-to-select-column)"
+      ]
+    },
+    "configurability": {
+      "quality": "good",
+      "pattern": "User-configurable key bindings via .todos/keymap.json. Format: {\"context:key\": \"command-id\"}. Overrides are checked first in Lookup precedence chain (user overrides > context bindings > global bindings).",
+      "key_files": [
+        "/home/devuser/td/pkg/monitor/keymap/config.go:1-96 (LoadConfig, SaveConfig, ApplyConfig)"
+      ],
+      "issues": [
+        "No runtime rebinding UI - requires manual JSON editing",
+        "No documentation/command to generate default keymap.json template (ExampleConfig exists but is not exposed to user)"
+      ]
+    }
+  },
+
+  "state_management": {
+    "pattern": "Elm architecture (tea.Model with value receivers). Single Model struct (~200 fields) with nested state for each view mode and modal type. Centralized Update handler dispatches to handleKey, handleMouse, handleFormUpdate, and message-specific handlers.",
+    "model_struct_location": "/home/devuser/td/pkg/monitor/model.go:22-203",
+    "issues": [
+      "Model struct has ~200 fields - could benefit from extracting sub-models for board mode, modal state, form state etc. to reduce cognitive load",
+      "Value receiver on Update() means every update copies the entire Model; mitigated by shared DB pool but pointer fields (maps, slices) are shared across copies which requires careful mutation patterns",
+      "Legacy fields coexist with declarative modal equivalents (e.g., ConfirmButtonFocus/ConfirmButtonHover marked 'legacy, kept for compatibility') - dead code accumulation risk"
+    ],
+    "async_handling": "Excellent. All I/O operations (DB queries, markdown rendering, version checks, sync operations) are dispatched as tea.Cmd closures. Data refresh via periodic TickMsg with configurable interval. Auto-sync with independent goroutine backup path for PTY stall resilience. Debounced query preview (300ms) for board editor.",
+    "state_persistence": "Filter state (search, sort, type filter, include_closed) persisted to config.json via async fire-and-forget commands. Pane heights persisted on drag-end. Board last-viewed and view-mode persisted to SQLite. State restored on launch via Init() commands (restoreLastViewedBoard, restoreFilterState).",
+    "state_persistence_known_issue": "saveFilterState() does not persist when td runs embedded in sidecar due to tea.Batch wrapping issue (documented in CLAUDE.md)"
+  },
+
+  "responsive_layout": {
+    "resize_handling": "Full WindowSizeMsg handling. Updates Width/Height, recalculates panel bounds, re-renders markdown for modals if width changed. Panel heights are ratio-based (sum=1.0) with rounding error absorption on the last panel.",
+    "min_size": "MinWidth=40, MinHeight=15. Below these thresholds, a compact fallback view is rendered showing only focused issue ID, status counts, and basic shortcuts.",
+    "compact_view_location": "/home/devuser/td/pkg/monitor/view.go:167-187 (renderCompact)",
+    "pane_resizing": "Drag-to-resize via 2 dividers between 3 panes. Height ratios stored as [3]float64 (sum=1.0). Persisted to config.json.",
+    "issues": [
+      "Compact view at MinWidth=40 is functional but very sparse - no interaction beyond q/r/?",
+      "No terminal width breakpoints for adaptive column layouts (kanban columns always divide equally regardless of terminal width)",
+      "Activity table column widths are fixed constants (activityColTimeWidth=5, activityColSessionWidth=10, etc.) - could be narrower on small terminals"
+    ]
+  },
+
+  "accessibility": {
+    "color_contrast": "Uses ANSI 256-color palette with reasonable contrast: white text (255) on dark backgrounds (237-238), colored text (45 cyan, 196 red, 214 orange, 42 green, 141 purple, 212 magenta) on default terminal background. Selected row highlight uses bg:237 which is a dark gray.",
+    "color_concerns": [
+      "No light theme support - hardcoded dark palette will be illegible on light terminal backgrounds",
+      "No colorblind-safe mode - status differentiation relies entirely on color (red=blocked, orange=in-progress, green=success, etc.)",
+      "Type icons use different shapes (diamond, circle, X, square, empty-circle) which helps for shape-based differentiation"
+    ],
+    "screen_reader_support": "None. No ARIA-like annotations or structured text output. Terminal screen readers would see raw ANSI output.",
+    "keyboard_only_navigation": "Excellent. Full keyboard-only navigation with vim and arrow key support. All actions accessible without mouse. Tab cycles panels, Enter opens details, Esc goes back.",
+    "issues": [
+      "No announcements for state changes (e.g., when a modal opens, filter changes, etc.) that screen readers could detect",
+      "No high-contrast mode toggle"
+    ]
+  },
+
+  "error_states": {
+    "empty_states": [
+      {
+        "view": "Current Work Panel",
+        "text": "No current work",
+        "style": "subtleStyle (muted gray)",
+        "location": "/home/devuser/td/pkg/monitor/view.go:200-202"
+      },
+      {
+        "view": "Task List Panel",
+        "text": "No tasks available",
+        "style": "subtleStyle with search hint '(no matches)' in title when filtered",
+        "location": "/home/devuser/td/pkg/monitor/view.go:510-517"
+      },
+      {
+        "view": "Activity Log Panel",
+        "text": "No recent activity",
+        "style": "subtleStyle",
+        "location": "/home/devuser/td/pkg/monitor/view.go:377-379"
+      },
+      {
+        "view": "Board Backlog (empty)",
+        "text": "No issues match the board query + hint: Try adjusting the status filter with 'c' or 'F'",
+        "style": "subtleStyle",
+        "location": "/home/devuser/td/pkg/monitor/view.go:640-649"
+      },
+      {
+        "view": "Board Swimlanes (empty)",
+        "text": "No issues match the board query + filter hint",
+        "style": "subtleStyle",
+        "location": "/home/devuser/td/pkg/monitor/view.go:789-799"
+      },
+      {
+        "view": "Kanban (empty columns)",
+        "text": "'empty' centered in column",
+        "style": "mutedColor centered",
+        "location": "/home/devuser/td/pkg/monitor/kanban.go:271-280"
+      },
+      {
+        "view": "Kanban (no visible statuses)",
+        "text": "No issues match the board query + filter adjustment hint",
+        "style": "subtleStyle",
+        "location": "/home/devuser/td/pkg/monitor/kanban.go:203-207"
+      }
+    ],
+    "loading_states": [
+      {
+        "view": "Initial load",
+        "text": "Loading...",
+        "condition": "Width==0 || Height==0",
+        "location": "/home/devuser/td/pkg/monitor/view.go:17-19"
+      },
+      {
+        "view": "Stats Modal",
+        "field": "StatsLoading bool",
+        "location": "/home/devuser/td/pkg/monitor/model.go:97"
+      },
+      {
+        "view": "Handoffs Modal",
+        "field": "HandoffsLoading bool",
+        "location": "/home/devuser/td/pkg/monitor/model.go:106"
+      },
+      {
+        "view": "Issue Detail Modal",
+        "field": "ModalEntry.Loading bool",
+        "location": "/home/devuser/td/pkg/monitor/types.go:299"
+      }
+    ],
+    "error_display": [
+      {
+        "type": "Database error",
+        "rendering": "renderError(): 'Error: <msg>' with retry hint 'Press r to retry, q to quit'",
+        "location": "/home/devuser/td/pkg/monitor/view.go:190-192"
+      },
+      {
+        "type": "Modal fetch error",
+        "field": "ModalEntry.Error error",
+        "location": "/home/devuser/td/pkg/monitor/types.go:301"
+      },
+      {
+        "type": "Stats error",
+        "field": "StatsError error",
+        "location": "/home/devuser/td/pkg/monitor/model.go:100"
+      },
+      {
+        "type": "Status message toast",
+        "fields": "StatusMessage string, StatusIsError bool",
+        "rendering": "toastStyle (green bg) for success, toastErrorStyle (red bg) for errors. Auto-clears after 2-3 seconds via ClearStatusMsg tick.",
+        "location": "/home/devuser/td/pkg/monitor/model.go:171-172, styles.go:161-169"
+      },
+      {
+        "type": "Board operations errors",
+        "rendering": "StatusMessage toast with 3-second auto-clear",
+        "examples": "Board save/delete errors, position swap errors, board issues load errors"
+      }
+    ]
+  },
+
+  "performance": {
+    "rendering": "Efficient panel-based rendering. Activity log uses lipgloss/table for columnar layout. Scroll offset clamping prevents rendering off-screen content. Markdown rendering is async (renderMarkdownAsync) to avoid blocking the UI. Board editor query preview uses 300ms debounce.",
+    "caching": "Issue titles batch-fetched in single query for activity feed. Dependency statuses batch-loaded upfront. Rejected IDs pre-computed in DB fetch and passed through to avoid synchronous queries in Update. Rendered markdown cached on ModalEntry (DescRender, AcceptRender). Content line count cached (ContentLines field).",
+    "db_pool": "Singleton shared DB pool for embedded monitors (dbpool.go). Reference-counted: connections shared across all Model value copies for the same path. MaxOpenConns set to 1 for SQLite single-writer semantics. Pool cleared on last reference release.",
+    "db_pool_location": "/home/devuser/td/pkg/monitor/dbpool.go:1-102",
+    "issues": [
+      "highlightRow() uses regex replacement (ansiPattern.ReplaceAllString) on every render of every selected row - could be hot path in large lists",
+      "fetchActivity() pre-allocates limit*3 capacity but may allocate 3 separate DB queries (logs, actions, comments) per tick - could be a single combined query",
+      "Board issue categorization (ComputeBoardIssueCategories) calls GetAllDependencies + GetIssueStatuses on every refresh tick when a board is active"
+    ]
+  },
+
+  "ux_quality": {
+    "navigation_consistency": "Excellent. Vim-style j/k/h/l used consistently across all contexts. Tab cycles panels in main view, focus sections in modals. Enter opens/confirms, Esc closes/cancels. Same shortcuts (y/Y for copy, x for delete, n for new, e for edit) work in both panel and modal contexts.",
+    "feedback": "Good. Status toast messages for all mutating actions (issue created, board saved, filter changes, etc.) with auto-clear. Sort mode and type filter shown in panel titles. Search query shown in active orange. Cursor position indicators ('3-10 of 25') in panel titles. Breadcrumb trail for stacked modals.",
+    "help_system": "Comprehensive. ? opens context-aware help (regular help or TDQ query help when in search mode). Help is scrollable with vim navigation. Footer shows condensed shortcut reference. Each context (main, board, kanban) has its own footer help string.",
+    "help_system_files": [
+      "/home/devuser/td/pkg/monitor/keymap/help.go:312-325 (FooterHelp, BoardFooterHelp, KanbanFooterHelp, ModalFooterHelp, StatsFooterHelp)"
+    ],
+    "onboarding": "Good. First-run detection via agent file check. Getting Started modal shows on first launch with I-to-install action. Reopenable via H key. Chains to sync prompt if authenticated. Compact design fits 80x24.",
+    "clipboard": "Full clipboard support. y copies issue as formatted markdown, Y copies just the issue ID. Works from panels, modals, and epic task lists. Custom ClipboardFn override for testing/embedding.",
+    "issues": [
+      "No undo for destructive actions (delete/close) beyond the CLI 'td undo' command - no in-TUI undo",
+      "No notification/bell for background events (new handoff, issue status change by another session)",
+      "Version update notification exists but is passive (shown in footer) - no actionable upgrade path from TUI"
+    ]
+  },
+
+  "data_models_used": [
+    {
+      "name": "Model (main TUI model)",
+      "fields": ["DB", "SessionID", "Width", "Height", "FocusedIssue", "InProgress", "Activity", "TaskList", "RecentHandoffs", "ActiveSessions", "ActivePanel", "ScrollOffset", "Cursor", "SelectedID", "ModalStack", "SearchMode", "SearchQuery", "SearchInput", "IncludeClosed", "SortMode", "TypeFilterMode", "FormOpen", "FormState", "BoardMode", "Keymap", "StatusMessage", "PanelBounds", "HoverPanel", "PaneHeights", "DividerBounds", "DraggingDivider", "ClipboardFn", "PanelRenderer", "ModalRenderer", "MarkdownTheme", "etc."],
+      "source": "/home/devuser/td/pkg/monitor/model.go:22-203"
+    },
+    {
+      "name": "ModalEntry",
+      "fields": ["IssueID", "SourcePanel", "Scroll", "ContentLines", "Loading", "Error", "Issue", "Handoff", "Logs", "Comments", "BlockedBy", "Blocks", "DescRender", "AcceptRender", "EpicTasks", "EpicTasksCursor", "TaskSectionFocused", "ParentEpic", "ParentEpicFocused", "NavigationScope", "BlockedBySectionFocused", "BlockedByCursor", "BlocksSectionFocused", "BlocksCursor"],
+      "source": "/home/devuser/td/pkg/monitor/types.go:289-337"
+    },
+    {
+      "name": "BoardMode",
+      "fields": ["Board", "Issues", "Cursor", "ScrollOffset", "StatusFilter", "ViewMode", "SwimlaneData", "SwimlaneRows", "SwimlaneCursor", "SwimlaneScroll", "PendingSelectionID", "Kanban"],
+      "source": "/home/devuser/td/pkg/monitor/types.go:461-482"
+    },
+    {
+      "name": "KanbanState",
+      "fields": ["ActiveColumn", "ColumnCursors", "ColumnScrolls", "VisibleStatuses", "ColumnIssues"],
+      "source": "/home/devuser/td/pkg/monitor/types.go:485-491"
+    },
+    {
+      "name": "TaskListData",
+      "fields": ["Ready", "Reviewable", "NeedsRework", "Blocked", "Closed"],
+      "source": "/home/devuser/td/pkg/monitor/types.go:268-274"
+    },
+    {
+      "name": "TaskListRow",
+      "fields": ["Issue", "Category"],
+      "source": "/home/devuser/td/pkg/monitor/types.go:277-280"
+    },
+    {
+      "name": "ActivityItem",
+      "fields": ["Timestamp", "SessionID", "Type", "IssueID", "IssueTitle", "Message", "LogType", "Action"],
+      "source": "/home/devuser/td/pkg/monitor/types.go:256-265"
+    },
+    {
+      "name": "FormState",
+      "fields": ["Mode", "Form", "IssueID", "ParentID", "Title", "Type", "Priority", "Description", "Labels", "ShowExtended", "Parent", "Points", "Acceptance", "Minor", "Dependencies", "ButtonFocus", "ButtonHover", "Width"],
+      "source": "/home/devuser/td/pkg/monitor/form.go:41-68"
+    },
+    {
+      "name": "modal.Modal",
+      "fields": ["title", "variant", "width", "sections", "showHints", "primaryAction", "closeOnBackdrop", "focusIdx", "hoverID", "focusIDs", "scrollOffset"],
+      "source": "/home/devuser/td/pkg/monitor/modal/modal.go:10-24"
+    },
+    {
+      "name": "mouse.Handler",
+      "fields": ["HitMap", "lastClickX/Y/Time/Region", "dragging", "dragStartX/Y/Value", "dragRegion"],
+      "source": "/home/devuser/td/pkg/monitor/mouse/mouse.go:76-91"
+    },
+    {
+      "name": "keymap.Registry",
+      "fields": ["bindings", "userOverrides", "pendingKey", "pendingTime"],
+      "source": "/home/devuser/td/pkg/monitor/keymap/registry.go:166-172"
+    }
+  ],
+
+  "test_coverage": {
+    "test_files": [
+      "/home/devuser/td/pkg/monitor/model_test.go",
+      "/home/devuser/td/pkg/monitor/input_test.go",
+      "/home/devuser/td/pkg/monitor/data_test.go",
+      "/home/devuser/td/pkg/monitor/form_test.go",
+      "/home/devuser/td/pkg/monitor/form_operations_test.go",
+      "/home/devuser/td/pkg/monitor/overlay_test.go",
+      "/home/devuser/td/pkg/monitor/clipboard_test.go",
+      "/home/devuser/td/pkg/monitor/dbpool_test.go",
+      "/home/devuser/td/pkg/monitor/help_modal_test.go",
+      "/home/devuser/td/pkg/monitor/markdown_test.go",
+      "/home/devuser/td/pkg/monitor/modal_comments_test.go",
+      "/home/devuser/td/pkg/monitor/submit_to_review_test.go",
+      "/home/devuser/td/pkg/monitor/sync_prompt_test.go",
+      "/home/devuser/td/pkg/monitor/keymap/registry_test.go",
+      "/home/devuser/td/pkg/monitor/keymap/config_test.go",
+      "/home/devuser/td/pkg/monitor/modal/modal_test.go",
+      "/home/devuser/td/pkg/monitor/mouse/mouse_test.go"
+    ],
+    "count": 17,
+    "coverage_assessment": "Good coverage across core subsystems: model lifecycle, input handling, data fetching, form operations, overlay compositing, clipboard, DB pool, help modal, markdown rendering, modal comments, review workflow, sync prompt, keymap registry/config, declarative modal, and mouse handler."
+  },
+
+  "architecture_highlights": [
+    {
+      "name": "Declarative Modal System",
+      "description": "modal.Modal with Section interface (Text, Spacer, Buttons, Checkbox, Custom, When, List, Input sections). Automatic hit region registration, focus cycling, scroll viewport management. Bridges bubbletea's value-copy semantics with shared-pointer patterns for inputs.",
+      "quality": "Excellent - clean separation of concerns",
+      "files": [
+        "/home/devuser/td/pkg/monitor/modal/modal.go",
+        "/home/devuser/td/pkg/monitor/modal/section.go",
+        "/home/devuser/td/pkg/monitor/modal/layout.go"
+      ]
+    },
+    {
+      "name": "Centralized Keymap Registry",
+      "description": "Context-based dispatch with multi-key sequence support (g g), user overrides via JSON config, thread-safe with sync.RWMutex. Precedence: user overrides > context bindings > global. Clean separation between binding definition and command execution.",
+      "quality": "Excellent",
+      "files": [
+        "/home/devuser/td/pkg/monitor/keymap/registry.go",
+        "/home/devuser/td/pkg/monitor/keymap/bindings.go"
+      ]
+    },
+    {
+      "name": "Embedded Monitor API",
+      "description": "NewEmbedded/NewEmbeddedWithOptions with shared DB pool, custom PanelRenderer/ModalRenderer interfaces, MarkdownThemeConfig for theme bridging. CurrentContextString() for sidecar shortcut display. OpenIssueByIDMsg for programmatic modal opening.",
+      "quality": "Well-designed for integration",
+      "files": [
+        "/home/devuser/td/pkg/monitor/model.go:248-325",
+        "/home/devuser/td/pkg/monitor/types.go:631-650"
+      ]
+    },
+    {
+      "name": "Overlay Compositing",
+      "description": "Per-row compositing of modal content over dimmed background. ANSI-aware truncation and padding. Properly handles background shorter than modal position.",
+      "quality": "Solid implementation",
+      "files": [
+        "/home/devuser/td/pkg/monitor/overlay.go"
+      ]
+    }
+  ],
+
+  "overall_readiness": 9,
+
+  "production_blockers": [],
+
+  "polish_items": [
+    {
+      "priority": "medium",
+      "description": "No light terminal theme support - hardcoded dark ANSI 256 colors",
+      "impact": "Users with light terminal themes will see poor contrast",
+      "location": "/home/devuser/td/pkg/monitor/styles.go"
+    },
+    {
+      "priority": "medium",
+      "description": "Legacy state fields coexist with declarative modal equivalents (ConfirmButtonFocus, ConfirmButtonHover, CloseConfirmButtonFocus, CloseConfirmButtonHover) - dead code risk",
+      "impact": "Maintenance burden, confusion for contributors",
+      "location": "/home/devuser/td/pkg/monitor/model.go:76-89"
+    },
+    {
+      "priority": "low",
+      "description": "Model struct has ~200 fields without sub-model extraction",
+      "impact": "High cognitive load when reading the code; makes it harder for new contributors",
+      "location": "/home/devuser/td/pkg/monitor/model.go:22-203"
+    },
+    {
+      "priority": "low",
+      "description": "Kanban columns divide width equally regardless of content distribution",
+      "impact": "Columns with many items vs few items get the same width, wasting space",
+      "location": "/home/devuser/td/pkg/monitor/kanban.go:220-222"
+    },
+    {
+      "priority": "low",
+      "description": "No click-to-select in kanban column view (mouse only works for panel-level selection)",
+      "impact": "Mouse users must use keyboard to navigate within kanban columns",
+      "location": "/home/devuser/td/pkg/monitor/kanban.go"
+    },
+    {
+      "priority": "low",
+      "description": "highlightRow() uses regex on every render call for ANSI code injection",
+      "impact": "Potential performance concern with large visible row counts",
+      "location": "/home/devuser/td/pkg/monitor/styles.go:354-378"
+    },
+    {
+      "priority": "low",
+      "description": "saveFilterState() does not work in embedded sidecar mode due to tea.Batch wrapping issue",
+      "impact": "Filter state not persisted when td is embedded in sidecar",
+      "location": "Documented in /home/devuser/td/CLAUDE.md"
+    },
+    {
+      "priority": "low",
+      "description": "No colorblind-safe mode or configurable color scheme",
+      "impact": "Color-blind users may have difficulty distinguishing status colors",
+      "location": "/home/devuser/td/pkg/monitor/styles.go:64-70"
+    },
+    {
+      "priority": "low",
+      "description": "No in-TUI undo for destructive actions (only CLI 'td undo' available)",
+      "impact": "Users must drop to CLI to undo a mistake",
+      "location": "N/A - feature gap"
+    },
+    {
+      "priority": "low",
+      "description": "Keymap configuration requires manual JSON editing - no 'td keymap export' or in-TUI config UI",
+      "impact": "Low discoverability of customization feature",
+      "location": "/home/devuser/td/pkg/monitor/keymap/config.go"
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "agent": "Tech Stack Discovery",
+  "timestamp": "2026-02-13",
+  "summary": "td is a Go 1.25 CLI application built with Cobra for command dispatch, SQLite for persistence, and charmbracelet/bubbletea for its terminal UI. It features a custom query language (TDQ), multi-device sync via a standalone HTTP server, and a Docusaurus documentation website.",
+
+  "language": {
+    "name": "Go",
+    "version": "1.25.5",
+    "module_path": "github.com/marcus/td"
+  },
+
+  "core_frameworks": [
+    {
+      "name": "charmbracelet/bubbletea",
+      "version": "v1.3.10",
+      "purpose": "Elm-architecture TUI framework - Model/Update/View pattern for the monitor",
+      "usage": "pkg/monitor/ - entire TUI is built on this"
+    },
+    {
+      "name": "charmbracelet/lipgloss",
+      "version": "v1.1.1-0.20250404203927",
+      "purpose": "Terminal styling - borders, colors, layout, JoinHorizontal/Vertical",
+      "usage": "pkg/monitor/styles.go, all view rendering"
+    },
+    {
+      "name": "charmbracelet/bubbles",
+      "version": "v0.21.1-0.20250623103423",
+      "purpose": "Pre-built TUI components (textinput, viewport, etc.)",
+      "usage": "pkg/monitor/form.go, overlays, modals"
+    },
+    {
+      "name": "spf13/cobra",
+      "version": "v1.10.2",
+      "purpose": "CLI command framework - subcommand routing, flags, help generation",
+      "usage": "cmd/*.go - all CLI commands"
+    },
+    {
+      "name": "mattn/go-sqlite3",
+      "version": "v1.14.33",
+      "purpose": "CGo SQLite3 driver (primary, used via database/sql)",
+      "usage": "internal/db/ - all database operations"
+    },
+    {
+      "name": "modernc.org/sqlite",
+      "version": "v1.41.0",
+      "purpose": "Pure-Go SQLite driver (CGo-free alternative for cross-compilation)",
+      "usage": "internal/db/ - build-tag selectable alternative"
+    }
+  ],
+
+  "supporting_libraries": [
+    {
+      "name": "charmbracelet/glamour",
+      "version": "v0.10.0",
+      "purpose": "Markdown rendering in terminal",
+      "usage": "pkg/monitor/markdown.go - rendering issue descriptions"
+    },
+    {
+      "name": "charmbracelet/huh",
+      "version": "v0.8.0",
+      "purpose": "Terminal forms and prompts",
+      "usage": "pkg/monitor/form.go, form_modal.go - issue creation/editing forms"
+    },
+    {
+      "name": "charmbracelet/x/ansi",
+      "version": "v0.11.3",
+      "purpose": "ANSI string manipulation, truncation",
+      "usage": "pkg/monitor/kanban.go, view.go - text truncation"
+    },
+    {
+      "name": "charmbracelet/x/cellbuf",
+      "version": "v0.0.14",
+      "purpose": "Cell buffer for terminal rendering",
+      "usage": "Internal lipgloss dependency"
+    },
+    {
+      "name": "spf13/pflag",
+      "version": "v1.0.10",
+      "purpose": "POSIX-compliant flag parsing (used by Cobra)",
+      "usage": "cmd/*.go - flag definitions"
+    },
+    {
+      "name": "golang.org/x/term",
+      "version": "v0.39.0",
+      "purpose": "Terminal size detection, raw mode",
+      "usage": "pkg/monitor/ - terminal dimensions"
+    },
+    {
+      "name": "golang.org/x/sys",
+      "version": "v0.40.0",
+      "purpose": "Low-level OS primitives",
+      "usage": "System calls for terminal handling"
+    }
+  ],
+
+  "internal_systems": [
+    {
+      "name": "TDQ (td Query Language)",
+      "location": "internal/query/",
+      "description": "Custom query language with lexer, parser, and evaluator. Supports field comparisons, boolean logic, functions (has, is, any, blocks, blocked_by, descendant_of, rework, stale), date arithmetic, and label matching."
+    },
+    {
+      "name": "Sync Engine",
+      "location": "internal/sync/",
+      "description": "Multi-device sync protocol with event sourcing, conflict resolution (last-writer-wins with vector clocks), and a standalone HTTP sync server (cmd/td-sync/)."
+    },
+    {
+      "name": "Session Management",
+      "location": "internal/session/",
+      "description": "DB-backed session tracking scoped by terminal/agent context. Enforces session isolation for review workflow (implementer cannot approve own work)."
+    },
+    {
+      "name": "Admin API",
+      "location": "internal/api/",
+      "description": "HTTP API for the sync server with endpoints for users, projects, events, snapshots, and administration."
+    },
+    {
+      "name": "Modal System",
+      "location": "pkg/monitor/modal/",
+      "description": "Declarative modal framework with stacking support, sections, inputs, lists, and consistent layout patterns."
+    },
+    {
+      "name": "Keymap System",
+      "location": "pkg/monitor/keymap/",
+      "description": "Context-based keybinding registry with configurable bindings, sidecar export, and context-sensitive help generation."
+    },
+    {
+      "name": "Mouse Support",
+      "location": "pkg/monitor/mouse/",
+      "description": "Mouse click/scroll handling for TUI panels and navigation."
+    }
+  ],
+
+  "build_system": {
+    "build_command": "go build -o td .",
+    "test_command": "go test ./...",
+    "install_command": "go install -ldflags \"-X main.Version=vX.Y.Z\" ./...",
+    "version_injection": "-ldflags \"-X main.Version=...\" with fallback to debug.ReadBuildInfo()",
+    "dual_sqlite": "CGo (mattn/go-sqlite3) and pure-Go (modernc.org/sqlite) via build tags",
+    "binaries": ["td (main CLI)", "td-sync (sync server)"]
+  },
+
+  "documentation_site": {
+    "framework": "Docusaurus",
+    "location": "website/",
+    "config": "website/docusaurus.config.js"
+  },
+
+  "storage": {
+    "database": "SQLite",
+    "location": "<project>/.todos/issues.db",
+    "schema_management": "internal/db/schema.go - versioned migrations",
+    "config": "<project>/.todos/config.json"
+  },
+
+  "testing": {
+    "framework": "Go testing (stdlib)",
+    "patterns": ["Unit tests (*_test.go)", "E2E simulation (test/e2e/)", "Sync harness (test/syncharness/)", "Integration tests (internal/api/)"],
+    "notable": "Custom E2E engine simulating concurrent agent sessions with chaos testing"
+  },
+
+  "architectural_patterns": [
+    "Elm Architecture (bubbletea Model/Update/View)",
+    "Command Pattern (Cobra CLI + keymap command dispatch)",
+    "Repository Pattern (internal/db/ wrapping SQLite)",
+    "Event Sourcing (sync protocol)",
+    "State Machine (issue lifecycle: open → in_progress → in_review → closed)",
+    "Observer Pattern (async tea.Cmd for data refresh)",
+    "Strategy Pattern (dual SQLite drivers via build tags)",
+    "Declarative UI (modal system with section builders)"
+  ],
+
+  "metrics": {
+    "total_go_files": 332,
+    "total_lines": 125871,
+    "cmd_files": 60,
+    "internal_files": 120,
+    "pkg_monitor_files": 55,
+    "test_files": "~80",
+    "doc_files": 40,
+    "go_mod_dependencies_direct": 18,
+    "go_mod_dependencies_indirect": 33
+  }
+}

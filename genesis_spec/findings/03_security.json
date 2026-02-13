@@ -1,0 +1,324 @@
+{
+  "agent": "Security Auditor",
+  "timestamp": "2026-02-13",
+  "summary": "Comprehensive security audit of the td CLI tool (332 Go files, 126K lines). The codebase demonstrates generally strong security practices including parameterized queries for nearly all SQL operations, proper Bearer token authentication with SHA-256 hashed API keys, rate limiting, CORS configuration, request body size limits, and admin scope-based authorization. However, several medium-severity issues were identified around SQL injection via dynamic table/column name interpolation in the sync engine, missing LIKE wildcard escaping in text search, path traversal risks in the project DB pool, unauthenticated metrics/health endpoints, and the sync server defaulting to plaintext HTTP. No critical vulnerabilities were found.",
+  "vulnerabilities": [
+    {
+      "id": "SEC-001",
+      "severity": "medium",
+      "category": "SQL Injection",
+      "location": "internal/sync/events.go:232,353,412,433,442,451",
+      "description": "Dynamic table and column name interpolation in SQL queries using fmt.Sprintf. The sync engine constructs SQL queries by interpolating entityType and column names directly into query strings (e.g., `fmt.Sprintf(\"UPDATE %s SET %s WHERE id = ?\", entityType, ...)` and `fmt.Sprintf(\"SELECT * FROM %s WHERE id = ?\", entityType)`). While entityType is validated against an allowlist in the API layer (api/sync.go:38-40, allowedEntityTypes map), and column names are validated against a regex (`validColumnName = regexp.MustCompile('^[a-zA-Z_][a-zA-Z0-9_]*$')`) and cross-checked against PRAGMA table_info results, the defense-in-depth is incomplete. If the allowlist check were bypassed or the validator function were called with a different validator, the entityType would flow directly into SQL.",
+      "exploit_scenario": "If a caller bypasses the isValidEntityType check (e.g., calling ApplyEvent directly from test code or a future code path with a permissive validator), a crafted entityType like 'issues; DROP TABLE issues--' could execute arbitrary SQL. The regex validation on column names and the table_info cross-check provide secondary protection, but the entityType parameter in deleteEntity, softDeleteEntity, restoreEntity, and the SELECT in upsertEntity is not regex-validated.",
+      "recommendation": "Add explicit regex validation (validColumnName.MatchString) for entityType at the start of each function that interpolates it into SQL: upsertEntityWithMode, deleteEntity, softDeleteEntity, restoreEntity, applyPartialUpdate. The getTableColumns function already validates its table parameter, but the other functions do not. Alternatively, use a compile-time allowlist constant directly in the sync package rather than relying on a runtime validator callback.",
+      "cwe": "CWE-89"
+    },
+    {
+      "id": "SEC-002",
+      "severity": "medium",
+      "category": "SQL Injection",
+      "location": "internal/query/evaluator.go:363-368",
+      "description": "The textSearchToSQL method in the TDQ query evaluator does not escape SQL LIKE wildcards (% and _) in user-provided text search input. The pattern is constructed as `\"%\" + node.Text + \"%\"` and passed to LIKE clauses without escaping. While parameterized queries prevent classic SQL injection, unescaped LIKE wildcards allow users to craft patterns that match more broadly than intended (e.g., searching for '%' or '_' as literal characters is impossible, and a search for '___' would match any 3-character strings in id/title/description).",
+      "exploit_scenario": "A user enters a TDQ text search containing '%' or '_' characters. Instead of literal matching, these are interpreted as LIKE wildcards, potentially returning unintended results. While not a data breach vector, it violates the principle of least surprise and could be used to enumerate data patterns.",
+      "recommendation": "Apply the existing escapeSQLWildcards function (already defined at evaluator.go:29-32) to the text search pattern, and add an ESCAPE clause to the LIKE operator, consistent with how fieldExprToSQL handles the OpContains case at line 261.",
+      "cwe": "CWE-89"
+    },
+    {
+      "id": "SEC-003",
+      "severity": "medium",
+      "category": "SQL Injection",
+      "location": "internal/api/admin_snapshots.go:109",
+      "description": "The countSnapshotEntities function constructs SQL queries by string concatenation: `db.QueryRow(\"SELECT COUNT(*) FROM \" + table)`. While the table names come from a hardcoded slice (line 106), this pattern is fragile. If the slice were ever populated from user input or configuration, it would be a direct SQL injection vector.",
+      "exploit_scenario": "Low risk currently since the table list is hardcoded. However, if a developer adds dynamic table names to the slice (e.g., from entity_type parameters), this becomes exploitable.",
+      "recommendation": "Validate the table name against validColumnName regex before interpolation, or restructure to use a whitelist check explicitly before the query construction.",
+      "cwe": "CWE-89"
+    },
+    {
+      "id": "SEC-004",
+      "severity": "medium",
+      "category": "Path Traversal",
+      "location": "internal/api/dbpool.go:47,71",
+      "description": "The ProjectDBPool.Get and ProjectDBPool.Create methods construct file paths using `filepath.Join(p.dataDir, projectID, \"events.db\")` where projectID comes from the HTTP request path parameter (r.PathValue(\"id\")). While Go's filepath.Join does normalize path separators, it does not prevent directory traversal sequences. A projectID containing '../' or absolute path components could potentially access files outside the intended data directory. The requireProjectAuth middleware validates that the user has access to the project, and the store.Authorize call checks membership, but the projectID used for the file path is the raw path value, not necessarily the same ID validated in the database.",
+      "exploit_scenario": "If an attacker sends a request with a project ID like '../../etc' to an endpoint that triggers dbPool.Get, the system would attempt to open '/etc/events.db'. The requireProjectAuth middleware would likely reject this because the project wouldn't exist in the database, but there's a TOCTOU gap: the authorization check in the server DB and the file path resolution in the dbPool are not atomic.",
+      "recommendation": "Add explicit path traversal validation in ProjectDBPool.Get and Create: reject any projectID containing '/', '..', or backslash characters. Alternatively, use filepath.Rel or verify that the resolved path starts with the expected dataDir prefix after Join. A simple check: `if strings.ContainsAny(projectID, \"/\\\\.\") { return error }` or use a UUID format validation since project IDs should be UUIDs.",
+      "cwe": "CWE-22"
+    },
+    {
+      "id": "SEC-005",
+      "severity": "medium",
+      "category": "Information Disclosure",
+      "location": "internal/api/server.go:165-166,229-231",
+      "description": "The /healthz and /metricz endpoints are completely unauthenticated and publicly accessible. The /metricz endpoint exposes operational metrics including total request counts, error rates, push event counts, and pull request counts. While these don't contain PII, they leak operational intelligence about server load, error patterns, and usage volume that could aid reconnaissance.",
+      "exploit_scenario": "An attacker discovers the sync server URL and hits /metricz to learn request patterns, error rates, and whether the server is under heavy load. This information helps time attacks or identify service degradation.",
+      "recommendation": "Add authentication to /metricz (require at least an admin scope), or move it behind the admin API path where it gets CORS and auth middleware automatically. Keep /healthz unauthenticated for load balancer health checks but ensure it reveals minimal information.",
+      "cwe": "CWE-200"
+    },
+    {
+      "id": "SEC-006",
+      "severity": "medium",
+      "category": "Transport Security",
+      "location": "internal/api/config.go:40, internal/syncconfig/syncconfig.go:47",
+      "description": "The sync server defaults to HTTP (not HTTPS): the default BaseURL is 'http://localhost:8080' and the server has no TLS configuration. API keys are transmitted as Bearer tokens over plaintext HTTP. The syncclient sends the API key in the Authorization header over whatever protocol the BaseURL specifies. There is no certificate verification or TLS configuration anywhere in the codebase. The client uses a plain http.Client with no TLS settings.",
+      "exploit_scenario": "If the sync server is deployed on a network (not just localhost), API keys are transmitted in plaintext and can be captured by network sniffers. An attacker with network access can intercept Bearer tokens and impersonate users.",
+      "recommendation": "Add TLS configuration to the server (either built-in via tls.Config or documented requirement for a reverse proxy). Add a warning when the server BaseURL is not HTTPS in production. Consider requiring HTTPS for non-localhost deployments. The syncclient should optionally verify TLS certificates.",
+      "cwe": "CWE-319"
+    },
+    {
+      "id": "SEC-007",
+      "severity": "low",
+      "category": "Secret Management",
+      "location": "internal/syncconfig/syncconfig.go:56,92",
+      "description": "The config directory (~/.config/td/) is created with 0755 permissions (world-readable) and config.json is written with 0644 permissions (world-readable). While auth.json is correctly written with 0600 (owner-only), the config.json may contain sync server URLs that could be useful for targeted attacks. Additionally, the ConfigDir function creates the directory with 0755 on every call, which means if the directory permissions are tightened, they'll be reset.",
+      "exploit_scenario": "On a shared system, another user can read ~/.config/td/config.json to discover the sync server URL, potentially enabling targeted attacks against the server.",
+      "recommendation": "Create the config directory with 0700 permissions instead of 0755. Consider writing config.json with 0600 permissions as well, consistent with auth.json.",
+      "cwe": "CWE-276"
+    },
+    {
+      "id": "SEC-008",
+      "severity": "low",
+      "category": "Authentication",
+      "location": "internal/api/auth.go:156",
+      "description": "API keys are generated with a 1-year expiry (365 days) with no mechanism for automatic rotation. Long-lived API keys increase the window of exposure if a key is compromised. There is no key rotation reminder, no short-lived refresh token mechanism, and no maximum key age enforcement.",
+      "exploit_scenario": "A compromised API key remains valid for up to 1 year. If an attacker obtains a key from a config file backup, compromised machine, or network interception, they have a long window to exfiltrate data.",
+      "recommendation": "Consider shorter default key lifetimes (e.g., 90 days) with a refresh mechanism, or at minimum add a warning when keys are approaching expiry. Add a mechanism for users to list and revoke active keys via the CLI.",
+      "cwe": "CWE-798"
+    },
+    {
+      "id": "SEC-009",
+      "severity": "low",
+      "category": "Input Validation",
+      "location": "internal/api/ratelimit.go:140-153",
+      "description": "The clientIP function trusts the X-Forwarded-For header without validation. Any client can set this header to spoof their IP address, bypassing IP-based rate limiting on auth endpoints. The first IP in the X-Forwarded-For chain is used, but there's no verification that the value is a valid IP or that it comes from a trusted proxy.",
+      "exploit_scenario": "An attacker sets X-Forwarded-For to a different IP address on each request to bypass the auth rate limit (10 requests per minute per IP), enabling brute-force attacks on the device auth verification codes.",
+      "recommendation": "When behind a reverse proxy, configure a trusted proxy list and only trust X-Forwarded-For from those IPs. When not behind a proxy, ignore X-Forwarded-For entirely. Consider adding a configuration option for trusted proxy IPs.",
+      "cwe": "CWE-346"
+    },
+    {
+      "id": "SEC-010",
+      "severity": "low",
+      "category": "Sync Protocol Security",
+      "location": "cmd/sync.go:202,223",
+      "description": "The snapshot bootstrap mechanism downloads a full SQLite database from the server and writes it directly to the local database path. While there is a SQLite header validation check (line 202: `string(snapshot.Data[:16]) != \"SQLite format 3\\x00\"`), a malicious server could craft a valid SQLite database containing triggers, custom functions, or schema modifications that execute when the database is opened. The snapshot replaces the entire local database.",
+      "exploit_scenario": "A compromised or malicious sync server returns a crafted SQLite database during bootstrap that contains triggers which execute arbitrary SQL on future database operations, potentially exfiltrating data or corrupting the local task database.",
+      "recommendation": "After downloading a snapshot, validate the schema matches the expected td schema before using it. Consider checksumming or signing snapshots server-side with a known key. At minimum, drop all triggers and views from downloaded snapshots before use.",
+      "cwe": "CWE-494"
+    },
+    {
+      "id": "SEC-011",
+      "severity": "low",
+      "category": "SQL Injection",
+      "location": "test/syncharness/harness.go:260,265,322,378,603,689,872,889 and test/e2e/verify.go:123,572-573",
+      "description": "Test harness code contains multiple instances of SQL queries constructed via fmt.Sprintf with table names and field values interpolated directly. While this is test code only, several instances in test/e2e/verify.go interpolate issueID directly into SQL strings without parameterization (e.g., `fmt.Sprintf(\"SELECT %s FROM issues WHERE id='%s'\", field, issueID)`). This creates injection risk if test IDs ever contain special characters, and sets a bad precedent.",
+      "exploit_scenario": "Low direct risk since this is test-only code. However, if test helpers are copied to production code or if test IDs contain SQL metacharacters, the queries could fail or produce unexpected results.",
+      "recommendation": "Refactor test SQL to use parameterized queries consistently, matching the production code patterns. This prevents accidental copy-paste vulnerabilities and ensures test data doesn't break with special characters.",
+      "cwe": "CWE-89"
+    },
+    {
+      "id": "SEC-012",
+      "severity": "low",
+      "category": "Information Disclosure",
+      "location": "cmd/security.go:44",
+      "description": "The security JSON output uses a manual escapeJSON function (cmd/errors.go:113-119) instead of encoding/json for serialization. This hand-rolled JSON escaping only handles backslash, double-quote, newline, and tab characters. It does not escape other control characters (e.g., \\r, \\b, \\f, null bytes, Unicode control characters U+0000-U+001F), which could produce invalid JSON or enable log injection attacks if security event data contains unexpected characters.",
+      "exploit_scenario": "An attacker creates an issue with a reason field containing control characters (e.g., carriage return \\r). When the security log is output as JSON, the output could be malformed, confusing log parsers or enabling log injection.",
+      "recommendation": "Replace the manual escapeJSON function with encoding/json.Marshal for JSON output, which properly handles all control characters per the JSON specification.",
+      "cwe": "CWE-117"
+    },
+    {
+      "id": "SEC-013",
+      "severity": "low",
+      "category": "Denial of Service",
+      "location": "internal/query/parser.go:15,203",
+      "description": "The TDQ parser limits nesting depth to 50 (MaxQueryDepth). While this prevents stack overflow from deeply nested queries, the limit is generous. A query with 50 levels of nested parentheses could still cause significant CPU and memory consumption during parsing and evaluation. Additionally, there is no limit on the total number of tokens or query length.",
+      "exploit_scenario": "An attacker (or misconfigured automated agent) submits a very long or deeply nested TDQ query via the admin snapshot query endpoint, causing excessive CPU consumption during parsing and evaluation.",
+      "recommendation": "Add a maximum query length limit (e.g., 4096 characters) and consider reducing MaxQueryDepth to 20. Add a maximum token count limit in the lexer.",
+      "cwe": "CWE-400"
+    },
+    {
+      "id": "SEC-014",
+      "severity": "low",
+      "category": "CORS Configuration",
+      "location": "internal/api/cors.go:24",
+      "description": "The CORS middleware allows wildcard origin ('*') as a configured allowed origin. If an admin configures SYNC_CORS_ALLOWED_ORIGINS=\"*\", all origins are permitted to make cross-origin requests to admin endpoints. The CORS middleware does not set Access-Control-Allow-Credentials, so cookie-based auth is not at risk, but Bearer token auth via JavaScript could be exploited.",
+      "exploit_scenario": "An admin misconfigures CORS with wildcard origins. A malicious website running JavaScript can make requests to the admin API using a stolen Bearer token, since the browser will allow the cross-origin response.",
+      "recommendation": "Log a warning when wildcard CORS origin is configured. Consider rejecting wildcard origin in production mode or requiring explicit origin enumeration. Add documentation noting the security implications.",
+      "cwe": "CWE-942"
+    },
+    {
+      "id": "SEC-015",
+      "severity": "low",
+      "category": "Cryptographic Weakness",
+      "location": "internal/serverdb/apikeys.go:64-68",
+      "description": "API key verification uses a simple SHA-256 hash comparison without a timing-safe comparison function. The standard string equality comparison in Go's database/sql Scan could theoretically leak information about the hash prefix via timing side-channels, though exploitation would be extremely difficult in practice since the comparison happens in SQLite, not in Go code.",
+      "exploit_scenario": "Theoretical timing attack against API key verification. In practice, the database query time dominates and the SQL WHERE clause comparison makes timing attacks infeasible.",
+      "recommendation": "This is a very low-risk theoretical issue. For defense-in-depth, consider using crypto/subtle.ConstantTimeCompare for the final hash comparison after retrieving the record from the database, though the current design (hash lookup via SQL) already provides adequate protection.",
+      "cwe": "CWE-208"
+    }
+  ],
+  "authentication": {
+    "mechanism": "Device Authorization Flow (OAuth 2.0-style) with long-lived API keys. Users initiate login by providing an email, receive a 6-character user code to verify in a browser, and upon verification receive a Bearer API key (td_live_ prefix + 32 base62 characters). Keys are SHA-256 hashed before storage. The server supports admin roles with scope-based access control (admin:read:server, admin:read:projects, admin:read:events, admin:read:snapshots, admin:export).",
+    "strengths": [
+      "API keys are SHA-256 hashed before storage - plaintext keys never stored in the database (serverdb/apikeys.go:67-68)",
+      "Auth credentials file (auth.json) is written with 0600 permissions (syncconfig.go:125)",
+      "Device auth codes have a TTL with automatic expiry cleanup (server.go:77-95)",
+      "Per-endpoint rate limiting with configurable limits (ratelimit.go:68-73)",
+      "IP-based rate limiting on auth endpoints prevents brute-force (ratelimit.go:78-99)",
+      "Admin endpoints require both is_admin flag and specific scope (admin_middleware.go:14-17)",
+      "Project-level authorization with role hierarchy: owner > writer > reader (middleware.go:189-207)",
+      "User code validation with restricted character set (auth.go:282: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', excluding ambiguous chars I,L,O,0,1)",
+      "Auth event logging for audit trail (auth.go:268-278, including failed attempts)",
+      "Request body size limit of 10MB (middleware.go:226)",
+      "Signup can be disabled via configuration (auth.go:69-80)",
+      "Auth request status tracking prevents reuse (auth.go:133-136, 'already_used' check)",
+      "Sensitive flag values are redacted in analytics logging (db/analytics.go:40-42)"
+    ],
+    "weaknesses": [
+      "API keys have 1-year expiry with no rotation mechanism (auth.go:156)",
+      "No multi-factor authentication beyond email verification",
+      "No key revocation from CLI (only possible via admin API or direct DB access)",
+      "The auth verification page (GET /auth/verify) has no CSRF protection - the POST form submission could be CSRF'd, though the attacker would need to know a valid user_code",
+      "Email verification is the only identity proof - no password, no SSO integration",
+      "API key prefix 'td_live_' is shown in auth status output (cmd/auth.go:136), first 12 chars of key displayed",
+      "No account lockout after repeated failed code verifications"
+    ]
+  },
+  "input_validation": {
+    "patterns": [
+      "SQL queries use parameterized queries (?) consistently in the db package (internal/db/issues.go uses ? throughout for all user-provided values)",
+      "ListIssues sort column validated against explicit allowlist (db/issues.go:497-501, 10 allowed columns)",
+      "Entity types validated against allowlist on push endpoint (api/sync.go:38-40)",
+      "Config keys validated against explicit allowlist (cmd/config.go:16-25, 8 valid keys)",
+      "Email validation using net/mail.ParseAddress (api/auth.go:64)",
+      "JSON request body decoding with proper error handling throughout API handlers",
+      "User code format validation: exactly 6 chars from restricted character set (api/auth.go:208-209)",
+      "Pull limit capped at maxPullLimit=10000 (api/sync.go:247-249)",
+      "Push batch size capped at maxPushBatch=1000 (api/sync.go:134)",
+      "TDQ parser has MaxQueryDepth=50 to prevent stack overflow (query/parser.go:15)",
+      "SQL LIKE wildcards escaped in TDQ field contains operator (query/evaluator.go:29-32, 261)",
+      "Column names validated with regex ^[a-zA-Z_][a-zA-Z0-9_]*$ in sync engine (sync/events.go:15)",
+      "Sync event fields cross-checked against PRAGMA table_info results (sync/events.go:116-138)",
+      "Snapshot query limit capped at maxQueryLimit=200 (api/admin_snapshots.go:132)",
+      "Snapshot SQLite header validated before writing to disk (cmd/sync.go:202)"
+    ],
+    "gaps": [
+      "TextSearch in TDQ does not escape LIKE wildcards (% and _) - evaluator.go:363-368",
+      "No maximum query string length validation for TDQ queries",
+      "projectID from URL path not validated for path traversal characters before filesystem use (api/dbpool.go:47)",
+      "The mapFieldToColumn function (evaluator.go:392-413) returns unvalidated field names for unknown fields (the `default: return field` case) - these get interpolated into SQL as column names. However, the lexer limits identifiers to alphanumeric + underscore, so injection via the parser path is unlikely",
+      "Device code and session ID values from push requests are not format-validated beyond empty check",
+      "No maximum length validation on entity_id, device_id, or session_id in push requests"
+    ]
+  },
+  "dependency_risks": [
+    {
+      "package": "github.com/mattn/go-sqlite3 v1.14.33",
+      "risk": "low",
+      "notes": "CGo-based SQLite binding. Current version. No known CVEs at this version. Used alongside modernc.org/sqlite (pure-Go). Having two SQLite drivers increases attack surface."
+    },
+    {
+      "package": "modernc.org/sqlite v1.41.0",
+      "risk": "low",
+      "notes": "Pure-Go SQLite implementation. Used as the primary driver for the sync server (imported in api/dbpool.go). Recent version."
+    },
+    {
+      "package": "github.com/microcosm-cc/bluemonday v1.0.27",
+      "risk": "low",
+      "notes": "HTML sanitizer used by glamour for markdown rendering. Properly handles XSS in rendered output."
+    },
+    {
+      "package": "golang.org/x/crypto v0.47.0",
+      "risk": "low",
+      "notes": "Recent version. Used transitively. No known CVEs at this version."
+    },
+    {
+      "package": "golang.org/x/net v0.48.0",
+      "risk": "low",
+      "notes": "Recent version. Used transitively. No known CVEs at this version."
+    },
+    {
+      "package": "github.com/spf13/cobra v1.10.2",
+      "risk": "low",
+      "notes": "CLI framework. Well-maintained, widely used. Current version."
+    },
+    {
+      "package": "github.com/yuin/goldmark v1.7.8",
+      "risk": "low",
+      "notes": "Markdown parser. Used via glamour. Well-maintained."
+    },
+    {
+      "package": "go 1.25.5",
+      "risk": "info",
+      "notes": "Go version is very recent (1.25.5). This is a strong indicator that the project stays current with Go releases."
+    }
+  ],
+  "overall_risk_level": "medium",
+  "top_fixes": [
+    {
+      "priority": 1,
+      "finding": "SEC-001",
+      "action": "Add validColumnName regex validation for entityType parameter in all sync/events.go functions that interpolate table names into SQL (deleteEntity, softDeleteEntity, restoreEntity, upsertEntityWithMode). This is a 5-line fix per function that adds defense-in-depth against SQL injection.",
+      "effort": "small"
+    },
+    {
+      "priority": 2,
+      "finding": "SEC-004",
+      "action": "Add path traversal validation in ProjectDBPool.Get and Create. Reject any projectID containing '/', '\\', or '..' sequences. This is a 3-line guard clause.",
+      "effort": "small"
+    },
+    {
+      "priority": 3,
+      "finding": "SEC-002",
+      "action": "Apply escapeSQLWildcards to TextSearch.Text in textSearchToSQL, and add ESCAPE clause to the LIKE operators. The escaping function already exists.",
+      "effort": "small"
+    },
+    {
+      "priority": 4,
+      "finding": "SEC-006",
+      "action": "Add TLS configuration support to the sync server, or at minimum document the requirement for a TLS-terminating reverse proxy. Add a startup warning when BaseURL uses HTTP in non-localhost configurations.",
+      "effort": "medium"
+    },
+    {
+      "priority": 5,
+      "finding": "SEC-005",
+      "action": "Move the /metricz endpoint behind authentication (requireAuth or requireAdmin). Keep /healthz public but ensure it only returns status ok/error.",
+      "effort": "small"
+    },
+    {
+      "priority": 6,
+      "finding": "SEC-009",
+      "action": "Add trusted proxy configuration. When no trusted proxies are configured, ignore X-Forwarded-For and use RemoteAddr directly for rate limiting.",
+      "effort": "medium"
+    },
+    {
+      "priority": 7,
+      "finding": "SEC-007",
+      "action": "Change ConfigDir to use 0700 permissions and config.json to use 0600 permissions, consistent with auth.json.",
+      "effort": "small"
+    },
+    {
+      "priority": 8,
+      "finding": "SEC-012",
+      "action": "Replace manual escapeJSON with encoding/json.Marshal for all JSON output in security.go and errors.go.",
+      "effort": "small"
+    }
+  ],
+  "positive_findings": [
+    "All core database operations (issues.go, schema.go) use parameterized queries with ? placeholders consistently",
+    "API keys are SHA-256 hashed - plaintext never stored (serverdb/apikeys.go:67)",
+    "Auth credentials stored with restrictive file permissions (0600) (syncconfig.go:125)",
+    "Comprehensive rate limiting: per-IP for auth, per-key for sync operations (ratelimit.go:68-73)",
+    "Request body size limited to 10MB globally (middleware.go:226)",
+    "Recovery middleware catches panics and returns generic 500 (middleware.go:79-89)",
+    "Request ID tracking for audit trail (middleware.go:101-108)",
+    "Admin API requires both admin flag and specific scopes (admin_middleware.go:14-17)",
+    "Sort columns validated against explicit allowlist (issues.go:497-501)",
+    "Column names in sync engine validated with regex and cross-checked against schema (events.go:15,116-138)",
+    "TDQ parser has depth limiting to prevent stack overflow (parser.go:15,203)",
+    "SQL LIKE wildcards properly escaped in field contains operations (evaluator.go:29-32)",
+    "Sync entity types validated against allowlist before processing (api/sync.go:140-145)",
+    "CORS properly configured with explicit origin allowlist, not permissive by default (cors.go:11-14)",
+    "Sensitive analytics keywords are redacted from usage logging (db/analytics.go:40-42)",
+    "Auth events logged for audit purposes including failed attempts (api/auth.go:268-278)",
+    "Expired auth requests automatically cleaned up (server.go:77-95)",
+    "HTTP server has appropriate read/write/idle timeouts (server.go:41-43)"
+  ]
+}

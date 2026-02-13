@@ -1,0 +1,471 @@
+{
+  "agent": "Orphan Detective",
+  "timestamp": "2026-02-13",
+  "summary": "Forensic analysis of 332 Go files (~112K lines) in td CLI. Found 1 fully orphaned package (internal/crypto, 335 lines), 19 dead exported functions never called outside their defining file, 1 deprecated function, multiple test-only exports that could be unexported, and a documentation-only data structure. No stubs, no commented-out code blocks, no unused go.mod dependencies. The codebase is remarkably clean for its size. Total estimated removable dead code: ~491 lines.",
+
+  "dead_code": [
+    {
+      "type": "file",
+      "name": "internal/crypto (entire package)",
+      "location": "internal/crypto/crypto.go + crypto_test.go",
+      "evidence": "Zero imports from any other package in the codebase. grep -rn '\"github.com/marcus/td/internal/crypto\"' returns nothing. Package provides E2E encryption primitives (X25519, AES-256-GCM, ECDH+HKDF, Argon2id) that were likely planned for td-sync but never integrated.",
+      "recommendation": "remove",
+      "lines": 335
+    },
+    {
+      "type": "function",
+      "name": "FormatSessionID",
+      "location": "internal/session/session.go:61",
+      "evidence": "No callers outside internal/session package (including tests). Formats session ID with optional name lookup.",
+      "recommendation": "remove",
+      "lines": 7
+    },
+    {
+      "type": "function",
+      "name": "GetWithContextCheck",
+      "location": "internal/session/session.go:290",
+      "evidence": "No callers outside internal/session package (including tests). Appears to be an unused wrapper around session Get with context checking.",
+      "recommendation": "remove",
+      "lines": 3
+    },
+    {
+      "type": "function",
+      "name": "GetAllTransitions",
+      "location": "internal/workflow/workflow.go:220",
+      "evidence": "No callers outside internal/workflow package (including tests). Returns all registered state transitions.",
+      "recommendation": "remove",
+      "lines": 9
+    },
+    {
+      "type": "function",
+      "name": "SetMode",
+      "location": "internal/workflow/workflow.go:104",
+      "evidence": "No callers outside internal/workflow package (including tests). Sets transition mode on StateMachine.",
+      "recommendation": "remove",
+      "lines": 3
+    },
+    {
+      "type": "function",
+      "name": "GetTransitionsFrom",
+      "location": "internal/workflow/transitions.go:65",
+      "evidence": "No callers outside internal/workflow package (including tests). Returns valid target statuses from a given status.",
+      "recommendation": "remove",
+      "lines": 9
+    },
+    {
+      "type": "function",
+      "name": "GetTransitionsTo",
+      "location": "internal/workflow/transitions.go:76",
+      "evidence": "No callers outside internal/workflow package (including tests). Returns valid source statuses for a given target.",
+      "recommendation": "remove",
+      "lines": 9
+    },
+    {
+      "type": "function",
+      "name": "JSONErrorWithDetails",
+      "location": "internal/output/output.go:90",
+      "evidence": "No callers outside internal/output package (including tests). Outputs an error as JSON with additional context.",
+      "recommendation": "remove",
+      "lines": 14
+    },
+    {
+      "type": "function",
+      "name": "CanViewProject",
+      "location": "internal/serverdb/auth.go:53",
+      "evidence": "No callers outside internal/serverdb package, not even in tests. API uses Authorize() directly with role string instead. Unlike CanPush/CanPull/etc which at least have test callers, CanViewProject is never called anywhere.",
+      "recommendation": "remove",
+      "lines": 3
+    },
+    {
+      "type": "function",
+      "name": "ConfigDir",
+      "location": "internal/syncconfig/syncconfig.go:50",
+      "evidence": "No callers outside internal/syncconfig package (including tests). Returns sync config directory path. Internal functions use it within the package.",
+      "recommendation": "remove or unexport",
+      "lines": 11
+    },
+    {
+      "type": "function",
+      "name": "GenerateDeviceID",
+      "location": "internal/syncconfig/syncconfig.go:200",
+      "evidence": "No callers outside internal/syncconfig package (including tests). Called internally by GetDeviceID(). Should be unexported.",
+      "recommendation": "unexport (rename to generateDeviceID)",
+      "lines": 7
+    },
+    {
+      "type": "function",
+      "name": "LogCommandUsageAsync",
+      "location": "internal/db/analytics.go:94",
+      "evidence": "No callers anywhere (not even tests). The synchronous version LogCommandUsage() is used instead in cmd/root.go:123.",
+      "recommendation": "remove",
+      "lines": 6
+    },
+    {
+      "type": "function",
+      "name": "ReadCommandUsage",
+      "location": "internal/db/analytics.go:102",
+      "evidence": "No callers outside internal/db (including tests). The filtered version ReadCommandUsageFiltered() is used by cmd/stats_analytics.go instead.",
+      "recommendation": "remove",
+      "lines": 15
+    },
+    {
+      "type": "function",
+      "name": "CountCommandUsage",
+      "location": "internal/db/analytics.go:234",
+      "evidence": "No callers outside internal/db (including tests). Counts command usage events but nothing reads this count.",
+      "recommendation": "remove",
+      "lines": 7
+    },
+    {
+      "type": "function",
+      "name": "RecordAgentActivity",
+      "location": "internal/db/agent_activity.go:25",
+      "evidence": "No callers anywhere (not even tests). AssignIssue() in the same file directly inserts into agent_activity table with a different SQL pattern instead of calling this function.",
+      "recommendation": "remove",
+      "lines": 19
+    },
+    {
+      "type": "function",
+      "name": "SearchIssues",
+      "location": "internal/db/search.go:18",
+      "evidence": "Only called by SearchIssuesRanked() within the same file. Should be unexported since it's only used as an internal helper.",
+      "recommendation": "unexport (rename to searchIssues)",
+      "lines": 4
+    },
+    {
+      "type": "function",
+      "name": "SetSchemaVersion",
+      "location": "internal/db/migrations.go:69",
+      "evidence": "No callers outside internal/db package (including tests). Schema version is set by RunMigrations() internally.",
+      "recommendation": "unexport (rename to setSchemaVersion)",
+      "lines": 5
+    },
+    {
+      "type": "function",
+      "name": "UpdateSyncPulled",
+      "location": "internal/db/sync_state.go:125",
+      "evidence": "No callers outside internal/db package (including tests). Autosync code updates sync state with direct SQL in transactions instead.",
+      "recommendation": "remove",
+      "lines": 8
+    },
+    {
+      "type": "function",
+      "name": "UpdateSyncPushed",
+      "location": "internal/db/sync_state.go:115",
+      "evidence": "No callers outside internal/db package (including tests). Autosync code updates sync state with direct SQL in transactions instead.",
+      "recommendation": "remove",
+      "lines": 8
+    },
+    {
+      "type": "function",
+      "name": "ToSQLConditions",
+      "location": "internal/query/evaluator.go:92",
+      "evidence": "No callers outside internal/query package (including tests). Appears to be an unfinished query optimization path.",
+      "recommendation": "remove",
+      "lines": 6
+    },
+    {
+      "type": "function",
+      "name": "QuickSearch",
+      "location": "internal/query/execute.go:611",
+      "evidence": "Only called in internal/query tests. Comment says 'backward compatible with existing search' but cmd/search.go uses db.SearchIssuesRanked() instead. Dead public API.",
+      "recommendation": "remove",
+      "lines": 15
+    },
+    {
+      "type": "type",
+      "name": "RuntimeStats (over-exported)",
+      "location": "cmd/debug_stats.go:12",
+      "evidence": "Only used within debug_stats.go. Exported type in cmd package that could be unexported. JSON tags work fine on unexported types with json.Encoder.",
+      "recommendation": "unexport (rename to runtimeStats)",
+      "lines": 0
+    }
+  ],
+
+  "stubs": [],
+
+  "feature_flags": [
+    {
+      "name": "sync_cli",
+      "status": "active",
+      "location": "internal/features/features.go:21",
+      "description": "Gates sync/auth CLI commands. Default: false. Used by cmd/auth.go, cmd/sync.go, cmd/sync_conflicts.go, cmd/sync_init.go, cmd/project.go, cmd/config.go, cmd/doctor.go via AddFeatureGatedCommand()."
+    },
+    {
+      "name": "sync_autosync",
+      "status": "active",
+      "location": "internal/features/features.go:28",
+      "description": "Gates startup/post-mutation/monitor autosync hooks. Default: false. Used in cmd/feature_gate.go (startup + mutation hooks) and cmd/monitor.go (periodic autosync loop)."
+    },
+    {
+      "name": "sync_monitor_prompt",
+      "status": "active",
+      "location": "internal/features/features.go:34",
+      "description": "Gates first-run monitor sync setup prompt UX. Default: false. Used in pkg/monitor/commands.go:2042."
+    },
+    {
+      "name": "sync_notes",
+      "status": "active",
+      "location": "internal/features/features.go:41",
+      "description": "Gates notes entity sync. Default: true (only flag enabled by default). Used in cmd/sync.go:45 as syncEntityValidator."
+    }
+  ],
+
+  "deprecated": [
+    {
+      "name": "wrapModal",
+      "location": "pkg/monitor/view.go:1771",
+      "description": "Method on Model marked as deprecated in comment. Simply delegates to wrapModalWithDepth(). Zero callers found - all call sites already use wrapModalWithDepth() directly.",
+      "recommendation": "remove"
+    },
+    {
+      "name": "SyncGateMap",
+      "location": "internal/features/sync_gate_map.go:12",
+      "description": "Documentation-only data structure mapping sync surfaces to feature flags. Contains stale reference to 'sunc' branch (typo for 'sync'). Only referenced in a single test (TestSyncGateMapReferencesKnownFeatures). 88 lines of static documentation that could be a markdown file instead.",
+      "recommendation": "document - convert to doc or remove"
+    }
+  ],
+
+  "orphaned_files": [
+    {
+      "path": "internal/crypto/crypto.go",
+      "lines": 165,
+      "description": "E2E encryption primitives package (X25519, AES-256-GCM, ECDH+HKDF, Argon2id key derivation). Zero imports from anywhere in the codebase. Planned for td-sync encrypted sync but never integrated. Package also pulls in golang.org/x/crypto as a direct dependency.",
+      "recommendation": "remove entire package"
+    },
+    {
+      "path": "internal/crypto/crypto_test.go",
+      "lines": 170,
+      "description": "Tests for orphaned crypto package. Will be removed when package is removed.",
+      "recommendation": "remove with package"
+    }
+  ],
+
+  "commented_code": [],
+
+  "test_only_exports": [
+    {
+      "name": "AdvisoryMachine",
+      "location": "internal/workflow/workflow.go:89",
+      "description": "Factory function for advisory-mode state machine. Only called in workflow tests."
+    },
+    {
+      "name": "StrictMachine",
+      "location": "internal/workflow/workflow.go:94",
+      "description": "Factory function for strict-mode state machine. Only called in workflow tests."
+    },
+    {
+      "name": "CanTransition",
+      "location": "internal/workflow/workflow.go:203",
+      "description": "Checks if a transition is valid. Only called in workflow tests."
+    },
+    {
+      "name": "BulletList",
+      "location": "internal/output/output.go:387",
+      "description": "Formats items as bulleted list. Only used in output package tests."
+    },
+    {
+      "name": "FormatGitState",
+      "location": "internal/output/output.go:318",
+      "description": "Formats git state for display. Only used in output package tests."
+    },
+    {
+      "name": "FormatPriority",
+      "location": "internal/output/output.go:115",
+      "description": "Formats priority string. Called internally by IssueOneLiner but exported only for tests."
+    },
+    {
+      "name": "IssueOneLinerPlain",
+      "location": "internal/output/output.go:335",
+      "description": "Plain-text issue one-liner. Only used in output tests."
+    },
+    {
+      "name": "StatusBadge",
+      "location": "internal/output/output.go:341",
+      "description": "Returns status indicator with symbol. Only used in output tests."
+    },
+    {
+      "name": "IndentLines",
+      "location": "internal/output/output.go:367",
+      "description": "Indents lines by N spaces. Called by IndentString (which is also test-only). Only used in tests."
+    },
+    {
+      "name": "IndentString",
+      "location": "internal/output/output.go:377",
+      "description": "Indents a string's lines. Only used in output tests."
+    },
+    {
+      "name": "RenderTreeLines",
+      "location": "internal/output/tree.go:52",
+      "description": "Renders tree nodes as lines. Called internally by RenderTree but exported only for tests."
+    },
+    {
+      "name": "CanPushEvents",
+      "location": "internal/serverdb/auth.go:43",
+      "description": "Auth convenience wrapper. Only called in serverdb tests. API uses Authorize() directly."
+    },
+    {
+      "name": "CanPullEvents",
+      "location": "internal/serverdb/auth.go:48",
+      "description": "Auth convenience wrapper. Only called in serverdb tests. API uses Authorize() directly."
+    },
+    {
+      "name": "CanManageMembers",
+      "location": "internal/serverdb/auth.go:58",
+      "description": "Auth convenience wrapper. Only called in serverdb tests. API uses Authorize() directly."
+    },
+    {
+      "name": "CanDeleteProject",
+      "location": "internal/serverdb/auth.go:63",
+      "description": "Auth convenience wrapper. Only called in serverdb tests. API uses Authorize() directly."
+    },
+    {
+      "name": "GetDependents",
+      "location": "internal/dependency/dependency.go:112",
+      "description": "Returns issues that depend on given issue. Only called in dependency tests."
+    },
+    {
+      "name": "ValidateAndAdd",
+      "location": "internal/dependency/dependency.go:70",
+      "description": "Validates and adds dependency. Only called in dependency tests."
+    },
+    {
+      "name": "HasNoteFields",
+      "location": "internal/query/note_evaluator.go:21",
+      "description": "Checks if query references note fields. Only called in query tests."
+    },
+    {
+      "name": "ExecuteNotes",
+      "location": "internal/query/note_evaluator.go:45",
+      "description": "Executes query against notes. Only called in query tests."
+    },
+    {
+      "name": "DeleteBoard",
+      "location": "internal/db/boards.go:207",
+      "description": "Deletes a board. Only called in db tests."
+    },
+    {
+      "name": "GetBoardByName",
+      "location": "internal/db/boards.go:97",
+      "description": "Gets board by name. Only called in db tests."
+    },
+    {
+      "name": "UpdateBoard",
+      "location": "internal/db/boards.go:175",
+      "description": "Updates board. Only called in db tests."
+    },
+    {
+      "name": "RespaceBoardPositions",
+      "location": "internal/db/boards.go:445",
+      "description": "Respaces board positions. Only called in db tests."
+    },
+    {
+      "name": "GetDirectChildren",
+      "location": "internal/db/issue_relations.go:67",
+      "description": "Gets direct child issues. Only called in db tests."
+    },
+    {
+      "name": "GetSessionHistory",
+      "location": "internal/db/issue_relations.go:579",
+      "description": "Gets session history for issue. Only called in db tests."
+    },
+    {
+      "name": "UnlinkFile",
+      "location": "internal/db/issue_relations.go:517",
+      "description": "Unlinks a file from issue. Only called in db tests."
+    },
+    {
+      "name": "GetFeatureFlag",
+      "location": "internal/config/config.go:254",
+      "description": "Gets feature flag from config. Only called in config tests."
+    },
+    {
+      "name": "GetRootDir",
+      "location": "internal/git/git.go:187",
+      "description": "Gets git root directory. Only called in git tests."
+    },
+    {
+      "name": "ReadLinesFromReader",
+      "location": "internal/input/input.go:45",
+      "description": "Reads lines from io.Reader. Only called in input tests."
+    },
+    {
+      "name": "AllTransitions (internal use)",
+      "location": "internal/workflow/transitions.go:9",
+      "description": "Returns all transitions. Used within workflow package by New() but exported only for package-level tests."
+    }
+  ],
+
+  "documentation_artifacts": [
+    {
+      "name": "SyncGateMap",
+      "location": "internal/features/sync_gate_map.go",
+      "lines": 88,
+      "description": "Static documentation mapping sync surfaces to feature flags. Contains typo 'sunc' (should be 'sync') on line 11. Only used in TestSyncGateMapReferencesKnownFeatures. This is a code-as-documentation pattern that could be a markdown file."
+    },
+    {
+      "name": "GateMapEntry",
+      "location": "internal/features/sync_gate_map.go:4",
+      "lines": 5,
+      "description": "Type for SyncGateMap entries. Only used by the map itself and one test."
+    }
+  ],
+
+  "over_exported_types": [
+    {
+      "name": "RuntimeStats",
+      "location": "cmd/debug_stats.go:12",
+      "description": "Exported type only used within debug_stats.go. Could be unexported."
+    },
+    {
+      "name": "SyncFeatureHooks",
+      "location": "cmd/feature_gate.go:10",
+      "description": "Exported type only used within cmd package (registered from autosync.go). Could be unexported."
+    }
+  ],
+
+  "unused_dependencies": [],
+
+  "dead_cli_commands": [],
+
+  "total_dead_lines_estimate": 491,
+
+  "cleanup_priority": [
+    {
+      "priority": 1,
+      "action": "Remove internal/crypto package",
+      "impact": "335 lines removed, eliminates orphaned package and its golang.org/x/crypto dependency pull",
+      "risk": "none - zero callers"
+    },
+    {
+      "priority": 2,
+      "action": "Remove 7 truly dead functions (LogCommandUsageAsync, ReadCommandUsage, CountCommandUsage, RecordAgentActivity, UpdateSyncPulled, UpdateSyncPushed, QuickSearch)",
+      "impact": "~76 lines removed, cleaner API surface",
+      "risk": "none - zero callers confirmed via full codebase search"
+    },
+    {
+      "priority": 3,
+      "action": "Remove deprecated wrapModal method",
+      "impact": "3 lines removed",
+      "risk": "none - zero callers, replaced by wrapModalWithDepth"
+    },
+    {
+      "priority": 4,
+      "action": "Remove 12 dead exported functions never called even in tests (FormatSessionID, GetWithContextCheck, GetAllTransitions, SetMode, GetTransitionsFrom, GetTransitionsTo, JSONErrorWithDetails, CanViewProject, ToSQLConditions, ConfigDir, GenerateDeviceID, SearchIssues)",
+      "impact": "~77 lines removed or unexported",
+      "risk": "low - some may be useful as public API for external consumers (ConfigDir, GenerateDeviceID, SearchIssues could be unexported instead)"
+    },
+    {
+      "priority": 5,
+      "action": "Unexport ~30 test-only exported functions to reduce public API surface",
+      "impact": "No lines removed but cleaner API; prevents accidental external use",
+      "risk": "low - breaking change only if external consumers exist (unlikely for internal/ packages)"
+    },
+    {
+      "priority": 6,
+      "action": "Convert SyncGateMap to documentation (markdown) and fix 'sunc' typo",
+      "impact": "88 lines moved to docs, cleaner features package",
+      "risk": "low - only one test references it"
+    }
+  ]
+}

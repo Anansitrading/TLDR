@@ -1,0 +1,318 @@
+{
+  "agent": "Code Quality Reviewer",
+  "timestamp": "2026-02-13",
+  "summary": "td is a substantial Go CLI/TUI tool (198 source files, ~58.7K source lines) with a mature Bubble Tea-based monitor UI. The codebase demonstrates competent Go engineering with strong test coverage (134 test files, 0.68 ratio), clean DB abstraction, and a well-designed query language. However, the TUI layer suffers from a God Object anti-pattern (Model struct with 90+ fields), extreme view/command method lengths (commands.go: 2166 lines, view.go: 2399 lines), and significant code duplication in scroll/cursor management and row scanning. Error handling is generally good but inconsistent: the monitor layer silently discards errors with _, while the DB layer properly wraps them. The parser and DB layers are the highest quality code in the codebase. Overall score: 6.5/10 - solid foundation with clear refactoring targets.",
+  "code_smells": [
+    {
+      "type": "God Object",
+      "severity": "high",
+      "location": "pkg/monitor/model.go:22-203",
+      "description": "Model struct has 90+ fields spanning database refs, window dimensions, 8+ modal states (each with Open/Loading/Data/Error/Cursor/Scroll/Modal/MouseHandler), search state, board state, kanban state, sync prompt state, form state, clipboard function, custom renderers, and more. Every new UI feature adds more fields to this single struct.",
+      "recommendation": "Extract modal states into a ModalManager, board state into a BoardController, and search/filter state into a FilterState struct. Each sub-state should own its own Open/Loading/Error/Data/Modal/MouseHandler fields. The Model struct should compose these via embedded or named fields."
+    },
+    {
+      "type": "Long Function / Feature Envy",
+      "severity": "high",
+      "location": "pkg/monitor/commands.go:437-1329",
+      "description": "executeCommand() is a single switch statement spanning 892 lines with 70+ case branches. Each case implements cursor movement, scroll handling, and board-mode dispatch inline. The CmdCursorDown case alone (lines 490-571) contains 8 levels of nested if/else for modal/board/help/stats/handoff/tdqhelp contexts.",
+      "recommendation": "Extract each keymap.Cmd* group into dedicated handler methods (e.g., handleCursorMovement, handleBoardNavigation, handleModalNavigation). Use a dispatch table (map[keymap.Command]func()) instead of a monolithic switch."
+    },
+    {
+      "type": "Duplicated Logic",
+      "severity": "high",
+      "location": "pkg/monitor/view.go:multiple",
+      "description": "The scroll indicator pattern (effectiveMaxLines calculation, showUpIndicator, hasMoreBelow, offset clamping) is copy-pasted 4 times across renderCurrentWorkPanel (lines 194-313), renderTaskListPanel (lines 484-630), renderTaskListBoardView (lines 633-772), and renderBoardSwimlanesView (lines 775-917). The pattern uses the same local variable names and identical logic in each instance, accounting for 57 references to effectiveMaxLines alone.",
+      "recommendation": "Extract a scrollablePanel helper struct/function that takes total rows, cursor, offset, maxLines and returns startIdx, endIdx, showUpIndicator, showDownIndicator, effectiveMaxLines. This would eliminate ~200 lines of duplicated scroll arithmetic."
+    },
+    {
+      "type": "Duplicated Logic",
+      "severity": "medium",
+      "location": "internal/db/issues.go:91-144 + 184-226 + 525-568",
+      "description": "The issue row scanning pattern (declaring ~15 sql.Null* variables, calling rows.Scan with 24 columns, then assigning .String on each) is copy-pasted 3 times: in GetIssue(), GetIssuesByIDs(), and ListIssues(). Any schema change requires updating all 3 instances identically.",
+      "recommendation": "Extract a scanIssue(scanner interface{ Scan(...interface{}) error }) (*models.Issue, error) helper that encapsulates the NullString/NullTime declarations and assignment. All three callers would use: issue, err := scanIssue(row) or scanIssue(rows)."
+    },
+    {
+      "type": "Duplicated Logic",
+      "severity": "medium",
+      "location": "pkg/monitor/commands.go:490-640",
+      "description": "CmdCursorDown and CmdCursorUp share nearly identical dispatch logic for 10 contexts (help, modal/parent-epic, modal/task-section, modal/blocked-by, modal/blocks, board-picker, board/kanban, board/swimlanes, board/backlog, handoffs, stats, tdq-help, default). The only difference is increment vs decrement direction. This is ~150 lines duplicated with sign flips.",
+      "recommendation": "Extract a moveCursorInContext(direction int) (Model, tea.Cmd) method that uses the current context to dispatch, passing direction as a parameter."
+    },
+    {
+      "type": "Duplicated Logic",
+      "severity": "medium",
+      "location": "pkg/monitor/commands.go:1582-1773",
+      "description": "moveIssueInBacklog() and moveIssueInSwimlane() share the same position-on-demand logic: check if target has position, compute sparse gap, call SetIssuePositionLogged, then swap or insert. The two methods are ~90 lines each with identical position arithmetic.",
+      "recommendation": "Extract a positionAndSwap(boardID, currentID, targetID string, currentBIV, targetBIV *models.BoardIssueView, direction int) error helper."
+    },
+    {
+      "type": "Long Function",
+      "severity": "medium",
+      "location": "pkg/monitor/commands.go:203-434",
+      "description": "handleKey() is 231 lines of modal-type-specific key dispatch. Each modal type (sync prompt, getting started, TDQ help, stats, handoffs, board editor, board picker, delete confirm, close confirm, search) has its own 15-30 line block checking if the modal is open and forwarding keys.",
+      "recommendation": "Each modal should implement a common interface (HandleKeyMsg(tea.KeyMsg) (action string, cmd tea.Cmd, handled bool)) and handleKey should iterate through active modals in priority order."
+    },
+    {
+      "type": "Feature Envy / Deep Nesting",
+      "severity": "medium",
+      "location": "pkg/monitor/model.go:422-845",
+      "description": "The Update() method is 423 lines with a top-level switch on msg type containing 25+ case branches. Several cases (BoardIssuesMsg at lines 736-775, IssueDetailsMsg at lines 535-584) contain substantial business logic that reaches deep into modal state.",
+      "recommendation": "Extract message handlers into dedicated methods: handleBoardIssuesMsg(), handleIssueDetailsMsg(), etc. The Update() switch should be a thin dispatcher."
+    },
+    {
+      "type": "Legacy/Dead Code Remnants",
+      "severity": "low",
+      "location": "pkg/monitor/model.go:76-77,88-89",
+      "description": "ConfirmButtonFocus, ConfirmButtonHover, CloseConfirmButtonFocus, CloseConfirmButtonHover are marked '// legacy, kept for compatibility' but the declarative modal system handles button state. These fields add confusion and dead state paths.",
+      "recommendation": "Remove legacy button focus/hover fields and their remaining references. The declarative modal system fully replaces them."
+    },
+    {
+      "type": "Modal Dimension Magic Numbers",
+      "severity": "low",
+      "location": "pkg/monitor/view.go:990-1003,1332-1346,1467-1480,1543-1556",
+      "description": "Modal dimension calculation (80% of terminal, capped to 100 width/40 height, floored to 40/50 width and 15/20 height) is repeated in 5+ places with slightly different caps per modal type.",
+      "recommendation": "Extract a modalDimensions(widthPct, heightPct int, opts ModalSizeOpts) (width, height int) helper."
+    },
+    {
+      "type": "Value Receiver on Large Struct",
+      "severity": "medium",
+      "location": "pkg/monitor/model.go and commands.go (158 value receiver methods vs 45 pointer receiver methods)",
+      "description": "Model struct (~90 fields including maps, slices, pointers) is passed by value in 158 methods (func (m Model)) vs 45 pointer receiver methods. Bubble Tea requires value receivers for Update/View, but helper methods that don't need the copy pattern still use value receivers, causing unnecessary copies of this large struct.",
+      "recommendation": "Use pointer receivers for internal helpers that are called from within Update() and don't need to return a new Model. This includes utility methods like helpVisibleHeight(), helpMaxScroll(), formatIssueCompact(), etc."
+    }
+  ],
+  "complexity_hotspots": [
+    {
+      "file": "pkg/monitor/view.go",
+      "lines": 2399,
+      "issue": "Largest file. Contains all rendering logic: 6 panel renderers, 7 modal renderers, scroll indicator logic (duplicated 4x), formatting helpers, style definitions, and overlay composition. Single-file responsibility violation."
+    },
+    {
+      "file": "pkg/monitor/commands.go",
+      "lines": 2166,
+      "issue": "Second largest file. Contains all command dispatch (executeCommand: 892-line switch), key handling (handleKey: 231 lines), all board CRUD operations, modal open/close, and issue positioning logic. Single-file responsibility violation."
+    },
+    {
+      "file": "pkg/monitor/input.go",
+      "lines": 1535,
+      "issue": "Mouse handling and input processing for all panel types, modal types, and board views. Complex hit-testing and coordinate math."
+    },
+    {
+      "file": "pkg/monitor/model.go",
+      "lines": 1028,
+      "issue": "God Object with 90+ fields. Update() is 423 lines with 25+ message type branches. All TUI state lives in one struct."
+    },
+    {
+      "file": "pkg/monitor/modal.go",
+      "lines": 969,
+      "issue": "Modal stack management, declarative modal creation for 8+ modal types, and action handlers."
+    },
+    {
+      "file": "internal/db/migrations.go",
+      "lines": 1381,
+      "issue": "29 schema versions with mix of SQL-string and Go-code migrations. Complex but necessarily so for SQLite migration constraints."
+    },
+    {
+      "file": "internal/db/issues.go",
+      "lines": 571,
+      "issue": "ListIssues() builds dynamic SQL with 15+ optional WHERE clauses. Row scanning pattern duplicated 3x."
+    },
+    {
+      "file": "cmd/system.go",
+      "lines": 884,
+      "issue": "System command with doctor/diagnostics functionality. Large but acceptable for a diagnostic command."
+    },
+    {
+      "file": "cmd/ws.go",
+      "lines": 881,
+      "issue": "Work session management with 44 error-discarding patterns (_, _ = ...), suggesting rushed error handling."
+    }
+  ],
+  "error_handling": {
+    "pattern": "Mixed: DB layer uses proper error wrapping (474 uses of fmt.Errorf with %w). CLI layer uses output.Error() + return err consistently. Monitor/TUI layer uses fire-and-forget with StatusMessage for non-fatal errors. Silently discarded errors (_, _ = ...) counted at 1337 across all files, mostly in test files and cmd/ flag parsing.",
+    "issues": [
+      {
+        "severity": "medium",
+        "location": "pkg/monitor/model.go:897-946",
+        "description": "fetchIssueDetails() silently discards errors from GetLatestHandoff, GetLogs, GetComments, GetDependencies, GetBlockedBy, GetIssuesByIDs, and ListIssues (epic tasks). If any of these fail, the modal shows partial data without any indication. The user sees a fully-loaded modal that is actually missing sections.",
+        "recommendation": "At minimum, log these errors. Better: aggregate them and show a warning in the modal footer like '3 sections failed to load'."
+      },
+      {
+        "severity": "medium",
+        "location": "cmd/ws.go (44 error discards)",
+        "description": "Work session command has 44 instances of discarding errors via _, _ = pattern, the highest density in the codebase. This suggests hasty development where error paths were not considered.",
+        "recommendation": "Audit each discarded error. For user-facing operations, at minimum log with slog.Debug. For writes that could corrupt state, surface as warnings."
+      },
+      {
+        "severity": "low",
+        "location": "pkg/monitor/commands.go:1665-1666",
+        "description": "After SwapIssuePositions(), two SetIssuePositionLogged() calls have their errors completely discarded (not even assigned to _). These are action log entries for undo support, so losing them silently means the operation cannot be undone.",
+        "recommendation": "At minimum assign to _ and add a comment explaining why the error is acceptable, or log it."
+      },
+      {
+        "severity": "low",
+        "location": "internal/db/issues.go:81",
+        "description": "ID collision retry uses string matching on error message ('UNIQUE constraint') rather than typed error checking. This is fragile if SQLite driver changes its error message format.",
+        "recommendation": "Use errors.As() with the sqlite3 driver's error type and check the error code instead of string matching."
+      }
+    ]
+  },
+  "test_coverage": {
+    "test_files": 134,
+    "source_files": 198,
+    "ratio": "0.68 (134 test files / 198 source files)",
+    "total_test_lines": 67123,
+    "gaps": [
+      {
+        "area": "pkg/monitor/view.go (2399 lines, 0 test file)",
+        "description": "The largest file in the codebase has no dedicated test file. View rendering logic is tested indirectly through model_test.go but scroll indicator arithmetic, modal dimension calculations, and overlay composition have no direct unit tests."
+      },
+      {
+        "area": "pkg/monitor/commands.go (2166 lines, 0 test file)",
+        "description": "Second largest file has no dedicated test. Command dispatch and board positioning logic are tested through model_test.go integration tests but the 70+ switch cases in executeCommand() have no targeted unit tests for each branch."
+      },
+      {
+        "area": "cmd/monitor.go, cmd/board.go, cmd/activity.go, cmd/assign.go",
+        "description": "Several cmd/ files have no corresponding test files. The monitor command, board management, activity, and assign commands lack direct CLI integration tests."
+      },
+      {
+        "area": "internal/agent/instructions.go",
+        "description": "Agent file detection and instruction installation logic has no test file."
+      },
+      {
+        "area": "internal/sync/types.go, internal/syncclient/client.go",
+        "description": "Sync type definitions and HTTP sync client have no test files."
+      },
+      {
+        "area": "pkg/monitor per-directory ratio: 35 source / 17 test = 0.49",
+        "description": "The monitor package has the worst test ratio. Several complex files (kanban.go, board_editor.go, getting_started.go, sync_prompt.go, actions.go, activity_table.go) lack test files."
+      }
+    ],
+    "strengths": [
+      "internal/db has comprehensive tests: 14 test files for 26 source files (0.54), with dedicated bypass_prevention, multiuser_integration, and migrations tests.",
+      "internal/query has excellent coverage: 5 test files for 7 source files (0.71), with separate lexer, parser, evaluator, and execute tests.",
+      "internal/sync has 1:1 test ratio (5/5) including seed_parity and backfill tests.",
+      "test/e2e and test/syncharness provide integration testing with custom harnesses.",
+      "model_test.go at 4289 lines is the largest test file, providing extensive integration testing of the TUI model."
+    ]
+  },
+  "naming": {
+    "conventions": "Generally follows Go conventions well. Package names are idiomatic (db, models, query, session, config). Exported types use PascalCase. Methods use camelCase. Constants use PascalCase. Acronyms are handled inconsistently (some use ID, some use Id in struct tags).",
+    "issues": [
+      {
+        "severity": "low",
+        "location": "pkg/monitor/model.go",
+        "description": "Mixed naming for similar concepts: 'ConfirmOpen' vs 'CloseConfirmOpen', 'HandoffsOpen' vs 'BoardPickerOpen'. The bool fields use inconsistent patterns (XxxOpen, ShowXxx, IsXxx). Some use positive logic (ShowTDQHelp) while others use negative (HelpOpen without 'Show' prefix)."
+      },
+      {
+        "severity": "low",
+        "location": "pkg/monitor/types.go",
+        "description": "Type aliases like TaskListCategory, Panel, SortMode, TypeFilterMode, BoardMode, TaskListMode are all defined as int types. Some use iota correctly, but having many int-based enums without a common interface pattern makes the type system less expressive than it could be."
+      },
+      {
+        "severity": "low",
+        "location": "internal/db/issues.go:42",
+        "description": "Function CreateIssue vs CreateIssueLogged naming convention is clear but the 'Logged' suffix convention is not documented in the package. Readers must discover that 'Logged' means 'with action_log entry for undo/sync'."
+      }
+    ]
+  },
+  "go_idioms": {
+    "adherence": "good",
+    "issues": [
+      {
+        "severity": "medium",
+        "location": "pkg/monitor/model.go:22-203",
+        "description": "The Model struct stores 90+ fields flat rather than composing smaller types. Go idiom favors small interfaces and composition. While Bubble Tea's value-receiver pattern constrains some design choices, the struct could still embed sub-structs for organization (BoardState, SearchState, ModalManagerState)."
+      },
+      {
+        "severity": "medium",
+        "location": "internal/db/issues.go:317-571",
+        "description": "ListIssues() builds SQL via string concatenation with 15+ optional clauses. While the SQL injection risk is mitigated by parameterized queries, Go idiom suggests using a query builder or at least extracting the filter-building into composable functions."
+      },
+      {
+        "severity": "low",
+        "location": "internal/query/parser.go:306",
+        "description": "parseFunctionArg() and parseValue() use interface{} return types instead of Go 1.18+ 'any' alias. While functionally identical, 'any' is the modern Go idiom."
+      },
+      {
+        "severity": "low",
+        "location": "pkg/monitor/commands.go:203-434",
+        "description": "handleKey() uses sequential if-blocks to check each modal type rather than a polymorphic dispatch. Go idiom would define a KeyHandler interface and iterate through active handlers."
+      },
+      {
+        "severity": "info",
+        "location": "general",
+        "description": "Goroutine usage is minimal and appropriate (5 files with go func). The codebase correctly relies on Bubble Tea's Cmd pattern for async operations rather than spawning raw goroutines, which is the correct idiom for Bubble Tea applications."
+      },
+      {
+        "severity": "info",
+        "location": "internal/db/lock.go",
+        "description": "Good use of platform-specific compilation (lock_unix.go, lock_windows.go) with a common interface. This is idiomatic Go build tag usage."
+      },
+      {
+        "severity": "info",
+        "location": "internal/workflow/",
+        "description": "Clean workflow package with guards, transitions, and error types separated. Uses Go error wrapping idiom well (fmt.Errorf with %w)."
+      }
+    ]
+  },
+  "overall_score": "6.5/10",
+  "top_improvements": [
+    {
+      "priority": 1,
+      "title": "Break up the Model God Object",
+      "description": "Extract Model's 90+ fields into composed sub-structs: BoardState, SearchState, ModalManager, UIState. This is the root cause of the oversized commands.go and view.go files. Each sub-struct can own its own Update/View methods, reducing the monolithic switch statements.",
+      "effort": "high",
+      "impact": "high"
+    },
+    {
+      "priority": 2,
+      "title": "Extract scroll indicator arithmetic into a reusable helper",
+      "description": "The effectiveMaxLines / showUpIndicator / hasMoreBelow pattern is duplicated 4 times in view.go (57 references). A scrollableView helper would eliminate ~200 lines and prevent future copy-paste bugs when adding new panel types.",
+      "effort": "low",
+      "impact": "medium"
+    },
+    {
+      "priority": 3,
+      "title": "Extract scanIssue() helper in internal/db/issues.go",
+      "description": "The 24-column row scanning with 15 NullString/NullTime variables is copy-pasted 3 times. A single scanIssue() function would reduce bugs when adding new columns (currently requires updating 3 places) and eliminate ~100 lines.",
+      "effort": "low",
+      "impact": "medium"
+    },
+    {
+      "priority": 4,
+      "title": "Split commands.go executeCommand() into handler groups",
+      "description": "The 892-line switch statement should be decomposed into handleNavigationCommand(), handleBoardCommand(), handleModalCommand(), handleFormCommand(), etc. Each group can be in its own file with targeted tests.",
+      "effort": "medium",
+      "impact": "medium"
+    },
+    {
+      "priority": 5,
+      "title": "Add tests for view.go and commands.go",
+      "description": "The two largest files (2399 + 2166 = 4565 lines) have no dedicated test files. Scroll indicator calculations, modal dimension logic, and command dispatch branches should have unit tests to prevent regressions during the recommended refactoring.",
+      "effort": "medium",
+      "impact": "medium"
+    },
+    {
+      "priority": 6,
+      "title": "Unify cursor movement dispatch",
+      "description": "CmdCursorDown and CmdCursorUp duplicate ~150 lines of context-aware dispatch logic (modal, board, handoffs, stats, help, etc.) with only sign differences. Extract a single moveCursorInCurrentContext(direction int) method.",
+      "effort": "low",
+      "impact": "low"
+    },
+    {
+      "priority": 7,
+      "title": "Remove legacy modal button state fields",
+      "description": "ConfirmButtonFocus, ConfirmButtonHover, CloseConfirmButtonFocus, CloseConfirmButtonHover are marked legacy. The declarative modal system fully replaces them. Removing them reduces Model size and eliminates confusion.",
+      "effort": "low",
+      "impact": "low"
+    },
+    {
+      "priority": 8,
+      "title": "Surface silently-discarded errors in fetchIssueDetails()",
+      "description": "7 database calls have their errors silently discarded, causing the issue detail modal to show partial data without any user-visible indication. At minimum, aggregate errors and show a footer warning.",
+      "effort": "low",
+      "impact": "low"
+    }
+  ]
+}

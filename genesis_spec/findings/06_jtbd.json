@@ -1,0 +1,1323 @@
+{
+  "agent": "jtbd_mapper",
+  "timestamp": "2026-02-13T12:00:00Z",
+  "codebase": "td",
+  "version": "0.x (pre-1.0, rapid iteration)",
+  "language": "Go",
+  "lines_of_code": "~126K across 332 Go files",
+  "summary": "td is a task-management CLI and TUI designed primarily for AI coding agents (Claude Code, Cursor, Codex, etc.) operating in multi-session environments. It enforces session isolation for self-review prevention, provides structured handoffs between agent sessions, and surfaces a Linear-style kanban/swimlane TUI monitor. Secondary users are human developers managing AI agent workflows.",
+
+  "target_users": [
+    {
+      "persona": "AI Coding Agent (primary)",
+      "description": "AI assistants (Claude Code, Cursor, Codex, Qwen, OpenCode) running in terminal sessions that need structured task tracking, state handoff between context windows, and self-review prevention to maintain code quality.",
+      "key_needs": [
+        "Structured state capture before context ends (handoff)",
+        "Session-scoped identity for review isolation",
+        "CLI-first interface (no GUI required)",
+        "Optimized context output (td usage) for limited token budgets",
+        "Automatic session detection from environment variables"
+      ],
+      "evidence": "cmd/context.go (usage command generates optimized agent context), internal/session/session.go (auto-detects CLAUDE_CODE_SSE_PORT, CURSOR_SESSION_ID, CODEX_SESSION_ID, OPENCODE_SESSION_ID, QWEN_SESSION_ID), CLAUDE.md (mandatory td usage --new-session at conversation start)"
+    },
+    {
+      "persona": "Human Developer / Team Lead",
+      "description": "Human developers who manage AI agent work, review agent-completed tasks, use the TUI monitor for visibility, and coordinate multi-agent workflows.",
+      "key_needs": [
+        "Visual dashboard for tracking agent work (TUI monitor)",
+        "Review/approve agent-completed work",
+        "Board and swimlane views for project planning",
+        "Query language for filtering and searching issues",
+        "Sync across devices/agents"
+      ],
+      "evidence": "pkg/monitor/ (full TUI with mouse support, kanban, stats), cmd/review.go (approve/reject workflow), cmd/board.go (board management), cmd/query.go (TDQ query language)"
+    },
+    {
+      "persona": "Orchestrator Agent",
+      "description": "A meta-agent (e.g., Oracle) that coordinates multiple sub-agents, assigns work, tracks progress, and manages epics across agents.",
+      "key_needs": [
+        "Assign issues to named agents",
+        "Track agent activity across issues",
+        "Critical path analysis for prioritization",
+        "Epic/parent-child hierarchy management",
+        "Work session grouping for related issues"
+      ],
+      "evidence": "cmd/assign.go (agent assignment), cmd/activity.go (agent activity tracking), cmd/dependencies.go (critical-path command), cmd/epic.go and cmd/tree.go (hierarchy), cmd/ws.go (work sessions)"
+    }
+  ],
+
+  "primary_jobs": [
+    {
+      "job_id": "J01",
+      "title": "Track work state across AI agent context windows",
+      "description": "When an AI agent's context window ends, it needs to capture what was done, what remains, key decisions, and uncertainties so the next session can resume without information loss.",
+      "importance": "critical",
+      "commands": ["handoff", "usage", "resume", "context", "focus", "check-handoff"],
+      "evidence": "cmd/handoff.go (structured handoff with done/remaining/decisions/uncertain), cmd/context.go (usage generates optimized context block with handoff state), cmd/focus.go (check-handoff returns exit code 1 for agent hooks)"
+    },
+    {
+      "job_id": "J02",
+      "title": "Prevent self-review bypass in automated workflows",
+      "description": "Ensure that the AI session that implemented a change cannot also approve it. This enforces a minimum two-session review cycle to catch errors.",
+      "importance": "critical",
+      "commands": ["review", "approve", "reject", "close"],
+      "evidence": "cmd/review.go (WasSessionInvolved checks, creator/implementer session guards, --self-close-exception with security audit logging), internal/session/session.go (session scoped by branch + agent fingerprint)"
+    },
+    {
+      "job_id": "J03",
+      "title": "Manage issue lifecycle from creation to closure",
+      "description": "Full issue tracking with status transitions (open -> in_progress -> in_review -> closed, with blocked as a side state), type/priority/points categorization, labels, and sprint assignment.",
+      "importance": "critical",
+      "commands": ["create", "start", "review", "approve", "reject", "close", "block", "unblock", "reopen", "update", "delete", "restore"],
+      "evidence": "cmd/create.go, cmd/start.go, cmd/review.go, cmd/block.go, cmd/update.go, cmd/delete.go, internal/workflow/ (state machine with valid transition guards)"
+    },
+    {
+      "job_id": "J04",
+      "title": "Provide real-time visual dashboard for issue tracking",
+      "description": "A rich terminal UI (TUI) monitor with three panels (current work, task list, activity), modal issue details, board views (swimlanes, backlog, kanban), mouse support, and keyboard navigation.",
+      "importance": "high",
+      "commands": ["monitor"],
+      "evidence": "pkg/monitor/ (model.go, view.go, kanban.go, styles.go, types.go - full Bubble Tea TUI with 200+ Model fields)"
+    },
+    {
+      "job_id": "J05",
+      "title": "Organize and query issues with flexible filtering",
+      "description": "A custom query language (TDQ) supporting field comparisons, boolean operators, functions, cross-entity search, relative dates, and sorting. Plus full-text search and board-based views.",
+      "importance": "high",
+      "commands": ["query", "search", "list", "board show"],
+      "evidence": "cmd/query.go (full TDQ parser with 15+ fields, 8+ operators, 7+ functions), cmd/search.go (ranked full-text search), cmd/list.go (extensive filtering flags), cmd/board.go (query-based boards)"
+    },
+    {
+      "job_id": "J06",
+      "title": "Manage dependencies and identify critical path",
+      "description": "Track depends_on relationships between issues, visualize blocked trees, auto-unblock dependents on close, and compute critical path for optimal work ordering.",
+      "importance": "high",
+      "commands": ["dep add", "dep rm", "dep", "blocked-by", "depends-on", "critical-path"],
+      "evidence": "cmd/dependencies.go (Kahn's algorithm weighted by block count for critical path, transitive dependency resolution)"
+    },
+    {
+      "job_id": "J07",
+      "title": "Coordinate multi-agent work on related issues",
+      "description": "Group related issues into work sessions, log progress across all tagged issues simultaneously, and generate per-issue handoffs at session end.",
+      "importance": "high",
+      "commands": ["ws start", "ws tag", "ws untag", "ws log", "ws handoff", "ws end", "ws current", "ws list", "ws show"],
+      "evidence": "cmd/ws.go (work session management with auto-start on tag, cascading handoffs, --review flag for bulk submission)"
+    },
+    {
+      "job_id": "J08",
+      "title": "Assign and track agent activity across issues",
+      "description": "Assign issues to named agents, track their activity (assigned, started, committed, pr_created, reviewed, completed, spawned_subagent, comment), and view agent activity logs.",
+      "importance": "medium",
+      "commands": ["assign", "activity"],
+      "evidence": "cmd/assign.go (assign/unassign), cmd/activity.go (view by issue or by agent), internal/models/models.go (AgentActivity struct with 8 activity types)"
+    },
+    {
+      "job_id": "J09",
+      "title": "Sync issue state across devices and agents",
+      "description": "Event-sourced synchronization with a remote server supporting push/pull, snapshot bootstrap for large projects, conflict detection, and auto-sync on mutations.",
+      "importance": "medium",
+      "commands": ["sync push", "sync pull", "sync status", "auth login", "auth logout", "config", "doctor", "project"],
+      "evidence": "cmd/sync.go (event-sourced sync with batching), cmd/autosync.go (debounced auto-sync on mutations and startup), cmd/sync_conflicts.go (conflict resolution), cmd/project.go (multi-user project management)"
+    },
+    {
+      "job_id": "J10",
+      "title": "Track progress with structured logging",
+      "description": "Record typed log entries (progress, blocker, decision, hypothesis, tried, result, orchestration) against issues for audit trail and context preservation.",
+      "importance": "medium",
+      "commands": ["log"],
+      "evidence": "cmd/log.go (7 log types, flexible arg parsing, stdin support, auto-detects issue ID vs message)"
+    },
+    {
+      "job_id": "J11",
+      "title": "Manage epic hierarchies and parent-child relationships",
+      "description": "Create epics as container issues, add child tasks, visualize trees, and cascade status changes to descendants during review/handoff.",
+      "importance": "medium",
+      "commands": ["epic create", "epic list", "tree add-child", "tree"],
+      "evidence": "cmd/epic.go, cmd/tree.go (tree visualization with depth control), cmd/review.go (cascade to descendants on review submission)"
+    },
+    {
+      "job_id": "J12",
+      "title": "Undo accidental changes",
+      "description": "Full undo system with action log snapshots that supports undoing create, delete, update, start, review, approve, reject, dependencies, file links, board positions, and handoffs.",
+      "importance": "medium",
+      "commands": ["undo", "last"],
+      "evidence": "cmd/undo.go (action log with previous_data/new_data JSON snapshots, supports 20+ action types)"
+    },
+    {
+      "job_id": "J13",
+      "title": "Track files associated with issues",
+      "description": "Link files to issues with glob patterns, track SHA for change detection, and show file status (unchanged/modified/deleted/new) with untracked git changes.",
+      "importance": "low",
+      "commands": ["link", "unlink", "files"],
+      "evidence": "cmd/link.go (glob expansion, recursive directory linking, SHA-based change detection, git status integration)"
+    },
+    {
+      "job_id": "J14",
+      "title": "Import and export issue data",
+      "description": "Export full database to JSON or Markdown, import from JSON or Markdown with dry-run preview and force-overwrite support.",
+      "importance": "low",
+      "commands": ["export", "import"],
+      "evidence": "cmd/system.go (export with format selection, import with JSON/Markdown parsing, dry-run, force overwrite)"
+    }
+  ],
+
+  "feature_inventory": {
+    "core_commands": [
+      {
+        "command": "create",
+        "aliases": ["add", "new"],
+        "group": "core",
+        "description": "Create a new issue with title, type, priority, points, labels, description, acceptance criteria, parent, dependencies",
+        "flags": ["--type/-t", "--priority/-p", "--points", "--labels/--label/--tags/--tag/-l", "--description/--desc/--body/--notes/-d", "--acceptance", "--parent/--epic", "--depends-on", "--blocks", "--minor"],
+        "notable_features": [
+          "Title validation (min/max length from config, default 15-100 chars)",
+          "Generic title rejection (rejects 'fix bug', 'update code', etc.)",
+          "Type prefix parsing from title (e.g., 'epic: Title' sets type=epic)",
+          "Auto-sets creator session for review isolation",
+          "--minor flag bypasses session review requirement"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "list",
+        "aliases": ["ls"],
+        "group": "core",
+        "description": "List issues with extensive filtering, sorting, and format options",
+        "flags": ["--status", "--type", "--id", "--labels", "--priority", "--points", "--search", "--implementer", "--reviewer", "--assignee", "--project", "--parent", "--epic", "--reviewable", "--mine", "--open", "--created", "--updated", "--closed", "--sort", "--reverse", "--limit", "--filter", "--json", "--format", "--no-header"],
+        "notable_features": [
+          "TDQ query support via --filter flag or positional args",
+          "25+ filter flags covering all issue fields",
+          "Multiple output formats (table, json, ids, count)",
+          "Shortcut sub-commands: reviewable, blocked, in-review, ready, next, deleted"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "show",
+        "aliases": ["context", "view", "get"],
+        "group": "core",
+        "description": "Show detailed issue information including logs, handoff, git state, sessions, files, dependencies, children",
+        "flags": ["--json", "--markdown"],
+        "notable_features": [
+          "Full issue context display with all related data",
+          "Auto-shows children for epic type issues",
+          "Markdown rendering support for rich output"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "update",
+        "aliases": ["edit"],
+        "group": "core",
+        "description": "Update one or more fields on existing issues, supports bulk updates",
+        "flags": ["--title", "--description/--desc/--body/-d", "--acceptance", "--type", "--priority", "--points", "--labels", "--sprint", "--assignee", "--project", "--parent", "--depends-on", "--blocks", "--append", "--status", "--comment/-m", "--note/-c"],
+        "notable_features": [
+          "Bulk update (multiple issue IDs)",
+          "Append mode for text fields",
+          "Inline comment on update",
+          "Status change with state machine validation"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "delete",
+        "aliases": [],
+        "group": "core",
+        "description": "Soft-delete issues (recoverable via restore/undo)",
+        "flags": ["--force", "--yes"],
+        "notable_features": [
+          "Soft delete (sets deleted_at timestamp)",
+          "--force and --yes accepted as no-ops for LLM compatibility"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "board",
+        "aliases": [],
+        "group": "core",
+        "description": "Manage named query-based boards with custom ordering",
+        "subcommands": ["list", "create", "delete", "show", "edit", "move", "unposition"],
+        "notable_features": [
+          "TDQ query defines board membership",
+          "Sparse position keys with gap-exhaustion respacing",
+          "View modes: swimlanes, backlog, kanban",
+          "Board picker modal in TUI"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "activity",
+        "aliases": ["act"],
+        "group": "core",
+        "description": "Show agent activity log for an issue or agent",
+        "flags": ["--agent", "--limit/-n", "--json"],
+        "notable_features": [
+          "View by issue or by agent name",
+          "8 activity types: assigned, started, committed, pr_created, reviewed, completed, spawned_subagent, comment"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "assign",
+        "aliases": ["delegate"],
+        "group": "core",
+        "description": "Assign or unassign an issue to a named agent",
+        "flags": [],
+        "notable_features": [
+          "Records assignment in agent activity log",
+          "Empty string to unassign"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "note",
+        "aliases": [],
+        "group": "core",
+        "description": "Manage freeform notes (synced via sidecar)",
+        "subcommands": ["add", "list", "show", "edit", "delete", "pin", "unpin", "archive", "unarchive"],
+        "notable_features": [
+          "Opens $EDITOR for content editing",
+          "Pin/archive/search support",
+          "Feature-gated sync (sync_notes flag)"
+        ],
+        "maturity": "complete"
+      }
+    ],
+
+    "workflow_commands": [
+      {
+        "command": "start",
+        "aliases": ["begin"],
+        "group": "workflow",
+        "description": "Begin work on one or more issues (open -> in_progress)",
+        "flags": ["--reason", "--force"],
+        "notable_features": [
+          "Multi-issue start support",
+          "WIP limit warning (>4 in progress)",
+          "Git snapshot capture at start",
+          "Auto-sets focus for single issue",
+          "--force for blocked issues"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "handoff",
+        "aliases": [],
+        "group": "workflow",
+        "description": "Capture structured working state before context ends",
+        "flags": ["--done", "--remaining", "--decision", "--uncertain", "--note/-n", "--message/-m"],
+        "notable_features": [
+          "YAML stdin support for structured input",
+          "Auto-infers issue from focus",
+          "Cascades handoffs to descendant issues",
+          "Git diff stats since start shown in output",
+          "File input via flag"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "review",
+        "aliases": ["submit", "finish"],
+        "group": "workflow",
+        "description": "Submit issue for review (in_progress -> in_review)",
+        "flags": [],
+        "notable_features": [
+          "Auto-creates minimal handoff if missing",
+          "Cascades to descendants (submits children too)",
+          "Cascades up to parents (marks parent reviewable when all children reviewed)"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "approve",
+        "aliases": [],
+        "group": "workflow",
+        "description": "Approve a reviewed issue (in_review -> closed)",
+        "flags": ["--all"],
+        "notable_features": [
+          "Self-review prevention via WasSessionInvolved + creator/implementer checks",
+          "--all flag for bulk approval",
+          "Auto-unblocks dependent issues on approval"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "reject",
+        "aliases": [],
+        "group": "workflow",
+        "description": "Reject a reviewed issue (in_review -> in_progress)",
+        "flags": ["--reason"],
+        "notable_features": ["Records rejection reason", "Returns issue to in_progress for rework"],
+        "maturity": "complete"
+      },
+      {
+        "command": "close",
+        "aliases": ["done", "complete"],
+        "group": "workflow",
+        "description": "Close an issue directly (requires different session than implementer)",
+        "flags": ["--reason", "--self-close-exception"],
+        "notable_features": [
+          "Self-close prevention with security audit",
+          "--self-close-exception override with mandatory reason",
+          "Security events logged for audit trail"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "block",
+        "aliases": [],
+        "group": "workflow",
+        "description": "Mark issue as blocked",
+        "flags": [],
+        "notable_features": ["State machine validation"],
+        "maturity": "complete"
+      },
+      {
+        "command": "unblock",
+        "aliases": [],
+        "group": "workflow",
+        "description": "Unblock a blocked issue (returns to in_progress)",
+        "flags": [],
+        "notable_features": ["State machine validation"],
+        "maturity": "complete"
+      },
+      {
+        "command": "reopen",
+        "aliases": [],
+        "group": "workflow",
+        "description": "Reopen a closed issue",
+        "flags": [],
+        "notable_features": ["State machine validation"],
+        "maturity": "complete"
+      },
+      {
+        "command": "unstart",
+        "aliases": ["stop"],
+        "group": "workflow",
+        "description": "Revert in_progress back to open",
+        "flags": [],
+        "notable_features": ["State machine validation"],
+        "maturity": "complete"
+      },
+      {
+        "command": "log",
+        "aliases": [],
+        "group": "workflow",
+        "description": "Record typed log entries against issues",
+        "flags": ["--decision", "--blocker", "--hypothesis", "--tried", "--result", "--type/-t", "--session"],
+        "notable_features": [
+          "7 log types (progress, blocker, decision, hypothesis, tried, result, orchestration)",
+          "Flexible arg parsing: auto-detects issue ID vs message",
+          "Stdin support for long messages",
+          "Auto-uses focused issue if not specified"
+        ],
+        "maturity": "complete"
+      }
+    ],
+
+    "query_commands": [
+      {
+        "command": "query",
+        "aliases": ["q"],
+        "group": "query",
+        "description": "Execute TDQ queries with full filter/sort/output options",
+        "flags": ["--format", "--sort", "--limit", "--explain"],
+        "notable_features": [
+          "Full query language with 15+ fields",
+          "Operators: =, !=, ~, !~, <, >, <=, >=, AND, OR, NOT",
+          "Functions: has(), is(), any(), blocks(), blocked_by(), descendant_of(), rework(), stale()",
+          "Cross-entity search: log.*, comment.*, handoff.*, file.*",
+          "Relative dates: -7d, -24h, -1w",
+          "@me resolves to current session",
+          "Output formats: table, json, ids, count",
+          "--explain mode shows parsed query"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "search",
+        "aliases": [],
+        "group": "query",
+        "description": "Full-text search with ranked results",
+        "flags": ["--status", "--type", "--labels", "--priority", "--limit"],
+        "notable_features": ["Ranked results via SearchIssuesRanked", "Combined with filter flags"],
+        "maturity": "complete"
+      }
+    ],
+
+    "shortcut_commands": [
+      {
+        "command": "reviewable",
+        "description": "List issues you can review (different session than implementer)",
+        "maturity": "complete"
+      },
+      {
+        "command": "blocked",
+        "description": "List blocked issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "in-review",
+        "aliases": ["ir"],
+        "description": "List issues in review",
+        "maturity": "complete"
+      },
+      {
+        "command": "ready",
+        "description": "List open issues ready to start",
+        "maturity": "complete"
+      },
+      {
+        "command": "next",
+        "description": "Show highest-priority open issue",
+        "maturity": "complete"
+      },
+      {
+        "command": "deleted",
+        "description": "List soft-deleted issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "epic create/list",
+        "description": "Create/list epics (delegates to create --type=epic)",
+        "maturity": "complete"
+      },
+      {
+        "command": "task create/list",
+        "description": "Create/list tasks (delegates to create --type=task)",
+        "maturity": "complete"
+      }
+    ],
+
+    "session_commands": [
+      {
+        "command": "session",
+        "description": "Name current session or force new session",
+        "subcommands": ["list", "cleanup"],
+        "flags": ["--new"],
+        "notable_features": [
+          "Session list shows branch, agent type, last activity, age",
+          "Cleanup removes stale sessions with --older-than duration",
+          "--new forces new session (for conversation start)"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "status",
+        "aliases": ["current"],
+        "description": "Dashboard showing session, focus, in-review, blocked, ready issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "focus",
+        "description": "Set current working issue",
+        "maturity": "complete"
+      },
+      {
+        "command": "unfocus",
+        "description": "Clear current focus",
+        "maturity": "complete"
+      },
+      {
+        "command": "check-handoff",
+        "description": "Returns exit code 1 if handoff needed (for agent exit hooks)",
+        "maturity": "complete"
+      },
+      {
+        "command": "resume",
+        "description": "Show context and set focus for resuming work on an issue",
+        "maturity": "complete"
+      },
+      {
+        "command": "usage",
+        "description": "THE key AI agent entry point - generates optimized context block",
+        "flags": ["--new-session", "-q"],
+        "notable_features": [
+          "Generates optimized context with: session, focused issue + handoff, work session, in-progress, reviewable, ready issues, workflow instructions",
+          "--new-session auto-rotates session",
+          "-q for compact view after first read"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "whoami",
+        "description": "Show current session identity and touched issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "ws",
+        "aliases": ["worksession"],
+        "description": "Multi-issue work session management",
+        "subcommands": ["start", "tag", "untag", "log", "current", "handoff", "end", "list", "show"],
+        "notable_features": [
+          "Auto-starts open issues on tag",
+          "ws log logs to all tagged issues",
+          "ws handoff generates per-issue handoffs",
+          "--review flag submits all for review on handoff",
+          "--no-start on tag to associate without starting"
+        ],
+        "maturity": "complete"
+      }
+    ],
+
+    "file_commands": [
+      {
+        "command": "link",
+        "description": "Link files to issues with glob/recursive support",
+        "notable_features": ["Glob pattern expansion", "Recursive directory linking", "SHA recording"],
+        "maturity": "complete"
+      },
+      {
+        "command": "unlink",
+        "description": "Remove file links from issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "files",
+        "description": "Show linked files with change detection",
+        "notable_features": ["SHA-based change detection", "Shows [modified], [new], [deleted], [unchanged]", "Untracked git file detection"],
+        "maturity": "complete"
+      }
+    ],
+
+    "system_commands": [
+      {
+        "command": "init",
+        "description": "Initialize td in a project directory",
+        "notable_features": ["Creates .todos/ directory with SQLite DB", "Auto-adds to .gitignore", "Suggests agent file additions"],
+        "maturity": "complete"
+      },
+      {
+        "command": "monitor",
+        "description": "Launch TUI dashboard",
+        "notable_features": ["Alt screen mode", "Mouse support", "Auto-sync integration", "Three panels with resizable dividers"],
+        "maturity": "complete"
+      },
+      {
+        "command": "info",
+        "aliases": ["stats"],
+        "description": "Show database statistics and project overview",
+        "flags": ["--json"],
+        "maturity": "complete"
+      },
+      {
+        "command": "version",
+        "description": "Show version with optional update check",
+        "flags": ["--check", "--short"],
+        "notable_features": ["GitHub release check with caching", "go install command suggestion"],
+        "maturity": "complete"
+      },
+      {
+        "command": "export",
+        "description": "Export database to JSON or Markdown",
+        "flags": ["--format", "--output/-o", "--all", "--render-markdown/-m"],
+        "maturity": "complete"
+      },
+      {
+        "command": "import",
+        "description": "Import issues from JSON or Markdown files",
+        "flags": ["--format", "--dry-run", "--force"],
+        "notable_features": ["Auto-detects format from extension", "Dry-run preview", "Force overwrite existing"],
+        "maturity": "complete"
+      },
+      {
+        "command": "upgrade",
+        "description": "Run database migrations",
+        "maturity": "complete"
+      },
+      {
+        "command": "undo",
+        "description": "Undo last action with full entity restoration",
+        "flags": ["--list"],
+        "notable_features": ["Supports 20+ action types", "Full previous/new data snapshots", "Action log viewer"],
+        "maturity": "complete"
+      },
+      {
+        "command": "last",
+        "description": "Show recent actions",
+        "flags": ["--limit/-n"],
+        "maturity": "complete"
+      },
+      {
+        "command": "workflow",
+        "description": "Display state machine transitions",
+        "flags": ["--format (text/mermaid/dot)"],
+        "notable_features": ["Text, Mermaid diagram, and GraphViz DOT output"],
+        "maturity": "complete"
+      },
+      {
+        "command": "security",
+        "description": "View security exception log (self-close exceptions)",
+        "flags": ["--clear", "--json"],
+        "maturity": "complete"
+      },
+      {
+        "command": "feature",
+        "description": "Feature flag management",
+        "subcommands": ["list", "get", "set", "unset"],
+        "notable_features": ["Gates: sync_cli, sync_autosync, sync_notes"],
+        "maturity": "complete"
+      }
+    ],
+
+    "sync_commands": [
+      {
+        "command": "sync",
+        "description": "Push/pull event-sourced sync with remote server",
+        "subcommands": ["push", "pull", "status", "conflicts", "init", "tail"],
+        "flags": ["--all", "--resolve", "--limit"],
+        "notable_features": [
+          "Event-sourced sync with batching (500 per batch)",
+          "Snapshot bootstrap for first sync",
+          "Conflict detection and resolution",
+          "Feature-gated (sync_cli flag)"
+        ],
+        "maturity": "complete_but_gated"
+      },
+      {
+        "command": "auth",
+        "description": "Sync authentication",
+        "subcommands": ["login", "logout", "status"],
+        "notable_features": ["Device code flow authentication"],
+        "maturity": "complete_but_gated"
+      },
+      {
+        "command": "config",
+        "description": "Sync configuration management",
+        "notable_features": ["sync.url, sync.enabled, sync.auto.* settings"],
+        "maturity": "complete_but_gated"
+      },
+      {
+        "command": "project",
+        "description": "Sync project management",
+        "subcommands": ["create", "join", "link", "unlink", "list", "members", "invite", "kick", "role"],
+        "notable_features": ["Multi-user project collaboration", "Role management"],
+        "maturity": "complete_but_gated"
+      },
+      {
+        "command": "doctor",
+        "description": "Diagnostic checks for sync",
+        "notable_features": ["Checks auth, server, database, sync state, pending events"],
+        "maturity": "complete_but_gated"
+      }
+    ],
+
+    "analytics_commands": [
+      {
+        "command": "stats analytics",
+        "aliases": ["stats usage"],
+        "description": "View command usage analytics with bar charts",
+        "flags": ["--clear", "--json", "--since", "--limit"],
+        "notable_features": [
+          "Most/least/never-used commands",
+          "Flag frequency tracking",
+          "Daily activity chart",
+          "Error rate by command",
+          "Session activity breakdown"
+        ],
+        "maturity": "complete"
+      },
+      {
+        "command": "stats security",
+        "description": "Security audit subcommand",
+        "maturity": "complete"
+      },
+      {
+        "command": "stats errors",
+        "description": "Agent error log subcommand",
+        "maturity": "complete"
+      }
+    ],
+
+    "dependency_commands": [
+      {
+        "command": "dep add",
+        "description": "Add dependency between issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "dep rm",
+        "description": "Remove dependency between issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "dep",
+        "aliases": ["depends-on", "deps", "dependencies"],
+        "description": "Show what an issue depends on",
+        "flags": ["--blocking"],
+        "maturity": "complete"
+      },
+      {
+        "command": "blocked-by",
+        "description": "Show all issues blocked by a given issue (transitive)",
+        "maturity": "complete"
+      },
+      {
+        "command": "critical-path",
+        "description": "Compute optimal unblocking sequence",
+        "notable_features": ["Kahn's algorithm weighted by block count", "Shows transitive impact"],
+        "maturity": "complete"
+      }
+    ],
+
+    "hierarchy_commands": [
+      {
+        "command": "tree add-child",
+        "description": "Add parent-child relationship between issues",
+        "maturity": "complete"
+      },
+      {
+        "command": "tree",
+        "description": "Visualize issue hierarchy",
+        "flags": ["--depth"],
+        "maturity": "complete"
+      },
+      {
+        "command": "comment",
+        "aliases": ["comments"],
+        "description": "Add/list comments on issues",
+        "subcommands": ["add"],
+        "maturity": "complete"
+      }
+    ]
+  },
+
+  "user_flows": [
+    {
+      "flow_id": "F01",
+      "name": "New AI Agent Session Startup",
+      "steps": [
+        "1. Agent starts new conversation",
+        "2. Runs `td usage --new-session` (mandatory per CLAUDE.md)",
+        "3. System auto-detects agent type from env vars (CLAUDE_CODE_SSE_PORT, etc.)",
+        "4. New session created (or rotated if stale)",
+        "5. Optimized context block returned with: focused issue, handoff state, reviewable issues, ready work, instructions",
+        "6. Agent reads context and resumes work or picks next task"
+      ],
+      "critical_path": true,
+      "evidence": "cmd/context.go lines 1-200, internal/session/session.go"
+    },
+    {
+      "flow_id": "F02",
+      "name": "Implement and Submit Work",
+      "steps": [
+        "1. `td next` or `td critical-path` to identify work",
+        "2. `td start <id>` captures git state and moves to in_progress",
+        "3. `td log 'progress message'` during work",
+        "4. `td log --decision 'chose X because Y'` for key decisions",
+        "5. `td link <id> src/changed/*.go` to track modified files",
+        "6. `td handoff <id> --done '...' --remaining '...'` before context ends",
+        "7. `td review <id>` to submit for review"
+      ],
+      "critical_path": true,
+      "evidence": "cmd/start.go, cmd/log.go, cmd/link.go, cmd/handoff.go, cmd/review.go"
+    },
+    {
+      "flow_id": "F03",
+      "name": "Review and Approve Work",
+      "steps": [
+        "1. Different session runs `td reviewable` to see available reviews",
+        "2. `td show <id>` to examine issue details, logs, handoff, diff stats",
+        "3. `td approve <id>` if acceptable (self-review prevention enforced)",
+        "4. OR `td reject <id> --reason '...'` to return for rework",
+        "5. On approve: issue closed, dependents auto-unblocked"
+      ],
+      "critical_path": true,
+      "evidence": "cmd/review.go (WasSessionInvolved checks)"
+    },
+    {
+      "flow_id": "F04",
+      "name": "Multi-Issue Work Session",
+      "steps": [
+        "1. `td ws start 'Auth implementation'` creates work session",
+        "2. `td ws tag <id1> <id2>` associates and auto-starts issues",
+        "3. `td ws log 'shared progress'` logs to all tagged issues",
+        "4. `td ws handoff --review` generates per-issue handoffs and submits all",
+        "5. `td ws end` closes the work session"
+      ],
+      "critical_path": false,
+      "evidence": "cmd/ws.go"
+    },
+    {
+      "flow_id": "F05",
+      "name": "Board Management and Visualization",
+      "steps": [
+        "1. `td board create 'Sprint' --query 'priority <= P1'` creates query-based board",
+        "2. TUI monitor opens board in swimlanes, backlog, or kanban view",
+        "3. Navigate with keyboard (h/l for columns, j/k for cards in kanban)",
+        "4. Press 'v' to cycle view modes (swimlanes -> backlog -> kanban)",
+        "5. Enter opens issue modal with full details",
+        "6. `td board move <board> <id> <position>` for manual ordering"
+      ],
+      "critical_path": false,
+      "evidence": "cmd/board.go, pkg/monitor/kanban.go, pkg/monitor/types.go"
+    },
+    {
+      "flow_id": "F06",
+      "name": "Dependency Analysis and Unblocking",
+      "steps": [
+        "1. `td dep add <issue> <depends-on>` to declare dependency",
+        "2. `td critical-path` shows optimal unblocking sequence",
+        "3. Work on highest-impact issue first",
+        "4. On close/approve, dependents auto-unblock",
+        "5. `td blocked-by <id>` shows full transitive blocked tree"
+      ],
+      "critical_path": false,
+      "evidence": "cmd/dependencies.go"
+    },
+    {
+      "flow_id": "F07",
+      "name": "Project Sync Setup",
+      "steps": [
+        "1. `td feature set sync_cli true` enables sync feature",
+        "2. `td auth login` authenticates with device code flow",
+        "3. `td project create <name>` or `td project join <id>` to connect",
+        "4. `td sync push` / `td sync pull` for manual sync",
+        "5. Auto-sync runs on mutations and at monitor startup if configured",
+        "6. `td doctor` diagnoses sync issues"
+      ],
+      "critical_path": false,
+      "evidence": "cmd/sync.go, cmd/auth.go, cmd/project.go, cmd/autosync.go, cmd/feature.go"
+    }
+  ],
+
+  "ai_agent_workflows": {
+    "session_detection": {
+      "mechanism": "Auto-detects agent type from environment variables",
+      "supported_agents": [
+        {"name": "Claude Code", "env_var": "CLAUDE_CODE_SSE_PORT", "type": "claude_code"},
+        {"name": "Cursor", "env_var": "CURSOR_SESSION_ID", "type": "cursor"},
+        {"name": "Codex", "env_var": "CODEX_SESSION_ID", "type": "codex"},
+        {"name": "Qwen", "env_var": "QWEN_SESSION_ID", "type": "qwen"},
+        {"name": "OpenCode", "env_var": "OPENCODE_SESSION_ID", "type": "opencode"}
+      ],
+      "fallback": "Terminal context (TMUX_PANE, TTY, PPID)",
+      "scope": "Branch + agent fingerprint",
+      "evidence": "internal/session/session.go (GetAgentFingerprint, contextID generation)"
+    },
+    "self_review_prevention": {
+      "mechanism": "Session isolation - the session that implements cannot approve",
+      "checks": [
+        "WasSessionInvolved(issueID, sessionID) checks issue_session_history",
+        "Creator session check (issue.CreatorSession == currentSession)",
+        "Implementer session check (issue.ImplementerSession == currentSession)"
+      ],
+      "bypass": "--minor flag on create (skips review requirement entirely)",
+      "exception": "--self-close-exception on close (requires reason, creates security audit log)",
+      "evidence": "cmd/review.go, cmd/close.go"
+    },
+    "handoff_protocol": {
+      "fields": ["done (completed work)", "remaining (what's left)", "decisions (key choices and rationale)", "uncertain (unknowns and risks)"],
+      "input_modes": ["CLI flags", "YAML stdin", "File input"],
+      "auto_features": [
+        "Auto-infers issue from current focus",
+        "Cascades to descendant issues",
+        "Git diff stats since start",
+        "Auto-creates minimal handoff on review if missing"
+      ],
+      "evidence": "cmd/handoff.go"
+    },
+    "context_optimization": {
+      "command": "td usage",
+      "output_sections": [
+        "Current session identity",
+        "Focused issue with latest handoff",
+        "Active work session (if any)",
+        "Issues in progress",
+        "Issues you can review",
+        "Ready-to-start issues",
+        "Quick workflow instructions"
+      ],
+      "design_goal": "Minimize tokens while maximizing actionable context for AI agents",
+      "evidence": "cmd/context.go (usage command)"
+    },
+    "check_handoff_hook": {
+      "command": "td check-handoff",
+      "behavior": "Returns exit code 1 if focused issue has no handoff (for agent exit hooks)",
+      "use_case": "Can be wired into agent shutdown hooks to prevent context loss",
+      "evidence": "cmd/focus.go"
+    }
+  },
+
+  "tui_features": {
+    "framework": "charmbracelet/bubbletea + lipgloss",
+    "panels": [
+      {
+        "name": "Current Work",
+        "content": "Focused issue details and in-progress issues",
+        "position": "top"
+      },
+      {
+        "name": "Task List",
+        "content": "Categorized issues (Review, Rework, Ready, Blocked, Closed) or board view",
+        "position": "middle",
+        "modes": ["categorized (default)", "board (swimlanes/backlog/kanban)"]
+      },
+      {
+        "name": "Activity",
+        "content": "Unified activity feed (logs, actions, comments) with tabular layout",
+        "position": "bottom"
+      }
+    ],
+    "view_modes": {
+      "categorized": "Default view with issues grouped by category (Reviewable, Ready, Blocked, etc.)",
+      "board_swimlanes": "Board view grouped by status categories with cursor navigation",
+      "board_backlog": "Flat ordered list with position-based sorting",
+      "board_kanban": "Side-by-side status columns (Linear-style) with per-column cursors, scroll offsets, and h/l/j/k navigation"
+    },
+    "modals": [
+      "Issue detail (with stacked modal support - open issues from within modals)",
+      "Board picker (select active board)",
+      "Board editor (create/edit/delete boards with live query preview)",
+      "Stats dashboard (bar charts, distribution, velocity)",
+      "Handoffs viewer",
+      "Help (keyboard shortcuts)",
+      "Getting Started (first-run onboarding)",
+      "Sync Prompt (link to sync project)",
+      "Delete confirmation",
+      "Close confirmation (with reason input)",
+      "TDQ help (query syntax reference)",
+      "Form (inline issue creation/editing with huh forms)"
+    ],
+    "interactions": {
+      "keyboard": {
+        "navigation": "Tab/Shift+Tab between panels, j/k or arrows up/down, h/l for columns in kanban",
+        "actions": "Enter (open), Esc (close modal), d (delete), s (start), S (submit review), a (approve), x (reject), c (toggle closed), v (cycle view mode), b (board picker), n (new issue), e (edit), / (search), ? (help)",
+        "shortcuts": "1/2/3 focus panels, g/G jump to top/bottom, Ctrl+D/U half-page scroll, Ctrl+C/q quit"
+      },
+      "mouse": {
+        "click": "Panel focus, issue selection, modal button interaction",
+        "double_click": "Open issue modal",
+        "scroll": "Viewport scrolling in panels and modals",
+        "drag": "Pane height resizing (drag dividers between panels)",
+        "hover": "Row highlighting, button hover states, panel border hover"
+      }
+    },
+    "theming": {
+      "status_colors": {
+        "open": "cyan (45)",
+        "in_progress": "orange (214)",
+        "in_review": "purple (141)",
+        "blocked": "red (196)",
+        "closed": "gray (241)"
+      },
+      "priority_colors": {
+        "P0": "red bold (196)",
+        "P1": "orange (214)",
+        "P2": "cyan (45)",
+        "P3": "gray (241)",
+        "P4": "gray (241)"
+      },
+      "type_icons": {
+        "epic": "diamond (purple)",
+        "feature": "filled circle (green)",
+        "bug": "X mark (red)",
+        "task": "square (cyan)",
+        "chore": "empty circle (gray)"
+      }
+    },
+    "embedding_support": {
+      "description": "Monitor can be embedded in external applications (sidecar)",
+      "features": [
+        "NewEmbedded / NewEmbeddedWithOptions constructors",
+        "Custom panel and modal renderers (PanelRenderer, ModalRenderer)",
+        "Custom markdown themes (MarkdownThemeConfig)",
+        "Shared database connection pool (prevents connection leaks on Model value copies)",
+        "OpenIssueByIDMsg for programmatic modal opening",
+        "SendTaskToWorktreeMsg for worktree creation",
+        "CurrentContextString() for sidecar keymap display"
+      ],
+      "evidence": "pkg/monitor/model.go (NewEmbedded, EmbeddedOptions)"
+    },
+    "auto_features": [
+      "Version update notification (async GitHub check with caching)",
+      "First-run detection with getting started modal",
+      "Sync prompt modal (auto-detect auth and suggest project linking)",
+      "Auto-restore last viewed board on launch",
+      "Auto-restore filter state (search, sort, type filter, include_closed)",
+      "Periodic data refresh with configurable interval",
+      "Auto-sync integration (push/pull in background)"
+    ]
+  },
+
+  "query_language": {
+    "name": "TDQ (TD Query Language)",
+    "fields": [
+      "id", "title", "description", "status", "type", "priority", "points",
+      "labels", "parent", "epic", "implementer", "reviewer", "minor",
+      "branch", "created", "updated", "closed", "assignee", "project", "sprint"
+    ],
+    "operators": ["=", "!=", "~", "!~", "<", ">", "<=", ">="],
+    "boolean_operators": ["AND", "OR", "NOT"],
+    "functions": [
+      {"name": "has(field)", "description": "Field is non-empty"},
+      {"name": "is(status)", "description": "Status matches"},
+      {"name": "any(field, v1, v2, ...)", "description": "Field matches any value"},
+      {"name": "blocks(id)", "description": "Issues blocked by id"},
+      {"name": "blocked_by(id)", "description": "Issues that block id"},
+      {"name": "descendant_of(id)", "description": "Descendants of parent/epic"},
+      {"name": "rework()", "description": "Issues rejected, needing fixes"},
+      {"name": "stale(N)", "description": "Not updated in N days"}
+    ],
+    "cross_entity_fields": [
+      "log.message", "log.type", "comment.text", "handoff.remaining",
+      "handoff.done", "handoff.decisions", "handoff.uncertain",
+      "file.path", "file.role"
+    ],
+    "special_values": [
+      "@me (current session)",
+      "relative dates (-7d, -24h, -1w)"
+    ],
+    "sort_clause": "sort:field or sort:-field (descending)",
+    "limit_clause": "limit:N",
+    "output_formats": ["table", "json", "ids", "count"],
+    "evidence": "cmd/query.go, internal/tdq/ (parser package)"
+  },
+
+  "sync_collaboration": {
+    "architecture": "Event-sourced sync with remote server",
+    "features": [
+      "Push/pull model with batching (500 events per batch)",
+      "Snapshot bootstrap for first sync on large projects",
+      "Conflict detection and storage",
+      "Auto-sync on mutations (debounced)",
+      "Auto-sync on startup (configurable)",
+      "Auto-sync during monitor (periodic)",
+      "Device code flow authentication",
+      "Multi-device support with device ID tracking",
+      "Project management (create, join, invite, kick, role)",
+      "Sync history tracking",
+      "Entity validation for feature-gated types (notes)"
+    ],
+    "feature_gates": ["sync_cli", "sync_autosync", "sync_notes"],
+    "diagnostics": "td doctor checks auth, server, database, sync state, pending events",
+    "maturity": "complete but feature-gated (not enabled by default)",
+    "evidence": "cmd/sync.go, cmd/autosync.go, cmd/auth.go, cmd/project.go, cmd/doctor.go"
+  },
+
+  "competitive_advantage": [
+    {
+      "advantage": "AI-Agent-First Design",
+      "description": "Unlike general-purpose issue trackers, td is designed from the ground up for AI coding agents. Session auto-detection, handoff protocols, context optimization (td usage), and check-handoff hooks are unique to AI agent workflows.",
+      "evidence": "internal/session/session.go (5 agent types detected), cmd/context.go (optimized context generation)"
+    },
+    {
+      "advantage": "Self-Review Prevention",
+      "description": "Enforces that the session implementing a change cannot approve it, preventing rubber-stamp reviews in automated workflows. This is a critical safety feature for AI-generated code.",
+      "evidence": "cmd/review.go (WasSessionInvolved, creator/implementer session guards)"
+    },
+    {
+      "advantage": "Structured Handoff Protocol",
+      "description": "First-class handoff primitives (done/remaining/decisions/uncertain) that bridge context windows. No other task tracker has this built-in.",
+      "evidence": "cmd/handoff.go, internal/models/models.go (Handoff struct)"
+    },
+    {
+      "advantage": "Full TDQ Query Language",
+      "description": "A purpose-built query language with cross-entity search, relative dates, session references, and functions. More powerful than Linear/Jira JQL for the CLI context.",
+      "evidence": "cmd/query.go, internal/tdq/"
+    },
+    {
+      "advantage": "Rich TUI with Linear Aesthetics",
+      "description": "A full-featured terminal UI with kanban boards, mouse support, stacked modals, drag-to-resize panels, and Linear-matching color scheme. Runs in any terminal without a browser.",
+      "evidence": "pkg/monitor/ (1000+ lines of TUI code)"
+    },
+    {
+      "advantage": "Embeddable Architecture",
+      "description": "Monitor can be embedded in external applications (sidecar) with custom renderers, themes, and connection pooling. No other CLI task tracker offers this.",
+      "evidence": "pkg/monitor/model.go (NewEmbedded, EmbeddedOptions, PanelRenderer, ModalRenderer)"
+    },
+    {
+      "advantage": "Event-Sourced Sync",
+      "description": "Full sync infrastructure with conflict detection, snapshot bootstrap, and auto-sync. Designed for multi-agent collaboration across devices.",
+      "evidence": "cmd/sync.go, cmd/autosync.go, internal/sync/"
+    },
+    {
+      "advantage": "Zero-Configuration Agent Detection",
+      "description": "Automatically identifies the AI agent type from environment variables (Claude Code, Cursor, Codex, Qwen, OpenCode) without any user configuration.",
+      "evidence": "internal/session/session.go (GetAgentFingerprint)"
+    }
+  ],
+
+  "missing_jobs": [
+    {
+      "gap_id": "G01",
+      "title": "No time tracking or estimation vs actual comparison",
+      "description": "Issues have story points but no time estimates or actual time tracking. Cannot compare estimated effort vs actual for velocity calculations.",
+      "severity": "low",
+      "who_wants_it": "Team leads analyzing sprint velocity"
+    },
+    {
+      "gap_id": "G02",
+      "title": "No notification or webhook system",
+      "description": "No mechanism to notify agents or humans when issues are assigned, reviewed, blocked, or updated. Agents must poll (td usage) to discover changes.",
+      "severity": "medium",
+      "who_wants_it": "Orchestrator agents needing real-time event awareness"
+    },
+    {
+      "gap_id": "G03",
+      "title": "No issue templates or recurring tasks",
+      "description": "No way to create issue templates for common patterns (bug report template, feature template) or define recurring tasks that auto-create on schedule.",
+      "severity": "low",
+      "who_wants_it": "Teams with standardized workflows"
+    },
+    {
+      "gap_id": "G04",
+      "title": "No git branch/PR linkage beyond snapshot",
+      "description": "Git snapshots capture state at start/handoff but there is no explicit PR tracking or branch-to-issue mapping beyond the created_branch field. Agent activity has pr_created type but no automated detection.",
+      "severity": "low",
+      "who_wants_it": "Teams wanting GitHub/GitLab integration"
+    },
+    {
+      "gap_id": "G05",
+      "title": "No multi-project support in single database",
+      "description": "Each project directory has its own .todos/issues.db. There is a project_tag field but no cross-project views or unified dashboard.",
+      "severity": "low",
+      "who_wants_it": "Organizations managing multiple repositories"
+    },
+    {
+      "gap_id": "G06",
+      "title": "No configurable workflow state machine",
+      "description": "The state machine (open -> in_progress -> in_review -> closed) is hardcoded. Custom statuses or transition rules are not supported.",
+      "severity": "low",
+      "who_wants_it": "Teams with custom workflows (e.g., QA stage, staging, deployment)"
+    },
+    {
+      "gap_id": "G07",
+      "title": "No rich attachment support",
+      "description": "File links track paths and SHAs but there is no support for screenshots, images, or binary attachments on issues.",
+      "severity": "low",
+      "who_wants_it": "Bug reporters needing to attach screenshots"
+    },
+    {
+      "gap_id": "G08",
+      "title": "Limited Linear integration",
+      "description": "Issues have linear_id and linear_identifier fields, suggesting planned Linear sync, but no bidirectional sync commands exist in the CLI. The sync system is generic event-sourced, not Linear-specific.",
+      "severity": "medium",
+      "who_wants_it": "Teams using Linear as their primary tracker who want td as an agent-side companion"
+    }
+  ],
+
+  "half_implemented_features": [
+    {
+      "feature": "Linear Integration",
+      "status": "fields_present_no_sync",
+      "description": "Issue model has LinearID and LinearIdentifier fields. Activity log shows identifiers in display. But no commands exist to sync with Linear API. The sync system is for td-to-td sync, not Linear sync.",
+      "evidence": "internal/models/models.go (LinearID, LinearIdentifier fields), cmd/activity.go (linearInfo display), no linear sync commands in cmd/"
+    },
+    {
+      "feature": "Stale detection via stale() function",
+      "status": "query_function_exists",
+      "description": "TDQ has stale(N) function for finding issues not updated in N days. However, there is no automated stale notification or dashboard widget highlighting stale issues.",
+      "evidence": "cmd/query.go (stale function documented in TDQ help)"
+    },
+    {
+      "feature": "Sprint management",
+      "status": "field_only",
+      "description": "Issues have a sprint field that can be set via update, but there are no sprint management commands (create sprint, close sprint, sprint burndown, sprint planning).",
+      "evidence": "internal/models/models.go (Sprint field), cmd/update.go (--sprint flag)"
+    },
+    {
+      "feature": "Worktree integration",
+      "status": "message_defined_no_handler",
+      "description": "SendTaskToWorktreeMsg is defined in TUI types for embedding contexts to intercept, suggesting planned worktree-per-issue workflows. But no command-level worktree management exists.",
+      "evidence": "pkg/monitor/types.go (SendTaskToWorktreeMsg struct)"
+    },
+    {
+      "feature": "Orchestration log type",
+      "status": "type_defined_no_special_handling",
+      "description": "LogTypeOrchestration exists as a log type but there is no special handling, display, or queries specific to orchestration logs.",
+      "evidence": "internal/models/models.go (LogTypeOrchestration constant)"
+    }
+  ],
+
+  "data_model_summary": {
+    "storage": "SQLite via .todos/issues.db",
+    "core_entities": [
+      {
+        "entity": "Issue",
+        "fields": 23,
+        "key_fields": ["ID (td-xxxx format)", "Title", "Description", "Status", "Type", "Priority", "Points", "Labels", "ParentID", "Acceptance", "Sprint", "Assignee", "LinearID", "LinearIdentifier", "ProjectTag", "ImplementerSession", "CreatorSession", "ReviewerSession", "CreatedBranch", "Minor"]
+      },
+      {
+        "entity": "Log",
+        "fields": 6,
+        "types": ["progress", "security", "blocker", "decision", "hypothesis", "tried", "result", "orchestration"]
+      },
+      {
+        "entity": "Handoff",
+        "fields": 7,
+        "structured_data": ["done", "remaining", "decisions", "uncertain"]
+      },
+      {
+        "entity": "AgentActivity",
+        "fields": 9,
+        "types": ["assigned", "started", "committed", "pr_created", "reviewed", "completed", "spawned_subagent", "comment"]
+      },
+      {
+        "entity": "WorkSession",
+        "fields": 6,
+        "description": "Multi-issue work session container"
+      },
+      {
+        "entity": "Board",
+        "fields": 7,
+        "description": "Named query-based view with view mode and ordering"
+      },
+      {
+        "entity": "Comment",
+        "fields": 5,
+        "description": "Issue comments with session tracking"
+      },
+      {
+        "entity": "Note",
+        "fields": 7,
+        "description": "Freeform notes with pin/archive/delete"
+      },
+      {
+        "entity": "ActionLog",
+        "fields": 9,
+        "description": "Full previous/new data snapshots for undo support"
+      },
+      {
+        "entity": "GitSnapshot",
+        "fields": 6,
+        "description": "Git state captured at start/handoff events"
+      },
+      {
+        "entity": "IssueFile",
+        "fields": 6,
+        "description": "File links with SHA tracking"
+      },
+      {
+        "entity": "IssueDependency",
+        "fields": 3,
+        "description": "Issue dependency relationships"
+      },
+      {
+        "entity": "IssueSessionHistory",
+        "fields": 5,
+        "description": "Tracks all sessions that touched an issue (for review isolation)"
+      },
+      {
+        "entity": "Config",
+        "fields": 9,
+        "description": "Local config state (focus, work session, pane heights, feature flags, filters, title validation)"
+      }
+    ]
+  },
+
+  "command_count_summary": {
+    "total_commands": 72,
+    "core_group": 9,
+    "workflow_group": 11,
+    "query_group": 2,
+    "shortcuts_group": 8,
+    "session_group": 9,
+    "files_group": 3,
+    "system_group": 13,
+    "sync_group_gated": 12,
+    "analytics_group": 3,
+    "dependency_group": 5,
+    "hierarchy_group": 3
+  }
+}

@@ -1,0 +1,562 @@
+{
+  "agent": "Architecture Analyzer",
+  "timestamp": "2026-02-13",
+  "summary": "td is a well-structured Go CLI task management tool optimized for AI-agent workflows (session continuity, handoffs, review enforcement). It combines Cobra CLI commands with a BubbleTea TUI monitor, backed by a single-file SQLite database with WAL mode. The architecture follows clear layered separation: cmd/ (CLI commands) -> internal/ (business logic, DB, models) -> pkg/monitor (TUI). A custom query language (TDQ) with full lexer/parser/evaluator provides powerful filtering. Sync infrastructure enables multi-device replication via an event-sourced action log. The codebase is 332 Go files across ~126K lines with strong test coverage (~134 test files, ~67K test lines). Key architectural strengths include the QuerySource interface for testability, the declarative modal system, and the logged/unlogged DB operation split for sync. Key risks include the growing Model struct complexity, duplicated scan logic in the DB layer, and tight coupling between the monitor and numerous internal packages.",
+
+  "directory_structure": {
+    "root": {
+      "main.go": "Entry point. Wires query validator to break import cycle between db and query packages. Sets version from build flags or VCS info.",
+      "go.mod": "Module github.com/marcus/td, Go 1.25.5. Key deps: charmbracelet/bubbletea (TUI), cobra (CLI), mattn/go-sqlite3 + modernc.org/sqlite (DB), charmbracelet/glamour (markdown), charmbracelet/huh (forms)."
+    },
+    "cmd/": {
+      "description": "83 Go files (50 non-test). Each file typically defines one Cobra command. Commands are grouped: core (create, list, show, delete), workflow (start, handoff, review, approve), query, session, files, system.",
+      "key_files": {
+        "root.go": "Root Cobra command with PersistentPreRun/PostRun hooks for sync and analytics. Custom usage template showing aliases. Command groups for organized help.",
+        "create.go": "Issue creation with type parsing from title prefix, title validation, git snapshot capture.",
+        "monitor.go": "Launches BubbleTea TUI with auto-sync goroutine, signal handling.",
+        "autosync.go": "Background sync hooks in PersistentPreRun/PostRun for push/pull on mutations."
+      },
+      "file_count": 83,
+      "non_test_lines": 13529
+    },
+    "internal/db/": {
+      "description": "26 non-test files. SQLite persistence layer with schema migrations (v1-v29), write locking, logged and unlogged operations, board management, analytics, agent activity tracking.",
+      "key_files": {
+        "db.go": "DB struct wrapping sql.DB with baseDir. WAL mode, single connection, busy timeout. withWriteLock for cross-process safety via OS file lock.",
+        "schema.go": "Schema version 29. 13 tables: issues, logs, handoffs, git_snapshots, issue_files, issue_dependencies, work_sessions, work_session_issues, comments, sessions, schema_info, boards, board_issue_positions. 29 migrations including custom Go code for complex schema changes.",
+        "issues.go": "CRUD operations with ListIssuesOptions for flexible filtering. Manual SQL building with WHERE clause composition.",
+        "issues_logged.go": "Logged variants (CreateIssueLogged, UpdateIssueLogged, DeleteIssueLogged) that atomically write to action_log within withWriteLock. Used for local mutations. Unlogged variants used by sync receiver.",
+        "lock.go": "Cross-platform file-based write lock with exponential backoff, stale lock detection.",
+        "migrations.go": "Sequential migration runner with custom Go code paths for complex migrations (text ID migration, deterministic IDs for sync, path normalization)."
+      },
+      "non_test_lines": 7835,
+      "tables": ["issues", "logs", "handoffs", "git_snapshots", "issue_files", "issue_dependencies", "work_sessions", "work_session_issues", "comments", "sessions", "schema_info", "boards", "board_issue_positions", "action_log", "issue_session_history", "sync_state", "sync_conflicts", "sync_history", "notes", "agent_activity"]
+    },
+    "internal/models/": {
+      "description": "Pure domain types with no dependencies on other internal packages. Defines Issue, Log, Handoff, WorkSession, Board, Comment, Note, Config, ActionLog, AgentActivity and all their enum types (Status, Type, Priority, LogType, etc.). Includes normalization helpers.",
+      "key_files": {
+        "models.go": "All domain types and validation helpers in a single 435-line file."
+      },
+      "non_test_lines": 435
+    },
+    "internal/session/": {
+      "description": "Session management scoped by git branch + agent fingerprint. Sessions auto-detect agent type (Claude Code, Cursor, terminal) via environment variables and parent PID. Heartbeat tracking for liveness.",
+      "key_files": {
+        "session.go": "GetOrCreate finds or creates session by branch+agent. Migrates from legacy filesystem storage. ForceNewSession for explicit new context."
+      },
+      "non_test_lines": 493
+    },
+    "internal/query/": {
+      "description": "Custom TDQ (td query) language with full lexer, parser, AST, evaluator, and executor. Supports field expressions (status=open), boolean logic (AND/OR/NOT), functions (any(), all(), has_log(), descendant_of()), text search, date ranges, and sort clauses.",
+      "key_files": {
+        "lexer.go": "Tokenizer for TDQ syntax.",
+        "parser.go": "Recursive descent parser producing AST. Handles implicit AND, operator precedence, nested expressions up to depth 50.",
+        "ast.go": "AST node types: BinaryExpr, UnaryExpr, FieldExpr, FunctionCall, TextSearch, SortClause.",
+        "evaluator.go": "In-memory evaluator that checks each issue against the AST. Cross-entity queries (log.message, handoff.done) supported.",
+        "execute.go": "Orchestrates parse -> validate -> fetch -> evaluate pipeline. Uses QuerySource interface for testability.",
+        "source.go": "QuerySource interface abstracting DB operations needed by query engine. Allows both client-side DB and server-side snapshot adapters."
+      },
+      "non_test_lines": 3419
+    },
+    "internal/api/": {
+      "description": "HTTP sync server (td-sync). REST API for multi-device sync with push/pull endpoints, device authentication (device code flow), project management, admin panel, rate limiting, CORS.",
+      "key_files": {
+        "server.go": "HTTP server with routes, timeouts, graceful shutdown. Uses serverdb.ServerDB for metadata.",
+        "sync.go": "Push/pull endpoints. Push inserts events into per-project event log, pull returns events after cursor.",
+        "auth.go": "Device code authentication flow (similar to GitHub device flow).",
+        "projects.go": "Project CRUD, membership management.",
+        "admin_server.go": "Admin panel with HTML templates for monitoring."
+      },
+      "non_test_lines": 3922
+    },
+    "internal/sync/": {
+      "description": "Core sync engine logic (shared between server and client). Event types, server event log operations, event application with conflict tracking.",
+      "key_files": {
+        "types.go": "Event, PushResult, PullResult, ApplyResult, ConflictRecord types.",
+        "engine.go": "Server-side event insertion and pull logic. Deduplication by (device_id, session_id, client_action_id).",
+        "client.go": "Client-side sync: build events from action_log, push to server, pull and apply remote events."
+      },
+      "non_test_lines": 1520
+    },
+    "internal/syncclient/": {
+      "description": "HTTP client for td-sync server. Handles auth, push, pull, project listing.",
+      "non_test_lines": 407
+    },
+    "internal/syncconfig/": {
+      "description": "Sync configuration management (server URL, API key, device ID, project linking).",
+      "non_test_lines": 297
+    },
+    "pkg/monitor/": {
+      "description": "BubbleTea TUI monitor. 34 Go files (21 non-test). Three-panel layout (Current Work, Task List, Activity) with modal stack, board views (swimlanes, backlog, kanban), forms, search, stats. Highly feature-rich.",
+      "key_files": {
+        "model.go": "Main Model struct (~200 fields) implementing tea.Model. Init/Update/View. Manages modal stack, board mode, search, forms, sync prompt, getting started wizard.",
+        "types.go": "Panel, SortMode, TypeFilterMode, BoardViewMode, ModalEntry, TaskListData, BoardMode, KanbanState types and messages (TickMsg, RefreshDataMsg, IssueDetailsMsg, etc.).",
+        "commands.go": "Key handling via centralized keymap registry. executeCommand dispatches ~60 commands. Complex modal delegation chain.",
+        "data.go": "FetchData aggregates focused issue, in-progress, activity, task list, handoffs, sessions.",
+        "styles.go": "Lipgloss styling for panels, modals, status badges.",
+        "form.go": "Issue create/edit forms using charmbracelet/huh.",
+        "kanban.go": "Kanban board view with column navigation.",
+        "board_editor.go": "Board create/edit with live TDQ preview.",
+        "actions.go": "Issue actions (mark for review, approve, delete, close, reopen)."
+      },
+      "sub_packages": {
+        "keymap/": "Context-aware key binding registry. Supports key sequences (gg for top), configurable bindings, help generation.",
+        "modal/": "Declarative modal system with sections (text, list, button, custom, input). Handles scrolling, mouse, focus cycling.",
+        "mouse/": "Mouse handler with zone tracking for hit-testing."
+      },
+      "non_test_lines": 13026
+    },
+    "internal/output/": {
+      "description": "CLI output formatting. Styled terminal output (success/error/warning), JSON mode, tree rendering for epic hierarchy.",
+      "non_test_lines": 640
+    },
+    "internal/workflow/": {
+      "description": "State machine for issue status transitions. Supports Liberal/Advisory/Strict modes with pluggable guards (DifferentReviewerGuard for review enforcement).",
+      "non_test_lines": 588
+    },
+    "internal/config/": {
+      "description": "Configuration management. Reads/writes config.json for pane heights, filter state, focus, feature flags, title validation limits.",
+      "non_test_lines": 293
+    },
+    "internal/agent/": {
+      "description": "Agent file detection and instruction installation. Detects AGENTS.md, CLAUDE.md, .cursorrules etc. and can inject td usage instructions.",
+      "non_test_lines": 148
+    },
+    "internal/features/": {
+      "description": "Feature flag system. Gates experimental features (sync_monitor_prompt, etc.) via config.json.",
+      "non_test_lines": 276
+    },
+    "internal/git/": {
+      "description": "Git integration. Reads current branch, commit SHA, dirty files for git snapshots.",
+      "non_test_lines": 207
+    },
+    "internal/workdir/": {
+      "description": "Working directory resolution. Handles .td-root files for git worktree support, sharing a single DB across worktrees.",
+      "non_test_lines": 120
+    },
+    "internal/serverdb/": {
+      "description": "Server-side database for td-sync server metadata (users, projects, memberships, auth requests, devices).",
+      "non_test_lines": 1947
+    },
+    "test/": {
+      "description": "E2E tests (test/e2e/) and sync test harness (test/syncharness/). E2E tests use real td binary in temp dirs.",
+      "non_test_lines": 4938
+    },
+    "cmd/td-sync/": {
+      "description": "Separate main package for the td-sync server binary.",
+      "non_test_lines": 257
+    }
+  },
+
+  "patterns": [
+    {
+      "name": "Elm Architecture (BubbleTea)",
+      "description": "The TUI monitor follows the Elm architecture: Model (state), Update (msg -> model, cmd), View (model -> string). All state mutations flow through the Update function via typed messages (TickMsg, RefreshDataMsg, IssueDetailsMsg, etc.). Side effects are encapsulated in tea.Cmd functions.",
+      "location": "/home/devuser/td/pkg/monitor/model.go",
+      "evidence": "Model.Init(), Model.Update(msg tea.Msg), Model.View() at lines 361-857"
+    },
+    {
+      "name": "Command Pattern (Cobra)",
+      "description": "CLI commands use Cobra's command pattern. Each command is a separate file in cmd/ with a *cobra.Command. Commands are organized into groups (core, workflow, query, session, files, system). PersistentPreRun/PostRun hooks handle cross-cutting concerns (sync, analytics).",
+      "location": "/home/devuser/td/cmd/root.go",
+      "evidence": "rootCmd with groups at lines 304-312, PersistentPreRun/PostRun hooks at lines 40-48"
+    },
+    {
+      "name": "Repository Pattern (DB layer)",
+      "description": "The db.DB struct acts as a repository, encapsulating all SQLite operations. Methods like CreateIssue, GetIssue, ListIssues, UpdateIssue provide data access. The QuerySource interface further abstracts this for the query engine.",
+      "location": "/home/devuser/td/internal/db/db.go",
+      "evidence": "DB struct at line 24, QuerySource interface at /home/devuser/td/internal/query/source.go lines 10-20"
+    },
+    {
+      "name": "Logged/Unlogged Operation Split",
+      "description": "DB operations come in two variants: unlogged (CreateIssue) for sync receiver applying remote events, and logged (CreateIssueLogged) for local mutations that atomically write to action_log. This enables event-sourced sync without double-logging remote events.",
+      "location": "/home/devuser/td/internal/db/issues_logged.go",
+      "evidence": "CreateIssueLogged at line 75, vs CreateIssue at /home/devuser/td/internal/db/issues.go line 45"
+    },
+    {
+      "name": "Event Sourcing (Sync)",
+      "description": "All local mutations are logged to action_log with before/after snapshots. The sync engine pushes these events to a server which assigns monotonic server_seq numbers. Pull returns events since last cursor. Last-writer-wins conflict resolution with conflict tracking in sync_conflicts table.",
+      "location": "/home/devuser/td/internal/sync/types.go",
+      "evidence": "Event struct with ClientActionID, ServerSeq at lines 9-19; ConflictRecord at lines 57-65"
+    },
+    {
+      "name": "State Machine (Workflow)",
+      "description": "Issue status transitions are governed by a state machine with configurable modes (Liberal/Advisory/Strict) and pluggable guards. The DifferentReviewerGuard enforces that a different session must review work.",
+      "location": "/home/devuser/td/internal/workflow/workflow.go",
+      "evidence": "StateMachine with transitions map at line 68, Guard interface at line 43, TransitionMode at lines 8-16"
+    },
+    {
+      "name": "Context-Aware Keymap Registry",
+      "description": "Keyboard shortcuts are managed by a centralized registry that maps (key, context) -> command. Contexts represent UI states (main, modal, search, board, etc.). Supports key sequences (gg for top), configurable bindings, and help text generation.",
+      "location": "/home/devuser/td/pkg/monitor/keymap/registry.go",
+      "evidence": "Context constants at lines 16-37, Command constants starting at line 46"
+    },
+    {
+      "name": "Declarative Modal System",
+      "description": "Modals are built declaratively with sections (text, list, button, custom, input). Each modal handles scrolling, mouse interaction, and focus cycling internally. This reduces boilerplate compared to imperative modal management.",
+      "location": "/home/devuser/td/pkg/monitor/modal/",
+      "evidence": "modal.Modal type with sections, HandleKey, HandleMouse in /home/devuser/td/pkg/monitor/modal/"
+    },
+    {
+      "name": "Dependency Injection via Function Variable",
+      "description": "To break the import cycle between db and query packages, main.go wires db.QueryValidator as a function variable. This avoids circular imports while allowing the db package to validate TDQ queries.",
+      "location": "/home/devuser/td/main.go",
+      "evidence": "db.QueryValidator = func(queryStr string) error { _, err := query.Parse(queryStr); return err } at lines 18-21"
+    },
+    {
+      "name": "Shared DB Pool for Embedded Use",
+      "description": "When the monitor is embedded (e.g., in a sidecar), a shared DB connection pool prevents connection leaks caused by BubbleTea's value-copy semantics in Update(). Reference counting ensures the connection is only closed when all references are released.",
+      "location": "/home/devuser/td/pkg/monitor/dbpool.go",
+      "evidence": "getSharedDB/releaseSharedDB functions, NewEmbedded at /home/devuser/td/pkg/monitor/model.go lines 252-270"
+    },
+    {
+      "name": "Cross-Platform File Locking",
+      "description": "Write concurrency is managed via OS-level file locks (flock on Unix, LockFileEx on Windows). The lock file includes PID and timestamp for stale lock detection.",
+      "location": "/home/devuser/td/internal/db/lock.go",
+      "evidence": "writeLocker with acquire/release at lines 20-90, platform-specific lock_unix.go and lock_windows.go"
+    },
+    {
+      "name": "Custom Query Language (TDQ)",
+      "description": "A full query language with lexer -> parser -> AST -> evaluator pipeline. Supports field expressions (status=open), boolean logic (AND/OR/NOT), functions (descendant_of(), has_log()), text search, date ranges with relative dates (-7d, today), and sort clauses.",
+      "location": "/home/devuser/td/internal/query/",
+      "evidence": "Parser at parser.go, Lexer at lexer.go, AST at ast.go, Evaluator at evaluator.go, Execute at execute.go"
+    }
+  ],
+
+  "dependency_graph": {
+    "description": "Package dependency flow is generally top-down: cmd -> internal/* -> models. The monitor (pkg/monitor) is a leaf package usable both standalone and embedded.",
+    "layers": [
+      {
+        "name": "Entry Points",
+        "packages": ["main", "cmd/td-sync"],
+        "depends_on": ["cmd", "internal/db", "internal/query"]
+      },
+      {
+        "name": "CLI Layer",
+        "packages": ["cmd"],
+        "depends_on": ["internal/db", "internal/models", "internal/session", "internal/output", "internal/config", "internal/git", "internal/suggest", "internal/workdir", "internal/query", "internal/workflow", "internal/syncclient", "internal/syncconfig", "internal/features", "pkg/monitor"]
+      },
+      {
+        "name": "TUI Layer",
+        "packages": ["pkg/monitor", "pkg/monitor/keymap", "pkg/monitor/modal", "pkg/monitor/mouse"],
+        "depends_on": ["internal/db", "internal/models", "internal/session", "internal/config", "internal/query", "internal/syncclient", "internal/syncconfig", "internal/features", "internal/agent", "internal/version"]
+      },
+      {
+        "name": "Business Logic",
+        "packages": ["internal/query", "internal/workflow", "internal/session", "internal/sync"],
+        "depends_on": ["internal/db", "internal/models", "internal/git"]
+      },
+      {
+        "name": "Data Access",
+        "packages": ["internal/db"],
+        "depends_on": ["internal/models", "internal/workdir"]
+      },
+      {
+        "name": "Server",
+        "packages": ["internal/api", "internal/serverdb"],
+        "depends_on": ["internal/sync", "internal/db", "internal/crypto", "internal/query"]
+      },
+      {
+        "name": "Domain Models",
+        "packages": ["internal/models"],
+        "depends_on": []
+      },
+      {
+        "name": "Infrastructure",
+        "packages": ["internal/config", "internal/git", "internal/workdir", "internal/output", "internal/crypto", "internal/agent", "internal/suggest", "internal/version", "internal/features", "internal/syncclient", "internal/syncconfig"],
+        "depends_on": ["internal/models"]
+      }
+    ],
+    "import_cycle_workaround": {
+      "description": "db package cannot import query package (would create cycle). main.go injects query.Parse as db.QueryValidator function variable.",
+      "location": "/home/devuser/td/main.go:18-21"
+    },
+    "key_interfaces": [
+      {
+        "name": "QuerySource",
+        "package": "internal/query",
+        "implementors": ["internal/db.DB", "internal/api.snapshotQuerySource"],
+        "purpose": "Abstracts DB for query engine. Enables server-side query execution on snapshots without importing client db package."
+      },
+      {
+        "name": "NoteQuerySource",
+        "package": "internal/query",
+        "implementors": ["internal/db.DB"],
+        "purpose": "Abstracts note-related DB operations for TDQ note queries."
+      },
+      {
+        "name": "Guard",
+        "package": "internal/workflow",
+        "implementors": ["DifferentReviewerGuard", "HandoffRequiredGuard"],
+        "purpose": "Pluggable transition guards for the workflow state machine."
+      }
+    ]
+  },
+
+  "data_flows": [
+    {
+      "name": "CLI Command Execution",
+      "description": "User runs td command -> Cobra routes to handler -> handler opens DB -> performs logged DB operation (CreateIssueLogged) which atomically writes data + action_log entry within withWriteLock -> output formatted via internal/output -> PersistentPostRun triggers sync push if configured",
+      "path": ["main.go:cmd.Execute()", "cmd/*.go:RunE", "db.Open()", "db.*Logged()", "db.withWriteLock()", "db.LogAction()", "output.*()"],
+      "key_files": ["/home/devuser/td/cmd/create.go", "/home/devuser/td/internal/db/issues_logged.go", "/home/devuser/td/internal/db/lock.go"]
+    },
+    {
+      "name": "TUI Monitor Refresh Cycle",
+      "description": "TickMsg fires every N seconds -> fetchData() queries DB for focused issue, in-progress, activity, task list -> RefreshDataMsg updates Model state -> View() re-renders three-panel layout. Board mode adds fetchBoardIssues() with TDQ query execution.",
+      "path": ["model.go:scheduleTick()", "model.go:fetchData()", "data.go:FetchData()", "db.ListIssues()", "model.go:Update(RefreshDataMsg)", "model.go:View()"],
+      "key_files": ["/home/devuser/td/pkg/monitor/model.go:498-516", "/home/devuser/td/pkg/monitor/data.go:29-69"]
+    },
+    {
+      "name": "TUI Modal Detail View",
+      "description": "User presses Enter on issue -> pushModal(issueID) -> fetchIssueDetails() queries issue+handoff+logs+comments+deps+epic tasks -> IssueDetailsMsg updates ModalEntry -> renderMarkdownAsync() renders description -> modal View renders detail pane",
+      "path": ["commands.go:CmdOpenDetails", "model.go:pushModal()", "model.go:fetchIssueDetails()", "db.GetIssue()/GetLatestHandoff()/GetLogs()/GetComments()/GetDependencies()", "model.go:Update(IssueDetailsMsg)", "model.go:renderMarkdownAsync()"],
+      "key_files": ["/home/devuser/td/pkg/monitor/model.go:884-950"]
+    },
+    {
+      "name": "TDQ Query Execution",
+      "description": "User types query in search bar or board query -> query.Parse() tokenizes and builds AST -> query.Validate() checks field/value semantics -> query.Execute() fetches all candidate issues from DB -> evaluator filters in-memory against AST -> results returned sorted",
+      "path": ["query.Parse(input)", "Lexer.Tokenize()", "Parser.parseQuery()", "Query.Validate()", "query.Execute(db, queryStr, sessionID, opts)", "Evaluator.Evaluate(issue)"],
+      "key_files": ["/home/devuser/td/internal/query/parser.go", "/home/devuser/td/internal/query/execute.go", "/home/devuser/td/internal/query/evaluator.go"]
+    },
+    {
+      "name": "Sync Push/Pull",
+      "description": "Local mutation logs to action_log -> sync client reads unsent action_log entries -> POST /v1/projects/:id/sync/push with events -> server assigns server_seq, returns acks -> client marks synced. Pull: GET /v1/projects/:id/sync/pull?after=N -> apply remote events to local DB using unlogged operations -> track conflicts in sync_conflicts.",
+      "path": ["db.*Logged() -> action_log", "sync/client.go:Push()", "api/sync.go:handlePush()", "sync/engine.go:InsertServerEvents()", "sync/client.go:Pull()", "sync/client.go:ApplyEvents()"],
+      "key_files": ["/home/devuser/td/internal/sync/engine.go", "/home/devuser/td/internal/sync/client.go", "/home/devuser/td/internal/syncclient/client.go"]
+    },
+    {
+      "name": "Session Resolution",
+      "description": "Session scoped by git branch + agent fingerprint (type + PID). GetOrCreate() checks env vars for agent type (CLAUDE_CODE_SSE_PORT, CURSOR_SESSION_ID, etc.), determines PID, looks up DB for matching session row, creates if missing, updates heartbeat.",
+      "path": ["session.GetOrCreate(db)", "getCurrentBranch()", "GetAgentFingerprint()", "db.GetSessionByBranchAgent()", "db.UpsertSession()"],
+      "key_files": ["/home/devuser/td/internal/session/session.go:160-192"]
+    }
+  ],
+
+  "design_decisions": [
+    {
+      "decision": "Single-file SQLite database per project",
+      "rationale": "Zero-config persistence. DB stored at <project>/.todos/issues.db. WAL mode enables concurrent reads. Single connection prevents corruption. File-level locking for multi-process safety.",
+      "tradeoffs": "Limits to single-machine use without sync. 29 sequential migrations show rapid schema evolution.",
+      "location": "/home/devuser/td/internal/db/db.go"
+    },
+    {
+      "decision": "Logged vs Unlogged DB operations",
+      "rationale": "Local mutations use *Logged variants that atomically write to action_log (for sync). Remote events applied via unlogged variants to avoid double-logging. This cleanly separates sync concerns from data access.",
+      "tradeoffs": "Every entity operation needs two implementations. Scan code is duplicated between scanIssueRow (logged path) and GetIssue/ListIssues.",
+      "location": "/home/devuser/td/internal/db/issues_logged.go"
+    },
+    {
+      "decision": "BubbleTea value semantics for Model",
+      "rationale": "Follows Elm architecture purity. Update returns new Model value. Enables time-travel debugging in theory.",
+      "tradeoffs": "Model struct is very large (~200 fields). Copying on every Update. Required shared DB pool (dbpool.go) to prevent connection leaks when embedded. Pointer fields in ModalEntry allow mutation through value copies.",
+      "location": "/home/devuser/td/pkg/monitor/model.go"
+    },
+    {
+      "decision": "Custom query language (TDQ) instead of SQL exposure",
+      "rationale": "Safe, user-friendly filtering without SQL injection risk. Supports domain concepts (status, priority, @me, reviewable) natively. Validation catches errors early.",
+      "tradeoffs": "Requires maintaining a full lexer/parser/evaluator. In-memory evaluation limits scale (10K issue cap). Parser errors need good UX.",
+      "location": "/home/devuser/td/internal/query/"
+    },
+    {
+      "decision": "Session scoping by branch + agent fingerprint",
+      "rationale": "Enables multiple AI agents on different branches to have independent sessions. Same agent on same branch reuses session, enabling continuity across context windows.",
+      "tradeoffs": "Complex detection logic with many env var checks. Edge cases with detached HEAD, worktrees.",
+      "location": "/home/devuser/td/internal/session/session.go"
+    },
+    {
+      "decision": "Git worktree support via .td-root file",
+      "rationale": "Worktrees share a single DB with the main repo. A .td-root file in worktree points to main repo's .todos directory.",
+      "tradeoffs": "Requires setup step. ResolveBaseDir called in many places.",
+      "location": "/home/devuser/td/internal/workdir/"
+    },
+    {
+      "decision": "Declarative modal system with section composition",
+      "rationale": "Reduces boilerplate for creating new modals. Sections (text, list, button, custom, input) compose declaratively. Internal scrolling and focus cycling.",
+      "tradeoffs": "Complex interaction between declarative modals and legacy imperative state (ConfirmButtonFocus, etc.). Some modals still use both systems.",
+      "location": "/home/devuser/td/pkg/monitor/modal/"
+    },
+    {
+      "decision": "Sparse positioning for board issue ordering",
+      "rationale": "Board issues use sparse integer positions (gap of 65536) to enable O(1) insertions without reordering all rows. Similar to Figma/Linear approach.",
+      "tradeoffs": "Position gaps can exhaust. Requires periodic re-spacing.",
+      "location": "/home/devuser/td/internal/db/schema.go migration v22"
+    },
+    {
+      "decision": "Event-sourced sync with last-writer-wins",
+      "rationale": "Simple conflict resolution. All mutations logged to action_log with JSON snapshots. Server is a thin event store with monotonic sequencing.",
+      "tradeoffs": "Data loss on concurrent edits (last writer wins). Conflict records kept for audit but not surfaced to user for resolution.",
+      "location": "/home/devuser/td/internal/sync/"
+    },
+    {
+      "decision": "pkg/monitor as public package (not internal)",
+      "rationale": "Enables external applications (like a sidecar) to embed the monitor TUI. Provides NewEmbedded/NewEmbeddedWithOptions with custom renderers.",
+      "tradeoffs": "Public API surface is large. Model struct fields are exported.",
+      "location": "/home/devuser/td/pkg/monitor/model.go"
+    }
+  ],
+
+  "strengths": [
+    {
+      "description": "Clean layered architecture with well-defined package boundaries",
+      "detail": "cmd/ depends on internal/, pkg/monitor depends on internal/, internal/models has zero internal dependencies. This prevents circular dependencies and makes the codebase navigable.",
+      "location": "Project root"
+    },
+    {
+      "description": "QuerySource interface enables testability and multi-context query execution",
+      "detail": "The query engine depends on QuerySource interface, not concrete db.DB. This allows server-side query execution on snapshots and easy mocking in tests.",
+      "location": "/home/devuser/td/internal/query/source.go"
+    },
+    {
+      "description": "Excellent test coverage ratio",
+      "detail": "134 test files with ~67K lines of test code against 198 source files with ~59K lines of source code. Over 1:1 test-to-source ratio. Includes E2E tests, sync harness tests, integration tests.",
+      "location": "/home/devuser/td/test/"
+    },
+    {
+      "description": "Robust multi-process concurrency handling",
+      "detail": "File-based write locking with exponential backoff, stale lock detection, WAL mode, single connection, busy timeout. Handles multiple agents writing concurrently.",
+      "location": "/home/devuser/td/internal/db/lock.go"
+    },
+    {
+      "description": "Rich domain model with complete validation",
+      "detail": "Status, Type, Priority have validation, normalization (p0->P0, story->feature, in-progress->in_progress), and Fibonacci story points. Prevents invalid state at the model level.",
+      "location": "/home/devuser/td/internal/models/models.go"
+    },
+    {
+      "description": "Well-designed sync architecture",
+      "detail": "Logged/unlogged split cleanly separates local mutations from remote event application. Action log provides complete audit trail. Deterministic IDs for composite-key entities enable cross-device identity.",
+      "location": "/home/devuser/td/internal/db/issues_logged.go, /home/devuser/td/internal/sync/"
+    },
+    {
+      "description": "Agent-aware session management",
+      "detail": "Detects agent type from 10+ environment variables, scopes sessions by branch+agent to prevent review bypass. Heartbeat tracking enables stale session cleanup.",
+      "location": "/home/devuser/td/internal/session/session.go"
+    },
+    {
+      "description": "Full custom query language with good error messages",
+      "detail": "TDQ provides position-aware parse errors, field validation, enum normalization, and cross-entity queries. Much better UX than raw SQL.",
+      "location": "/home/devuser/td/internal/query/"
+    },
+    {
+      "description": "Embeddable TUI with customization hooks",
+      "detail": "Monitor can be embedded with custom PanelRenderer, ModalRenderer, and MarkdownTheme. Shared DB pool prevents leaks. Clean Close() lifecycle.",
+      "location": "/home/devuser/td/pkg/monitor/model.go:248-325"
+    },
+    {
+      "description": "Comprehensive migration system with custom Go code paths",
+      "detail": "29 migrations handle complex schema evolution including table recreation (SQLite lacks ALTER COLUMN), data migration (file paths, composite IDs), and format changes. Custom Go code for complex migrations that SQL cannot express.",
+      "location": "/home/devuser/td/internal/db/schema.go"
+    }
+  ],
+
+  "risks": [
+    {
+      "severity": "high",
+      "description": "Model struct in pkg/monitor/model.go has grown to ~200 fields covering 15+ distinct UI states",
+      "detail": "The Model struct holds state for: panels, modals, search, boards, kanban, forms, stats, handoffs, getting started, sync prompt, board picker, board editor, confirmation dialogs, pane resizing, clipboard, version checking, auto-sync, and custom renderers. This makes the Update function extremely complex with many conditional branches.",
+      "location": "/home/devuser/td/pkg/monitor/model.go:22-203",
+      "recommendation": "Extract sub-models for distinct UI concerns (BoardState, FormState, SearchState, SyncState). Use composition to keep the main Model focused on coordination."
+    },
+    {
+      "severity": "high",
+      "description": "Duplicated issue scan code across 4+ locations in the DB layer",
+      "detail": "The 24-column issue scan (id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint, assignee, linear_id, linear_identifier, project_tag, implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch) is duplicated in GetIssue (issues.go:92-144), ListIssues (issues.go:525-568), GetIssuesByIDs (issues.go:184-226), and scanIssueRow (issues_logged.go:21-72). Adding a new column requires changes in all locations.",
+      "location": "/home/devuser/td/internal/db/issues.go, /home/devuser/td/internal/db/issues_logged.go",
+      "recommendation": "Extract a shared scanIssue helper function that all query paths use. Define the column list as a constant."
+    },
+    {
+      "severity": "medium",
+      "description": "executeCommand in commands.go is a 900+ line switch statement",
+      "detail": "The handleKey -> executeCommand chain in commands.go handles ~60 commands in a single switch statement. Combined with the modal delegation chain (sync prompt, getting started, TDQ help, stats, handoffs, board editor, board picker, delete confirm, close confirm) that precedes it, key handling spans ~1400 lines.",
+      "location": "/home/devuser/td/pkg/monitor/commands.go:437-1329",
+      "recommendation": "Group related commands into handler methods (e.g., handleBoardCommand, handleModalCommand, handleNavigationCommand). Consider a command handler registry pattern."
+    },
+    {
+      "severity": "medium",
+      "description": "Manual SQL query building in ListIssues is error-prone",
+      "detail": "ListIssues builds SQL queries by concatenating strings with WHERE clause conditions. While sort column names are validated against allowedSortCols, the pattern is fragile for new features. 33 filter conditions are manually composed.",
+      "location": "/home/devuser/td/internal/db/issues.go:317-571",
+      "recommendation": "Consider a query builder pattern or at minimum extract filter composition into helper functions."
+    },
+    {
+      "severity": "medium",
+      "description": "Legacy state fields coexist with declarative modal system",
+      "detail": "Several confirmation dialogs have both legacy imperative state (ConfirmButtonFocus, ConfirmButtonHover, CloseConfirmButtonFocus) marked 'legacy, kept for compatibility' AND declarative modal instances (DeleteConfirmModal, CloseConfirmModal). This dual system increases cognitive load.",
+      "location": "/home/devuser/td/pkg/monitor/model.go:72-94",
+      "recommendation": "Complete migration to declarative modal system and remove legacy fields."
+    },
+    {
+      "severity": "medium",
+      "description": "TDQ query engine evaluates all issues in-memory",
+      "detail": "The query executor fetches all matching issues from DB (up to 10K cap) then evaluates the AST in memory. For simple field queries (status=open), this is inefficient compared to SQL WHERE clauses. Cross-entity queries (log.message~'foo') justify in-memory evaluation, but simple queries do not.",
+      "location": "/home/devuser/td/internal/query/execute.go",
+      "recommendation": "Optimize simple field-only queries to push down to SQL WHERE clauses. Reserve in-memory evaluation for cross-entity and function-based queries."
+    },
+    {
+      "severity": "medium",
+      "description": "Monitor depends on 10+ internal packages creating wide coupling",
+      "detail": "pkg/monitor/commands.go imports: internal/agent, internal/config, internal/db, internal/features, internal/models, internal/query, internal/syncclient, internal/syncconfig, and their sub-packages. This makes the monitor difficult to test in isolation and creates a large dependency surface.",
+      "location": "/home/devuser/td/pkg/monitor/commands.go:1-21",
+      "recommendation": "Introduce a service/facade layer that the monitor depends on instead of directly importing 10+ internal packages. This would also make the embedded API cleaner."
+    },
+    {
+      "severity": "low",
+      "description": "29 migrations with some custom Go code paths",
+      "detail": "Migrations v13, v14, v15, v18, v19, v20, v24, v25, v26 use custom Go code (SQL field is empty). These are harder to audit and test than pure SQL migrations. Some migrations handle edge cases from previous migration failures (v14 repairs v13).",
+      "location": "/home/devuser/td/internal/db/schema.go:319-443",
+      "recommendation": "Document migration dependencies clearly. Consider integration tests that run the full migration chain from v1 to current on empty and populated databases."
+    },
+    {
+      "severity": "low",
+      "description": "No interface for the DB struct itself",
+      "detail": "While QuerySource provides an interface for the query engine, the rest of the codebase (cmd/, monitor) depends directly on *db.DB. This makes unit testing commands and monitor actions difficult without a real database.",
+      "location": "/home/devuser/td/internal/db/db.go",
+      "recommendation": "Extract a DB interface for the most commonly used operations. Use it in cmd/ and monitor for better testability."
+    },
+    {
+      "severity": "low",
+      "description": "BubbleTea value-copy semantics conflict with pointer-based state sharing",
+      "detail": "Model is a value type copied on every Update, but several fields are pointers (*modal.Modal, *textinput.Model, *textarea.Model, *boardEditorPreviewData) that are shared across copies. This intentional pattern is documented but creates subtle ownership semantics.",
+      "location": "/home/devuser/td/pkg/monitor/model.go",
+      "recommendation": "Document the pointer-sharing pattern more prominently. Consider consolidating pointer-based state into a single mutable state struct."
+    }
+  ],
+
+  "metrics": {
+    "total_files": 332,
+    "total_lines": 125871,
+    "source_files": 198,
+    "source_lines": 58753,
+    "test_files": 134,
+    "test_lines": 67123,
+    "test_to_source_ratio": 1.14,
+    "packages": 29,
+    "schema_version": 29,
+    "schema_tables": 20,
+    "cobra_commands_approx": 50,
+    "tui_message_types": 25,
+    "keymap_commands": 60,
+    "keymap_contexts": 17,
+    "go_version": "1.25.5",
+    "key_dependencies": {
+      "bubbletea": "v1.3.10",
+      "cobra": "v1.10.2",
+      "sqlite_modernc": "v1.41.0",
+      "sqlite_mattn": "v1.14.33",
+      "lipgloss": "v1.1.1-0.20250404",
+      "glamour": "v0.10.0",
+      "huh": "v0.8.0"
+    },
+    "largest_packages_by_lines": {
+      "cmd/": 13529,
+      "pkg/monitor/": 13026,
+      "internal/db/": 7835,
+      "test/e2e/": 3975,
+      "internal/api/": 3922,
+      "internal/query/": 3419,
+      "internal/serverdb/": 1947,
+      "pkg/monitor/keymap/": 1715,
+      "internal/sync/": 1520,
+      "pkg/monitor/modal/": 1557
+    }
+  }
+}
