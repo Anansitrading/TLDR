@@ -21,6 +21,8 @@ type ListIssuesOptions struct {
 	Implementer    string
 	Reviewer       string
 	ReviewableBy   string // Issues that this session can review
+	Assignee       string // Filter by agent assignee
+	ProjectTag     string // Filter by project tag
 	ParentID       string
 	EpicID         string // Filter by epic (parent_id matches epic, recursively)
 	PointsMin      int
@@ -92,17 +94,20 @@ func (db *DB) GetIssue(id string) (*models.Issue, error) {
 	var labels string
 	var closedAt, deletedAt sql.NullTime
 	var parentID, acceptance, sprint sql.NullString
+	var assignee, linearID, linearIdentifier, projectTag sql.NullString
 	var implSession, creatorSession, reviewerSession sql.NullString
 	var createdBranch sql.NullString
 	var pointsNull sql.NullInt64
 
 	err := db.conn.QueryRow(`
 		SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 	FROM issues WHERE id = ?
 	`, id).Scan(
 		&issue.ID, &issue.Title, &issue.Description, &issue.Status, &issue.Type, &issue.Priority,
 		&pointsNull, &labels, &parentID, &acceptance, &sprint,
+		&assignee, &linearID, &linearIdentifier, &projectTag,
 		&implSession, &creatorSession, &reviewerSession, &issue.CreatedAt, &issue.UpdatedAt, &closedAt, &deletedAt, &issue.Minor, &createdBranch,
 	)
 
@@ -126,6 +131,10 @@ func (db *DB) GetIssue(id string) (*models.Issue, error) {
 	issue.ParentID = parentID.String
 	issue.Acceptance = acceptance.String
 	issue.Sprint = sprint.String
+	issue.Assignee = assignee.String
+	issue.LinearID = linearID.String
+	issue.LinearIdentifier = linearIdentifier.String
+	issue.ProjectTag = projectTag.String
 	issue.ImplementerSession = implSession.String
 	issue.CreatorSession = creatorSession.String
 	issue.ReviewerSession = reviewerSession.String
@@ -160,6 +169,7 @@ func (db *DB) GetIssuesByIDs(ids []string) ([]models.Issue, error) {
 
 	query := fmt.Sprintf(`
 		SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE id IN (%s)
 	`, strings.Join(placeholders, ","))
@@ -176,12 +186,14 @@ func (db *DB) GetIssuesByIDs(ids []string) ([]models.Issue, error) {
 		var labels string
 		var closedAt, deletedAt sql.NullTime
 		var parentID, acceptance, sprint sql.NullString
+		var assignee, linearID, linearIdentifier, projectTag sql.NullString
 		var implSession, creatorSession, reviewerSession sql.NullString
 		var createdBranch sql.NullString
 		var pointsNull sql.NullInt64
 		if err := rows.Scan(
 			&issue.ID, &issue.Title, &issue.Description, &issue.Status, &issue.Type, &issue.Priority,
 			&pointsNull, &labels, &parentID, &acceptance, &sprint,
+			&assignee, &linearID, &linearIdentifier, &projectTag,
 			&implSession, &creatorSession, &reviewerSession, &issue.CreatedAt, &issue.UpdatedAt, &closedAt, &deletedAt, &issue.Minor, &createdBranch,
 		); err != nil {
 			return nil, err
@@ -199,6 +211,10 @@ func (db *DB) GetIssuesByIDs(ids []string) ([]models.Issue, error) {
 		issue.ParentID = parentID.String
 		issue.Acceptance = acceptance.String
 		issue.Sprint = sprint.String
+		issue.Assignee = assignee.String
+		issue.LinearID = linearID.String
+		issue.LinearIdentifier = linearIdentifier.String
+		issue.ProjectTag = projectTag.String
 		issue.ImplementerSession = implSession.String
 		issue.CreatorSession = creatorSession.String
 		issue.ReviewerSession = reviewerSession.String
@@ -264,11 +280,13 @@ func (db *DB) UpdateIssue(issue *models.Issue) error {
 		_, err := db.conn.Exec(`
 			UPDATE issues SET title = ?, description = ?, status = ?, type = ?, priority = ?,
 			                  points = ?, labels = ?, parent_id = ?, acceptance = ?, sprint = ?,
+			                  assignee = ?, linear_id = ?, linear_identifier = ?, project_tag = ?,
 			                  implementer_session = ?, reviewer_session = ?, updated_at = ?,
 			                  closed_at = ?, deleted_at = ?
 			WHERE id = ?
 		`, issue.Title, issue.Description, issue.Status, issue.Type, issue.Priority,
 			issue.Points, labels, issue.ParentID, issue.Acceptance, issue.Sprint,
+			issue.Assignee, issue.LinearID, issue.LinearIdentifier, issue.ProjectTag,
 			issue.ImplementerSession, issue.ReviewerSession, issue.UpdatedAt,
 			issue.ClosedAt, issue.DeletedAt, issue.ID)
 
@@ -298,6 +316,7 @@ func (db *DB) RestoreIssue(id string) error {
 // ListIssues returns issues matching the filter
 func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 	query := `SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+                 assignee, linear_id, linear_identifier, project_tag,
                  implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
           FROM issues WHERE 1=1`
 	var args []interface{}
@@ -380,6 +399,18 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 	if opts.Reviewer != "" {
 		query += " AND reviewer_session = ?"
 		args = append(args, opts.Reviewer)
+	}
+
+	// Assignee filter (agent name)
+	if opts.Assignee != "" {
+		query += " AND assignee = ?"
+		args = append(args, opts.Assignee)
+	}
+
+	// Project tag filter
+	if opts.ProjectTag != "" {
+		query += " AND project_tag = ?"
+		args = append(args, opts.ProjectTag)
 	}
 
 	// Reviewable by (issues that can be reviewed by this session)
@@ -496,6 +527,7 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 		var labels string
 		var closedAt, deletedAt sql.NullTime
 		var parentID, acceptance, sprint sql.NullString
+		var assignee, linearID, linearIdentifier, projectTag sql.NullString
 		var implSession, creatorSession, reviewerSession sql.NullString
 		var createdBranch sql.NullString
 		var pointsNull sql.NullInt64
@@ -503,6 +535,7 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 		err := rows.Scan(
 			&issue.ID, &issue.Title, &issue.Description, &issue.Status, &issue.Type, &issue.Priority,
 			&pointsNull, &labels, &parentID, &acceptance, &sprint,
+			&assignee, &linearID, &linearIdentifier, &projectTag,
 			&implSession, &creatorSession, &reviewerSession, &issue.CreatedAt, &issue.UpdatedAt, &closedAt, &deletedAt, &issue.Minor, &createdBranch,
 		)
 		if err != nil {
@@ -522,6 +555,10 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 		issue.ParentID = parentID.String
 		issue.Acceptance = acceptance.String
 		issue.Sprint = sprint.String
+		issue.Assignee = assignee.String
+		issue.LinearID = linearID.String
+		issue.LinearIdentifier = linearIdentifier.String
+		issue.ProjectTag = projectTag.String
 		issue.ImplementerSession = implSession.String
 		issue.CreatorSession = creatorSession.String
 		issue.ReviewerSession = reviewerSession.String

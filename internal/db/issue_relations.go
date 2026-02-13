@@ -67,6 +67,7 @@ func (db *DB) HasChildren(issueID string) (bool, error) {
 func (db *DB) GetDirectChildren(issueID string) ([]*models.Issue, error) {
 	rows, err := db.conn.Query(`
 		SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE parent_id = ? AND deleted_at IS NULL
 	`, issueID)
@@ -81,6 +82,7 @@ func (db *DB) GetDirectChildren(issueID string) ([]*models.Issue, error) {
 		var labels string
 		var closedAt, deletedAt sql.NullTime
 		var parentID, acceptance, sprint sql.NullString
+		var assignee, linearID, linearIdentifier, projectTag sql.NullString
 		var implSession, creatorSession, reviewerSession sql.NullString
 		var createdBranch sql.NullString
 		var pointsNull sql.NullInt64
@@ -88,6 +90,7 @@ func (db *DB) GetDirectChildren(issueID string) ([]*models.Issue, error) {
 		err := rows.Scan(
 			&issue.ID, &issue.Title, &issue.Description, &issue.Status, &issue.Type, &issue.Priority,
 			&pointsNull, &labels, &parentID, &acceptance, &sprint,
+			&assignee, &linearID, &linearIdentifier, &projectTag,
 			&implSession, &creatorSession, &reviewerSession, &issue.CreatedAt, &issue.UpdatedAt, &closedAt, &deletedAt, &issue.Minor, &createdBranch,
 		)
 		if err != nil {
@@ -107,6 +110,10 @@ func (db *DB) GetDirectChildren(issueID string) ([]*models.Issue, error) {
 		issue.ParentID = parentID.String
 		issue.Acceptance = acceptance.String
 		issue.Sprint = sprint.String
+		issue.Assignee = assignee.String
+		issue.LinearID = linearID.String
+		issue.LinearIdentifier = linearIdentifier.String
+		issue.ProjectTag = projectTag.String
 		issue.ImplementerSession = implSession.String
 		issue.CreatorSession = creatorSession.String
 		issue.ReviewerSession = reviewerSession.String

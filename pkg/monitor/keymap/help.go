@@ -155,9 +155,21 @@ func (r *Registry) GenerateHelp() string {
 		{Keys: "← / →", Description: "Switch columns (swimlanes)"},
 		{Keys: "J / K", Description: "Move issue down/up in column"},
 		{Keys: "Ctrl+J / Ctrl+K", Description: "Move issue to bottom/top"},
-		{Keys: "v", Description: "Toggle swimlanes/backlog view"},
+		{Keys: "v", Description: "Cycle view (swimlanes/backlog/kanban)"},
 		{Keys: "c", Description: "Toggle closed issues"},
 		{Keys: "F", Description: "Cycle status filter"},
+	}
+	for _, b := range boardBindings {
+		sb.WriteString(fmt.Sprintf("  %-20s %s\n", b.Keys, b.Description))
+	}
+
+	sb.WriteString("\nKANBAN VIEW:\n")
+	boardBindings = []HelpBinding{
+		{Keys: "h / l / ← / →", Description: "Switch between status columns"},
+		{Keys: "j / k / ↑ / ↓", Description: "Move within column"},
+		{Keys: "G / g g", Description: "Jump to bottom/top of column"},
+		{Keys: "Enter", Description: "Open issue details"},
+		{Keys: "v", Description: "Cycle view mode"},
 	}
 	for _, b := range boardBindings {
 		sb.WriteString(fmt.Sprintf("  %-20s %s\n", b.Keys, b.Description))
@@ -304,8 +316,12 @@ func (r *Registry) FooterHelp() string {
 
 // BoardFooterHelp generates help text for board mode footer
 func (r *Registry) BoardFooterHelp() string {
-	// Board-specific: v:view toggles swimlanes/backlog, F:filter cycles status
 	return "n:new e:edit x:del a:approve  v:view S:sort T:type F:filter c:closed b:boards  /:search s:stats tab:panel ?:help"
+}
+
+// KanbanFooterHelp generates help text for kanban view footer
+func (r *Registry) KanbanFooterHelp() string {
+	return "h/l:columns j/k:cards  v:view n:new e:edit  F:filter c:closed b:boards  /:search s:stats ?:help"
 }
 
 // ModalFooterHelp generates help text for the modal footer
@@ -408,7 +424,11 @@ func CommandHelp(cmd Command) string {
 	case CmdCycleBoardStatusFilter:
 		return "Cycle status filter in board"
 	case CmdToggleBoardView:
-		return "Toggle swimlanes/backlog view"
+		return "Cycle view mode (swimlanes/backlog/kanban)"
+	case CmdKanbanPrevColumn:
+		return "Move to previous kanban column"
+	case CmdKanbanNextColumn:
+		return "Move to next kanban column"
 	case CmdOpenGettingStarted:
 		return "Open the getting started guide"
 	case CmdInstallInstructions:
@@ -487,6 +507,7 @@ func AllCommands() []Command {
 		CmdOpenBoardPicker, CmdSelectBoard, CmdCloseBoardPicker,
 		CmdMoveIssueUp, CmdMoveIssueDown, CmdMoveIssueToTop, CmdMoveIssueToBottom,
 		CmdExitBoardMode, CmdToggleBoardClosed, CmdCycleBoardStatusFilter, CmdToggleBoardView,
+		CmdKanbanPrevColumn, CmdKanbanNextColumn,
 		// Getting started commands
 		CmdOpenGettingStarted, CmdInstallInstructions,
 	}

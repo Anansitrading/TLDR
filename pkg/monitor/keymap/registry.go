@@ -32,6 +32,7 @@ const (
 	ContextGettingStarted    Context = "getting-started"    // When getting started modal is open
 	ContextTDQHelp           Context = "tdq-help"           // When TDQ help modal is open
 	ContextBoardEditor       Context = "board-editor"       // When board edit/create modal is open
+	ContextBoardKanban       Context = "board-kanban"       // When kanban board view is active
 	ContextCloseConfirm      Context = "close-confirm"      // When close confirmation modal is open (has text input)
 	ContextSyncPrompt        Context = "td-sync-prompt"    // When sync prompt modal is open
 )
@@ -133,6 +134,10 @@ const (
 	CmdToggleBoardClosed      Command = "closed"
 	CmdCycleBoardStatusFilter Command = "status-filter"
 	CmdToggleBoardView        Command = "view"
+
+	// Kanban column navigation
+	CmdKanbanPrevColumn Command = "kanban-prev-column"
+	CmdKanbanNextColumn Command = "kanban-next-column"
 
 	// External integration commands
 	CmdSendToWorktree Command = "send-to-worktree"

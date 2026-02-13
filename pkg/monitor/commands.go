@@ -83,6 +83,9 @@ func (m Model) currentContext() keymap.Context {
 	}
 	// Board mode context when Task List is active and in board mode
 	if m.ActivePanel == PanelTaskList && m.TaskListMode == TaskListModeBoard {
+		if m.BoardMode.ViewMode == BoardViewKanban {
+			return keymap.ContextBoardKanban
+		}
 		return keymap.ContextBoard
 	}
 	return keymap.ContextMain
@@ -536,7 +539,9 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 				m.BoardPickerCursor++
 			}
 		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.kanbanCursorDown()
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				if m.BoardMode.SwimlaneCursor < len(m.BoardMode.SwimlaneRows)-1 {
 					m.BoardMode.SwimlaneCursor++
 					m.ensureSwimlaneCursorVisible()
@@ -603,7 +608,9 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 				m.BoardPickerCursor--
 			}
 		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.kanbanCursorUp()
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				if m.BoardMode.SwimlaneCursor > 0 {
 					m.BoardMode.SwimlaneCursor--
 					m.ensureSwimlaneCursorVisible()
@@ -642,7 +649,9 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 		} else if m.BoardPickerOpen {
 			m.BoardPickerCursor = 0
 		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.kanbanCursorTop()
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				m.BoardMode.SwimlaneCursor = 0
 				m.BoardMode.SwimlaneScroll = 0
 			} else {
@@ -680,7 +689,9 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 				m.BoardPickerCursor = len(m.AllBoards) - 1
 			}
 		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.kanbanCursorBottom()
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				if len(m.BoardMode.SwimlaneRows) > 0 {
 					m.BoardMode.SwimlaneCursor = len(m.BoardMode.SwimlaneRows) - 1
 					m.ensureSwimlaneCursorVisible()
@@ -735,7 +746,9 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 				modal.Scroll = maxScroll
 			}
 		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.kanbanPageMove(pageSize)
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				m.BoardMode.SwimlaneCursor += pageSize
 				if m.BoardMode.SwimlaneCursor >= len(m.BoardMode.SwimlaneRows) {
 					m.BoardMode.SwimlaneCursor = len(m.BoardMode.SwimlaneRows) - 1
@@ -797,7 +810,9 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 				modal.Scroll = 0
 			}
 		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.kanbanPageMove(-pageSize)
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				m.BoardMode.SwimlaneCursor -= pageSize
 				if m.BoardMode.SwimlaneCursor < 0 {
 					m.BoardMode.SwimlaneCursor = 0
@@ -862,6 +877,8 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 			}
 		} else if m.ShowTDQHelp && m.TDQHelpModal != nil {
 			m.TDQHelpModal.Scroll(pageSize)
+		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList && m.BoardMode.ViewMode == BoardViewKanban {
+			m.kanbanPageMove(pageSize)
 		} else {
 			for i := 0; i < pageSize; i++ {
 				m.moveCursor(1)
@@ -900,6 +917,8 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 			}
 		} else if m.ShowTDQHelp && m.TDQHelpModal != nil {
 			m.TDQHelpModal.Scroll(-pageSize)
+		} else if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList && m.BoardMode.ViewMode == BoardViewKanban {
+			m.kanbanPageMove(-pageSize)
 		} else {
 			for i := 0; i < pageSize; i++ {
 				m.moveCursor(-1)
@@ -1290,6 +1309,14 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 	case keymap.CmdToggleBoardView:
 		return m.toggleBoardView()
 
+	case keymap.CmdKanbanPrevColumn:
+		m.kanbanPrevColumn()
+		return m, nil
+
+	case keymap.CmdKanbanNextColumn:
+		m.kanbanNextColumn()
+		return m, nil
+
 	// Getting started commands
 	case keymap.CmdOpenGettingStarted:
 		return m.openGettingStarted()
@@ -1327,6 +1354,9 @@ func (m Model) selectBoard() (Model, tea.Cmd) {
 	if m.BoardMode.StatusFilter == nil {
 		m.BoardMode.StatusFilter = DefaultBoardStatusFilter()
 	}
+	if m.BoardMode.ViewMode == BoardViewKanban {
+		m.rebuildKanbanState()
+	}
 	m.closeBoardPickerModal()
 
 	// Update last viewed (skip if DB not initialized, e.g., in tests)
@@ -1347,8 +1377,20 @@ func (m Model) openIssueFromBoard() (tea.Model, tea.Cmd) {
 	}
 
 	var issueID string
-	if m.BoardMode.ViewMode == BoardViewSwimlanes {
-		// Swimlanes view: get issue from SwimlaneRows
+	switch m.BoardMode.ViewMode {
+	case BoardViewKanban:
+		ks := &m.BoardMode.Kanban
+		if len(ks.VisibleStatuses) == 0 {
+			return m, nil
+		}
+		status := ks.VisibleStatuses[ks.ActiveColumn]
+		issues := ks.ColumnIssues[status]
+		cursor := ks.ColumnCursors[status]
+		if cursor < 0 || cursor >= len(issues) {
+			return m, nil
+		}
+		issueID = issues[cursor].ID
+	case BoardViewSwimlanes:
 		if len(m.BoardMode.SwimlaneRows) == 0 {
 			return m, nil
 		}
@@ -1356,8 +1398,7 @@ func (m Model) openIssueFromBoard() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		issueID = m.BoardMode.SwimlaneRows[m.BoardMode.SwimlaneCursor].Issue.ID
-	} else {
-		// Backlog view: get issue from Issues
+	default:
 		if len(m.BoardMode.Issues) == 0 {
 			return m, nil
 		}
@@ -1457,28 +1498,54 @@ func (m Model) toggleBoardView() (Model, tea.Cmd) {
 
 	// Get currently selected issue ID before toggling
 	var selectedID string
-	if m.BoardMode.ViewMode == BoardViewSwimlanes {
+	switch m.BoardMode.ViewMode {
+	case BoardViewSwimlanes:
 		if m.BoardMode.SwimlaneCursor >= 0 && m.BoardMode.SwimlaneCursor < len(m.BoardMode.SwimlaneRows) {
 			selectedID = m.BoardMode.SwimlaneRows[m.BoardMode.SwimlaneCursor].Issue.ID
 		}
-	} else {
+	case BoardViewKanban:
+		if ks := &m.BoardMode.Kanban; len(ks.VisibleStatuses) > 0 {
+			status := ks.VisibleStatuses[ks.ActiveColumn]
+			issues := ks.ColumnIssues[status]
+			cursor := ks.ColumnCursors[status]
+			if cursor >= 0 && cursor < len(issues) {
+				selectedID = issues[cursor].ID
+			}
+		}
+	default:
 		if m.BoardMode.Cursor >= 0 && m.BoardMode.Cursor < len(m.BoardMode.Issues) {
 			selectedID = m.BoardMode.Issues[m.BoardMode.Cursor].Issue.ID
 		}
 	}
 
-	// Toggle view mode
-	if m.BoardMode.ViewMode == BoardViewSwimlanes {
+	// Cycle view mode: swimlanes → backlog → kanban → swimlanes
+	switch m.BoardMode.ViewMode {
+	case BoardViewSwimlanes:
 		m.BoardMode.ViewMode = BoardViewBacklog
 		m.StatusMessage = "Switched to backlog view"
-	} else {
+	case BoardViewBacklog:
+		m.BoardMode.ViewMode = BoardViewKanban
+		m.rebuildKanbanState()
+		m.StatusMessage = "Switched to kanban view"
+	case BoardViewKanban:
 		m.BoardMode.ViewMode = BoardViewSwimlanes
 		m.StatusMessage = "Switched to swimlanes view"
 	}
 
 	// Try to preserve selection by finding the same issue in the new view
 	if selectedID != "" {
-		if m.BoardMode.ViewMode == BoardViewSwimlanes {
+		if m.BoardMode.ViewMode == BoardViewKanban {
+			// Find issue in kanban columns
+			for _, status := range m.BoardMode.Kanban.VisibleStatuses {
+				for i, issue := range m.BoardMode.Kanban.ColumnIssues[status] {
+					if issue.ID == selectedID {
+						m.BoardMode.Kanban.ActiveColumn = indexOf(status, m.BoardMode.Kanban.VisibleStatuses)
+						m.BoardMode.Kanban.ColumnCursors[status] = i
+						break
+					}
+				}
+			}
+		} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 			// Find issue in swimlane rows
 			for i, row := range m.BoardMode.SwimlaneRows {
 				if row.Issue.ID == selectedID {

@@ -382,6 +382,52 @@ func DefaultBindings() []Binding {
 		{Key: "end", Command: CmdCursorBottom, Context: ContextBoard, Description: "Go to bottom"},
 
 		// ============================================================
+		// BOARD KANBAN BINDINGS
+		// Active when viewing a board in kanban mode (overrides ContextBoard)
+		// h/l are column navigation (not handoffs/next issue)
+		// ============================================================
+		{Key: "h", Command: CmdKanbanPrevColumn, Context: ContextBoardKanban, Description: "Previous column"},
+		{Key: "left", Command: CmdKanbanPrevColumn, Context: ContextBoardKanban, Description: "Previous column"},
+		{Key: "l", Command: CmdKanbanNextColumn, Context: ContextBoardKanban, Description: "Next column"},
+		{Key: "right", Command: CmdKanbanNextColumn, Context: ContextBoardKanban, Description: "Next column"},
+		{Key: "j", Command: CmdCursorDown, Context: ContextBoardKanban, Description: "Move down in column"},
+		{Key: "down", Command: CmdCursorDown, Context: ContextBoardKanban, Description: "Move down in column"},
+		{Key: "k", Command: CmdCursorUp, Context: ContextBoardKanban, Description: "Move up in column"},
+		{Key: "up", Command: CmdCursorUp, Context: ContextBoardKanban, Description: "Move up in column"},
+		{Key: "enter", Command: CmdOpenDetails, Context: ContextBoardKanban, Description: "Open issue"},
+		{Key: "G", Command: CmdCursorBottom, Context: ContextBoardKanban, Description: "Go to bottom of column"},
+		{Key: "g g", Command: CmdCursorTop, Context: ContextBoardKanban, Description: "Go to top of column"},
+		{Key: "ctrl+d", Command: CmdHalfPageDown, Context: ContextBoardKanban, Description: "Half page down"},
+		{Key: "ctrl+u", Command: CmdHalfPageUp, Context: ContextBoardKanban, Description: "Half page up"},
+		{Key: "ctrl+f", Command: CmdFullPageDown, Context: ContextBoardKanban, Description: "Full page down"},
+		{Key: "ctrl+b", Command: CmdFullPageUp, Context: ContextBoardKanban, Description: "Full page up"},
+		{Key: "home", Command: CmdCursorTop, Context: ContextBoardKanban, Description: "Go to top of column"},
+		{Key: "end", Command: CmdCursorBottom, Context: ContextBoardKanban, Description: "Go to bottom of column"},
+		{Key: "v", Command: CmdToggleBoardView, Context: ContextBoardKanban, Description: "Cycle view mode"},
+		{Key: "c", Command: CmdToggleBoardClosed, Context: ContextBoardKanban, Description: "Toggle closed"},
+		{Key: "F", Command: CmdCycleBoardStatusFilter, Context: ContextBoardKanban, Description: "Cycle status filter"},
+		{Key: "esc", Command: CmdExitBoardMode, Context: ContextBoardKanban, Description: "Exit to All Issues"},
+		{Key: "b", Command: CmdOpenBoardPicker, Context: ContextBoardKanban, Description: "Open board picker"},
+		{Key: "tab", Command: CmdNextPanel, Context: ContextBoardKanban, Description: "Next panel"},
+		{Key: "shift+tab", Command: CmdPrevPanel, Context: ContextBoardKanban, Description: "Previous panel"},
+		{Key: "/", Command: CmdSearch, Context: ContextBoardKanban, Description: "Search"},
+		{Key: "y", Command: CmdCopyToClipboard, Context: ContextBoardKanban, Description: "Copy issue as markdown"},
+		{Key: "Y", Command: CmdCopyIDToClipboard, Context: ContextBoardKanban, Description: "Copy issue ID"},
+		{Key: "r", Command: CmdRefresh, Context: ContextBoardKanban, Description: "Refresh"},
+		{Key: "n", Command: CmdNewIssue, Context: ContextBoardKanban, Description: "New issue"},
+		{Key: "e", Command: CmdEditIssue, Context: ContextBoardKanban, Description: "Edit issue"},
+		{Key: "x", Command: CmdDelete, Context: ContextBoardKanban, Description: "Delete issue"},
+		{Key: "a", Command: CmdApprove, Context: ContextBoardKanban, Description: "Approve issue"},
+		{Key: "R", Command: CmdMarkForReview, Context: ContextBoardKanban, Description: "Submit for review"},
+		{Key: "C", Command: CmdCloseIssue, Context: ContextBoardKanban, Description: "Close issue"},
+		{Key: "O", Command: CmdReopenIssue, Context: ContextBoardKanban, Description: "Reopen issue"},
+		{Key: "s", Command: CmdOpenStats, Context: ContextBoardKanban, Description: "Open statistics"},
+		{Key: "S", Command: CmdCycleSortMode, Context: ContextBoardKanban, Description: "Cycle sort mode"},
+		{Key: "T", Command: CmdCycleTypeFilter, Context: ContextBoardKanban, Description: "Cycle type filter"},
+		{Key: "W", Command: CmdSendToWorktree, Context: ContextBoardKanban, Description: "Send to worktree"},
+		{Key: "H", Command: CmdOpenGettingStarted, Context: ContextBoardKanban, Description: "Open getting started guide"},
+
+		// ============================================================
 		// GETTING STARTED MODAL BINDINGS
 		// Active when the getting started modal is open
 		// ============================================================

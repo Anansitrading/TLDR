@@ -137,6 +137,9 @@ func FormatPointsSuffix(points int) string {
 func FormatIssueShort(issue *models.Issue) string {
 	var parts []string
 	parts = append(parts, titleStyle.Render(issue.ID))
+	if issue.LinearIdentifier != "" {
+		parts = append(parts, subtleStyle.Render(issue.LinearIdentifier))
+	}
 	parts = append(parts, FormatPriority(issue.Priority))
 	parts = append(parts, issue.Title)
 
@@ -146,6 +149,10 @@ func FormatIssueShort(issue *models.Issue) string {
 
 	parts = append(parts, subtleStyle.Render(string(issue.Type)))
 	parts = append(parts, FormatStatus(issue.Status))
+
+	if issue.Assignee != "" {
+		parts = append(parts, subtleStyle.Render("@"+issue.Assignee))
+	}
 
 	return strings.Join(parts, "  ")
 }
@@ -184,6 +191,15 @@ func FormatIssueLong(issue *models.Issue, logs []models.Log, handoff *models.Han
 	}
 	sb.WriteString("\n")
 
+	if issue.Assignee != "" {
+		sb.WriteString(fmt.Sprintf("Assignee: %s\n", issue.Assignee))
+	}
+	if issue.LinearIdentifier != "" {
+		sb.WriteString(fmt.Sprintf("Linear: %s\n", issue.LinearIdentifier))
+	}
+	if issue.ProjectTag != "" {
+		sb.WriteString(fmt.Sprintf("Project: %s\n", issue.ProjectTag))
+	}
 	if len(issue.Labels) > 0 {
 		sb.WriteString(fmt.Sprintf("Labels: %s\n", strings.Join(issue.Labels, ", ")))
 	}

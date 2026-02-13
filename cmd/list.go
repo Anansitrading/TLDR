@@ -176,6 +176,12 @@ var listCmd = &cobra.Command{
 		opts.Implementer, _ = cmd.Flags().GetString("implementer")
 		opts.Reviewer, _ = cmd.Flags().GetString("reviewer")
 
+		// Agent assignee filter
+		opts.Assignee, _ = cmd.Flags().GetString("assignee")
+
+		// Project tag filter
+		opts.ProjectTag, _ = cmd.Flags().GetString("project")
+
 		// Parent filter
 		if parentID, _ := cmd.Flags().GetString("parent"); parentID != "" {
 			opts.ParentID = parentID
@@ -574,6 +580,8 @@ func init() {
 	listCmd.Flags().StringP("search", "q", "", "Search title/description")
 	listCmd.Flags().String("implementer", "", "Filter by implementer session")
 	listCmd.Flags().String("reviewer", "", "Filter by reviewer session")
+	listCmd.Flags().String("assignee", "", "Filter by agent assignee (oracle, smith, etc.)")
+	listCmd.Flags().String("project", "", "Filter by project tag")
 	listCmd.Flags().Bool("reviewable", false, "Show issues you can review")
 	listCmd.Flags().String("parent", "", "Filter by parent issue ID")
 	listCmd.Flags().String("epic", "", "Filter by epic (shows all tasks within epic)")

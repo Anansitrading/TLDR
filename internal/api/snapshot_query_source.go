@@ -27,6 +27,7 @@ var _ query.QuerySource = (*SnapshotQuerySource)(nil)
 
 // issueColumns is the SELECT column list matching the scan order used throughout.
 const issueColumns = `id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+       assignee, linear_id, linear_identifier, project_tag,
        implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch`
 
 // scanIssue scans a single issue row using the standard column order.
@@ -35,6 +36,7 @@ func scanIssue(scanner interface{ Scan(dest ...any) error }) (models.Issue, erro
 	var labels string
 	var closedAt, deletedAt sql.NullTime
 	var parentID, acceptance, sprint sql.NullString
+	var assignee, linearID, linearIdentifier, projectTag sql.NullString
 	var implSession, creatorSession, reviewerSession sql.NullString
 	var createdBranch sql.NullString
 	var pointsNull sql.NullInt64
@@ -42,6 +44,7 @@ func scanIssue(scanner interface{ Scan(dest ...any) error }) (models.Issue, erro
 	err := scanner.Scan(
 		&issue.ID, &issue.Title, &issue.Description, &issue.Status, &issue.Type, &issue.Priority,
 		&pointsNull, &labels, &parentID, &acceptance, &sprint,
+		&assignee, &linearID, &linearIdentifier, &projectTag,
 		&implSession, &creatorSession, &reviewerSession, &issue.CreatedAt, &issue.UpdatedAt, &closedAt, &deletedAt, &issue.Minor, &createdBranch,
 	)
 	if err != nil {
@@ -61,6 +64,10 @@ func scanIssue(scanner interface{ Scan(dest ...any) error }) (models.Issue, erro
 	issue.ParentID = parentID.String
 	issue.Acceptance = acceptance.String
 	issue.Sprint = sprint.String
+	issue.Assignee = assignee.String
+	issue.LinearID = linearID.String
+	issue.LinearIdentifier = linearIdentifier.String
+	issue.ProjectTag = projectTag.String
 	issue.ImplementerSession = implSession.String
 	issue.CreatorSession = creatorSession.String
 	issue.ReviewerSession = reviewerSession.String
@@ -152,6 +159,18 @@ func (s *SnapshotQuerySource) ListIssues(opts db.ListIssuesOptions) ([]models.Is
 	if opts.Reviewer != "" {
 		q += " AND reviewer_session = ?"
 		args = append(args, opts.Reviewer)
+	}
+
+	// Assignee filter
+	if opts.Assignee != "" {
+		q += " AND assignee = ?"
+		args = append(args, opts.Assignee)
+	}
+
+	// Project tag filter
+	if opts.ProjectTag != "" {
+		q += " AND project_tag = ?"
+		args = append(args, opts.ProjectTag)
 	}
 
 	// ReviewableBy filter

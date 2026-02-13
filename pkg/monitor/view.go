@@ -484,10 +484,14 @@ func (m Model) renderActivityPanel(height int) string {
 func (m Model) renderTaskListPanel(height int) string {
 	// If in board mode, render board view in this panel
 	if m.TaskListMode == TaskListModeBoard && m.BoardMode.Board != nil {
-		if m.BoardMode.ViewMode == BoardViewSwimlanes {
+		switch m.BoardMode.ViewMode {
+		case BoardViewKanban:
+			return m.renderBoardKanbanView(height)
+		case BoardViewSwimlanes:
 			return m.renderBoardSwimlanesView(height)
+		default:
+			return m.renderTaskListBoardView(height)
 		}
-		return m.renderTaskListBoardView(height)
 	}
 
 	var content strings.Builder
@@ -2035,7 +2039,9 @@ func (m Model) renderSearchBar() string {
 func (m Model) renderFooter() string {
 	// Use board-specific footer when in board mode
 	var keysStr string
-	if m.TaskListMode == TaskListModeBoard {
+	if m.TaskListMode == TaskListModeBoard && m.BoardMode.ViewMode == BoardViewKanban {
+		keysStr = m.Keymap.KanbanFooterHelp()
+	} else if m.TaskListMode == TaskListModeBoard {
 		keysStr = m.Keymap.BoardFooterHelp()
 	} else {
 		keysStr = m.Keymap.FooterHelp()

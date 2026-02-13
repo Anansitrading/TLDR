@@ -87,6 +87,10 @@ type Issue struct {
 	ParentID           string     `json:"parent_id,omitempty"`
 	Acceptance         string     `json:"acceptance,omitempty"`
 	Sprint             string     `json:"sprint,omitempty"`
+	Assignee           string     `json:"assignee,omitempty"`
+	LinearID           string     `json:"linear_id,omitempty"`
+	LinearIdentifier   string     `json:"linear_identifier,omitempty"`
+	ProjectTag         string     `json:"project_tag,omitempty"`
 	ImplementerSession string     `json:"implementer_session"`
 	CreatorSession     string     `json:"creator_session"`
 	ReviewerSession    string     `json:"reviewer_session"`
@@ -96,6 +100,33 @@ type Issue struct {
 	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
 	Minor              bool       `json:"minor"`
 	CreatedBranch      string     `json:"created_branch,omitempty"`
+}
+
+// AgentActivityType represents types of agent activity
+type AgentActivityType string
+
+const (
+	ActivityAssigned       AgentActivityType = "assigned"
+	ActivityStarted        AgentActivityType = "started"
+	ActivityCommitted      AgentActivityType = "committed"
+	ActivityPRCreated      AgentActivityType = "pr_created"
+	ActivityReviewed       AgentActivityType = "reviewed"
+	ActivityCompleted      AgentActivityType = "completed"
+	ActivitySpawnedSubagent AgentActivityType = "spawned_subagent"
+	ActivityComment        AgentActivityType = "comment"
+)
+
+// AgentActivity represents a tracked agent action on an issue
+type AgentActivity struct {
+	ID           string            `json:"id"`
+	IssueID      string            `json:"issue_id"`
+	AgentName    string            `json:"agent_name"`
+	ActivityType AgentActivityType `json:"activity_type"`
+	Details      string            `json:"details,omitempty"`
+	SessionID    string            `json:"session_id,omitempty"`
+	WorktreePath string            `json:"worktree_path,omitempty"`
+	Branch       string            `json:"branch,omitempty"`
+	CreatedAt    time.Time         `json:"created_at"`
 }
 
 // Log represents a session log entry

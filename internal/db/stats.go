@@ -116,15 +116,18 @@ func (db *DB) GetExtendedStats() (*models.ExtendedStats, error) {
 	var labels string
 	var closedAt, deletedAt sql.NullTime
 	var parentID1, acceptance1, sprint1 sql.NullString
+	var assignee1, linearID1, linearIdentifier1, projectTag1 sql.NullString
 	var implSession1, creatorSession1, reviewerSession1 sql.NullString
 	var createdBranch1 sql.NullString
 	err = db.conn.QueryRow(`
 		SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE status = ? AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1
 	`, models.StatusOpen).Scan(
 		&oldestIssue.ID, &oldestIssue.Title, &oldestIssue.Description, &oldestIssue.Status, &oldestIssue.Type,
 		&oldestIssue.Priority, &oldestIssue.Points, &labels, &parentID1, &acceptance1, &sprint1,
+		&assignee1, &linearID1, &linearIdentifier1, &projectTag1,
 		&implSession1, &creatorSession1, &reviewerSession1, &oldestIssue.CreatedAt, &oldestIssue.UpdatedAt,
 		&closedAt, &deletedAt, &oldestIssue.Minor, &createdBranch1,
 	)
@@ -154,15 +157,18 @@ func (db *DB) GetExtendedStats() (*models.ExtendedStats, error) {
 	closedAt = sql.NullTime{}
 	deletedAt = sql.NullTime{}
 	var parentID2, acceptance2, sprint2 sql.NullString
+	var assignee2, linearID2, linearIdentifier2, projectTag2 sql.NullString
 	var implSession2, creatorSession2, reviewerSession2 sql.NullString
 	var createdBranch2 sql.NullString
 	err = db.conn.QueryRow(`
 		SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 1
 	`).Scan(
 		&newestIssue.ID, &newestIssue.Title, &newestIssue.Description, &newestIssue.Status, &newestIssue.Type,
 		&newestIssue.Priority, &newestIssue.Points, &labels, &parentID2, &acceptance2, &sprint2,
+		&assignee2, &linearID2, &linearIdentifier2, &projectTag2,
 		&implSession2, &creatorSession2, &reviewerSession2, &newestIssue.CreatedAt, &newestIssue.UpdatedAt,
 		&closedAt, &deletedAt, &newestIssue.Minor, &createdBranch2,
 	)
@@ -192,16 +198,19 @@ func (db *DB) GetExtendedStats() (*models.ExtendedStats, error) {
 	closedAt = sql.NullTime{}
 	deletedAt = sql.NullTime{}
 	var parentID3, acceptance3, sprint3 sql.NullString
+	var assignee3, linearID3, linearIdentifier3, projectTag3 sql.NullString
 	var implSession3, creatorSession3, reviewerSession3 sql.NullString
 	var createdBranch3 sql.NullString
 	err = db.conn.QueryRow(`
 		SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE status = ? AND closed_at IS NOT NULL AND deleted_at IS NULL
 		ORDER BY closed_at DESC LIMIT 1
 	`, models.StatusClosed).Scan(
 		&closedIssue.ID, &closedIssue.Title, &closedIssue.Description, &closedIssue.Status, &closedIssue.Type,
 		&closedIssue.Priority, &closedIssue.Points, &labels, &parentID3, &acceptance3, &sprint3,
+		&assignee3, &linearID3, &linearIdentifier3, &projectTag3,
 		&implSession3, &creatorSession3, &reviewerSession3, &closedIssue.CreatedAt, &closedIssue.UpdatedAt,
 		&closedAt, &deletedAt, &closedIssue.Minor, &createdBranch3,
 	)

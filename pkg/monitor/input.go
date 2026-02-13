@@ -551,7 +551,14 @@ func (m Model) rowCount(panel Panel) int {
 		return len(m.Activity)
 	case PanelTaskList:
 		if m.TaskListMode == TaskListModeBoard {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				ks := &m.BoardMode.Kanban
+				if len(ks.VisibleStatuses) > 0 {
+					status := ks.VisibleStatuses[ks.ActiveColumn]
+					return len(ks.ColumnIssues[status])
+				}
+				return 0
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				return len(m.BoardMode.SwimlaneRows)
 			}
 			return len(m.BoardMode.Issues)
@@ -740,7 +747,18 @@ func (m Model) SelectedIssueID(panel Panel) string {
 		}
 	case PanelTaskList:
 		if m.TaskListMode == TaskListModeBoard {
-			if m.BoardMode.ViewMode == BoardViewSwimlanes {
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				ks := &m.BoardMode.Kanban
+				if len(ks.VisibleStatuses) > 0 {
+					status := ks.VisibleStatuses[ks.ActiveColumn]
+					issues := ks.ColumnIssues[status]
+					cursor := ks.ColumnCursors[status]
+					if cursor >= 0 && cursor < len(issues) {
+						return issues[cursor].ID
+					}
+				}
+				return ""
+			} else if m.BoardMode.ViewMode == BoardViewSwimlanes {
 				cursor := m.BoardMode.SwimlaneCursor
 				if cursor >= 0 && cursor < len(m.BoardMode.SwimlaneRows) {
 					return m.BoardMode.SwimlaneRows[cursor].Issue.ID

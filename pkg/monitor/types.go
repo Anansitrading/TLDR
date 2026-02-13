@@ -31,6 +31,7 @@ type BoardViewMode int
 const (
 	BoardViewSwimlanes BoardViewMode = iota // Default: grouped by status categories
 	BoardViewBacklog                        // Flat list with position ordering
+	BoardViewKanban                         // Side-by-side status columns (Linear-style)
 )
 
 // String returns the display name for the view mode
@@ -38,6 +39,8 @@ func (v BoardViewMode) String() string {
 	switch v {
 	case BoardViewBacklog:
 		return "backlog"
+	case BoardViewKanban:
+		return "kanban"
 	default:
 		return "swimlanes"
 	}
@@ -45,10 +48,14 @@ func (v BoardViewMode) String() string {
 
 // FromString parses a view mode string (from database)
 func BoardViewModeFromString(s string) BoardViewMode {
-	if s == "backlog" {
+	switch s {
+	case "backlog":
 		return BoardViewBacklog
+	case "kanban":
+		return BoardViewKanban
+	default:
+		return BoardViewSwimlanes
 	}
-	return BoardViewSwimlanes
 }
 
 // Rect represents a rectangular region for hit-testing
@@ -469,6 +476,18 @@ type BoardMode struct {
 
 	// Selection restoration after move operations
 	PendingSelectionID string // Issue ID to select after refresh (cleared after use)
+
+	// Kanban view state (side-by-side status columns)
+	Kanban KanbanState
+}
+
+// KanbanState holds state for the kanban column view
+type KanbanState struct {
+	ActiveColumn  int                       // Index into VisibleStatuses
+	ColumnCursors map[models.Status]int     // Per-column cursor position
+	ColumnScrolls map[models.Status]int     // Per-column scroll offset
+	VisibleStatuses []models.Status         // Statuses that have issues (ordered)
+	ColumnIssues  map[models.Status][]models.Issue // Issues grouped by status
 }
 
 // DefaultBoardStatusFilter returns the default status filter (closed hidden)

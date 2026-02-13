@@ -30,6 +30,7 @@ var contextToSidecar = map[Context]string{
 	ContextHandoffs:          "td-handoffs",
 	ContextHelp:              "td-help",
 	ContextBoard:             "td-board",
+	ContextBoardKanban:       "td-board-kanban",
 	ContextBoardPicker:       "td-board-picker",
 	ContextForm:              "td-form",
 	ContextTDQHelp:           "td-tdq-help",
@@ -69,7 +70,9 @@ var commandMetadata = map[Command]struct {
 	CmdMoveIssueToTop:         {"Top", "Move issue to top of column", 3},
 	CmdMoveIssueToBottom:      {"Bottom", "Move issue to bottom of column", 3},
 	CmdExitBoardMode:          {"Exit", "Exit board mode", 3},
-	CmdToggleBoardView:        {"View", "Toggle swimlanes/backlog view", 2},
+	CmdToggleBoardView:        {"View", "Cycle view mode (swimlanes/backlog/kanban)", 2},
+	CmdKanbanPrevColumn:       {"←Col", "Move to previous kanban column", 3},
+	CmdKanbanNextColumn:       {"→Col", "Move to next kanban column", 3},
 	CmdToggleBoardClosed:      {"Closed", "Toggle closed in board", 2},
 	CmdCycleBoardStatusFilter: {"Filter", "Cycle status filter", 2},
 

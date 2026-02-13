@@ -746,6 +746,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.BoardMode.SwimlaneData = CategorizeBoardIssues(m.DB, filteredIssues, m.SessionID, m.SortMode, msg.RejectedIDs)
 			m.BoardMode.SwimlaneRows = BuildSwimlaneRows(m.BoardMode.SwimlaneData)
 
+			// Rebuild kanban state if in kanban view
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.rebuildKanbanState()
+			}
+
 			// Restore selection if we have a pending selection ID (from move operations)
 			if m.BoardMode.PendingSelectionID != "" {
 				// Find the issue in the backlog view
@@ -780,6 +785,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.BoardMode.SwimlaneScroll = 0
 			m.BoardMode.StatusFilter = DefaultBoardStatusFilter()
 			m.BoardMode.ViewMode = BoardViewModeFromString(msg.Board.ViewMode)
+			if m.BoardMode.ViewMode == BoardViewKanban {
+				m.rebuildKanbanState()
+			}
 			return m, m.fetchBoardIssues(msg.Board.ID)
 		}
 		return m, nil

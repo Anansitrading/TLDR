@@ -113,6 +113,14 @@ var updateCmd = &cobra.Command{
 				issue.Sprint = sprint
 			}
 
+			if assignee, _ := cmd.Flags().GetString("assignee"); cmd.Flags().Changed("assignee") {
+				issue.Assignee = assignee
+			}
+
+			if projectTag, _ := cmd.Flags().GetString("project"); cmd.Flags().Changed("project") {
+				issue.ProjectTag = projectTag
+			}
+
 			if parent, _ := cmd.Flags().GetString("parent"); cmd.Flags().Changed("parent") {
 				issue.ParentID = parent
 			}
@@ -222,6 +230,8 @@ func init() {
 	updateCmd.Flags().Int("points", 0, "New story points")
 	updateCmd.Flags().String("labels", "", "Replace labels")
 	updateCmd.Flags().String("sprint", "", "New sprint name (empty string to clear)")
+	updateCmd.Flags().String("assignee", "", "Agent assignee (oracle, smith, executor-1, etc.)")
+	updateCmd.Flags().String("project", "", "Project tag for grouping (e.g. kij, platform)")
 	updateCmd.Flags().String("parent", "", "New parent issue ID")
 	updateCmd.Flags().String("depends-on", "", "Replace dependencies")
 	updateCmd.Flags().String("blocks", "", "Replace blocked issues")

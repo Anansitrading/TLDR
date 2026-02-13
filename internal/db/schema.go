@@ -1,7 +1,7 @@
 package db
 
 // SchemaVersion is the current database schema version
-const SchemaVersion = 28
+const SchemaVersion = 29
 
 const schema = `
 -- Issues table
@@ -467,6 +467,36 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notes_deleted ON notes(deleted_at);
+`,
+	},
+	{
+		Version:     29,
+		Description: "Add agent swarm tracking: assignee, linear IDs, project tag, and agent activity table",
+		SQL: `
+ALTER TABLE issues ADD COLUMN assignee TEXT DEFAULT '';
+ALTER TABLE issues ADD COLUMN linear_id TEXT DEFAULT '';
+ALTER TABLE issues ADD COLUMN linear_identifier TEXT DEFAULT '';
+ALTER TABLE issues ADD COLUMN project_tag TEXT DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS agent_activity (
+    id TEXT PRIMARY KEY,
+    issue_id TEXT NOT NULL,
+    agent_name TEXT NOT NULL,
+    activity_type TEXT NOT NULL,
+    details TEXT DEFAULT '',
+    session_id TEXT DEFAULT '',
+    worktree_path TEXT DEFAULT '',
+    branch TEXT DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (issue_id) REFERENCES issues(id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_activity_issue ON agent_activity(issue_id);
+CREATE INDEX IF NOT EXISTS idx_agent_activity_agent ON agent_activity(agent_name);
+CREATE INDEX IF NOT EXISTS idx_agent_activity_type ON agent_activity(activity_type);
+CREATE INDEX IF NOT EXISTS idx_agent_activity_created ON agent_activity(created_at);
+CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee);
+CREATE INDEX IF NOT EXISTS idx_issues_project_tag ON issues(project_tag);
+CREATE INDEX IF NOT EXISTS idx_issues_linear_id ON issues(linear_id);
 `,
 	},
 }

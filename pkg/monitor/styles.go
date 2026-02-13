@@ -186,6 +186,30 @@ var (
 		models.TypeChore:   "○", // Empty circle - routine
 	}
 
+	// Kanban column styles
+	kanbanColumnStyle = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(0, 0)
+
+	kanbanActiveColumnStyle = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(primaryColor).
+		Padding(0, 0)
+
+	kanbanCardSelectedBg = lipgloss.Color("237")
+
+	kanbanCardSeparator = "╌"
+
+	// Per-status column header colors (background)
+	kanbanStatusColors = map[models.Status]lipgloss.Color{
+		models.StatusOpen:       lipgloss.Color("45"),  // Cyan
+		models.StatusInProgress: lipgloss.Color("214"), // Orange
+		models.StatusInReview:   lipgloss.Color("141"), // Purple
+		models.StatusBlocked:    lipgloss.Color("196"), // Red
+		models.StatusClosed:     lipgloss.Color("241"), // Gray
+	}
+
 	// Divider styles for drag-to-resize
 	// Panel style when its bottom border is being hovered (divider hover)
 	dividerHoverPanelStyle = lipgloss.NewStyle().

@@ -23,17 +23,20 @@ func (db *DB) scanIssueRow(id string) (*models.Issue, error) {
 	var labels string
 	var closedAt, deletedAt sql.NullTime
 	var parentID, acceptance, sprint sql.NullString
+	var assignee, linearID, linearIdentifier, projectTag sql.NullString
 	var implSession, creatorSession, reviewerSession sql.NullString
 	var createdBranch sql.NullString
 	var pointsNull sql.NullInt64
 
 	err := db.conn.QueryRow(`
 		SELECT id, title, description, status, type, priority, points, labels, parent_id, acceptance, sprint,
+		       assignee, linear_id, linear_identifier, project_tag,
 		       implementer_session, creator_session, reviewer_session, created_at, updated_at, closed_at, deleted_at, minor, created_branch
 		FROM issues WHERE id = ?
 	`, id).Scan(
 		&issue.ID, &issue.Title, &issue.Description, &issue.Status, &issue.Type, &issue.Priority,
 		&pointsNull, &labels, &parentID, &acceptance, &sprint,
+		&assignee, &linearID, &linearIdentifier, &projectTag,
 		&implSession, &creatorSession, &reviewerSession, &issue.CreatedAt, &issue.UpdatedAt, &closedAt, &deletedAt, &issue.Minor, &createdBranch,
 	)
 	if err == sql.ErrNoRows {
@@ -56,6 +59,10 @@ func (db *DB) scanIssueRow(id string) (*models.Issue, error) {
 	issue.ParentID = parentID.String
 	issue.Acceptance = acceptance.String
 	issue.Sprint = sprint.String
+	issue.Assignee = assignee.String
+	issue.LinearID = linearID.String
+	issue.LinearIdentifier = linearIdentifier.String
+	issue.ProjectTag = projectTag.String
 	issue.ImplementerSession = implSession.String
 	issue.CreatorSession = creatorSession.String
 	issue.ReviewerSession = reviewerSession.String
@@ -141,11 +148,13 @@ func (db *DB) updateIssueAndLog(issue *models.Issue, sessionID string, actionTyp
 	_, err = db.conn.Exec(`
 		UPDATE issues SET title = ?, description = ?, status = ?, type = ?, priority = ?,
 		                  points = ?, labels = ?, parent_id = ?, acceptance = ?, sprint = ?,
+		                  assignee = ?, linear_id = ?, linear_identifier = ?, project_tag = ?,
 		                  implementer_session = ?, reviewer_session = ?, updated_at = ?,
 		                  closed_at = ?, deleted_at = ?
 		WHERE id = ?
 	`, issue.Title, issue.Description, issue.Status, issue.Type, issue.Priority,
 		issue.Points, labels, issue.ParentID, issue.Acceptance, issue.Sprint,
+		issue.Assignee, issue.LinearID, issue.LinearIdentifier, issue.ProjectTag,
 		issue.ImplementerSession, issue.ReviewerSession, issue.UpdatedAt,
 		issue.ClosedAt, issue.DeletedAt, issue.ID)
 	if err != nil {
