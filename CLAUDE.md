@@ -36,11 +36,7 @@ go test ./...              # Test all
 git add .
 git commit -m "feat: description of changes
 
-Details here
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+Details here"
 
 # Create version tag (bump from current version, e.g., v0.2.0 → v0.3.0)
 git tag -a v0.3.0 -m "Release v0.3.0: description"
