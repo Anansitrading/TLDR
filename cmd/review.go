@@ -92,7 +92,7 @@ var reviewCmd = &cobra.Command{
 	Long: `Submits the issue(s) for review. If no handoff exists, a minimal one is
 auto-created (consider using 'td handoff' for better documentation).
 
-For epics/parent issues, automatically cascades to all open/in_progress
+For epics/parent issues, automatically cascades to all backlog/in_flight
 descendants. Cascaded children don't require individual handoffs.
 
 Supports bulk operations:
@@ -213,7 +213,7 @@ Supports bulk operations:
 				}
 			}
 
-			// Cascade up: if all siblings are in_review (or closed), update parent epic
+			// Cascade up: if all siblings are review (or shipped), update parent epic
 			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusReview, sess.ID); count > 0 {
 				for _, id := range ids {
 					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusReview)
@@ -273,7 +273,7 @@ Supports bulk operations:
 		// Build list of issue IDs to approve
 		var issueIDs []string
 		if all {
-			// Get all reviewable issues (in_review and not implemented by current session)
+			// Get all reviewable issues (review status and not implemented by current session)
 			issues, err := database.ListIssues(db.ListIssuesOptions{
 				ReviewableBy: sess.ID,
 			})
@@ -385,14 +385,14 @@ Supports bulk operations:
 
 			fmt.Printf("APPROVED %s (reviewer: %s)\n", issueID, sess.ID)
 
-			// Cascade up: if all siblings are closed, update parent epic
+			// Cascade up: if all siblings are shipped, update parent epic
 			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusShipped, sess.ID); count > 0 {
 				for _, id := range ids {
 					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusShipped)
 				}
 			}
 
-			// Auto-unblock dependents whose dependencies are now all closed
+			// Auto-unblock dependents whose dependencies are now all shipped
 			if count, ids := database.CascadeUnblockDependents(issueID, sess.ID); count > 0 {
 				for _, id := range ids {
 					fmt.Printf("  ↓ Dependent %s auto-unblocked\n", id)
@@ -411,8 +411,8 @@ Supports bulk operations:
 
 var rejectCmd = &cobra.Command{
 	Use:   "reject [issue-id...]",
-	Short: "Reject and return to in_progress",
-	Long: `Rejects the issue(s) and returns them to in_progress status.
+	Short: "Reject and return to in_flight",
+	Long: `Rejects the issue(s) and returns them to in_flight status.
 
 Supports bulk operations:
   td reject td-abc1 td-abc2    # Reject multiple issues`,
@@ -510,7 +510,7 @@ Supports bulk operations:
 				}
 				output.JSON(result)
 			} else {
-				fmt.Printf("REJECTED %s → in_progress\n", issueID)
+				fmt.Printf("REJECTED %s → in_flight\n", issueID)
 			}
 			rejected++
 		}
@@ -686,14 +686,14 @@ Examples:
 				fmt.Printf("CLOSED %s\n", issueID)
 			}
 
-			// Cascade up: if all siblings are closed, update parent epic
+			// Cascade up: if all siblings are shipped, update parent epic
 			if count, ids := database.CascadeUpParentStatus(issueID, models.StatusShipped, sess.ID); count > 0 {
 				for _, id := range ids {
 					fmt.Printf("  ↑ Parent %s auto-cascaded to %s\n", id, models.StatusShipped)
 				}
 			}
 
-			// Auto-unblock dependents whose dependencies are now all closed
+			// Auto-unblock dependents whose dependencies are now all shipped
 			if count, ids := database.CascadeUnblockDependents(issueID, sess.ID); count > 0 {
 				for _, id := range ids {
 					fmt.Printf("  ↓ Dependent %s auto-unblocked\n", id)

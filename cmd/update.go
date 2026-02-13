@@ -129,7 +129,7 @@ var updateCmd = &cobra.Command{
 			if status, _ := cmd.Flags().GetString("status"); status != "" {
 				newStatus := models.NormalizeStatus(status)
 				if !models.IsValidStatus(newStatus) {
-					output.Error("invalid status: %s (valid: open, in_progress, in_review, blocked, closed)", status)
+					output.Error("invalid status: %s (valid: triage, backlog, prioritized, in_flight, review, shipped, canceled, duplicate)", status)
 					continue
 				}
 				// Validate transition with state machine
@@ -236,7 +236,7 @@ func init() {
 	updateCmd.Flags().String("depends-on", "", "Replace dependencies")
 	updateCmd.Flags().String("blocks", "", "Replace blocked issues")
 	updateCmd.Flags().Bool("append", false, "Append to text fields instead of replacing")
-	updateCmd.Flags().String("status", "", "New status (open, in_progress, in_review, blocked, closed)")
+	updateCmd.Flags().String("status", "", "New status (triage, backlog, prioritized, in_flight, review, shipped, canceled, duplicate)")
 	updateCmd.Flags().StringP("comment", "m", "", "Add a comment to the updated issue(s)")
 	updateCmd.Flags().StringP("note", "c", "", "Alias for --comment")
 	updateCmd.Flags().MarkHidden("note")

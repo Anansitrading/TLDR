@@ -77,8 +77,8 @@ var blockCmd = &cobra.Command{
 
 var reopenCmd = &cobra.Command{
 	Use:   "reopen [issue-id...]",
-	Short: "Reopen closed issues",
-	Long: `Reopens closed issue(s) back to open status.
+	Short: "Reopen shipped issues",
+	Long: `Reopens shipped issue(s) back to backlog status.
 
 Examples:
   td reopen td-abc1                    # Reopen single issue
@@ -122,7 +122,7 @@ Examples:
 			}
 
 			if issue.Status != models.StatusShipped {
-				output.Warning("%s is not closed (status: %s)", issueID, issue.Status)
+				output.Warning("%s is not shipped (status: %s)", issueID, issue.Status)
 				skipped++
 				continue
 			}
@@ -163,8 +163,8 @@ Examples:
 
 var unblockCmd = &cobra.Command{
 	Use:   "unblock [issue-id...]",
-	Short: "Unblock issue(s) back to open status",
-	Long: `Unblocks blocked issue(s) back to open status.
+	Short: "Unblock issue(s) back to backlog status",
+	Long: `Unblocks canceled issue(s) back to backlog status.
 
 Examples:
   td unblock td-abc1                    # Unblock single issue
@@ -208,7 +208,7 @@ Examples:
 			}
 
 			if issue.Status != models.StatusCanceled {
-				output.Warning("%s is not blocked (status: %s)", issueID, issue.Status)
+				output.Warning("%s is not canceled (status: %s)", issueID, issue.Status)
 				skipped++
 				continue
 			}

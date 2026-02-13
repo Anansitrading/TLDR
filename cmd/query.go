@@ -18,9 +18,9 @@ var queryCmd = &cobra.Command{
 	Long: `Search issues using TDQ (Todo Query Language), a powerful query syntax.
 
 QUICK START:
-  td query "status = open"            All open issues
-  td query "type = bug AND is(open)"  Open bugs
-  td query "created >= -7d"           Created in last 7 days
+  td query "status = backlog"            All backlog issues
+  td query "type = bug AND is(backlog)"  Backlog bugs
+  td query "created >= -7d"              Created in last 7 days
 
 BASIC SYNTAX:
   field = value         Exact match
@@ -40,7 +40,7 @@ BOOLEAN OPERATORS:
   (expr)                Grouping
 
 FIELDS:
-  status      open, in_progress, blocked, in_review, closed
+  status      triage, backlog, prioritized, in_flight, review, shipped, canceled, duplicate
   type        bug, feature, task, epic, chore
   priority    P0, P1, P2, P3, P4 (supports <=, >=)
   points      1, 2, 3, 5, 8, 13, 21
@@ -64,7 +64,7 @@ CROSS-ENTITY SEARCH:
 
 FUNCTIONS:
   has(field)             Field is not empty
-  is(status)             Shorthand: is(open) = status = open
+  is(status)             Shorthand: is(backlog) = status = backlog
   any(field, v1, v2)     Field matches any value
   blocks(id)             Issues that block given id
   blocked_by(id)         Issues blocked by given id
@@ -80,10 +80,10 @@ RELATIVE DATES:
   -7d (7 days ago), -2w (2 weeks ago), -1m (1 month ago)
 
 EXAMPLES:
-  td query "status = open"
+  td query "status = backlog"
   td query "type = bug AND priority <= P1"
   td query "created >= -7d"
-  td query "implementer = @me AND is(in_progress)"
+  td query "implementer = @me AND is(in_flight)"
   td query "log.type = blocker"
   td query "title ~ auth OR description ~ auth"
   td query "rework()"
@@ -204,7 +204,7 @@ func printQuerySyntaxHelp() {
 	fmt.Fprintln(os.Stderr, "  Operators: = != < > <= >= ~ !~")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
-	fmt.Fprintln(os.Stderr, "  td query \"status = open\"")
+	fmt.Fprintln(os.Stderr, "  td query \"status = backlog\"")
 	fmt.Fprintln(os.Stderr, "  td query \"type = bug AND priority <= P1\"")
 	fmt.Fprintln(os.Stderr, "  td query \"title ~ auth\"")
 	fmt.Fprintln(os.Stderr)
@@ -217,7 +217,7 @@ func printQueryExamples() {
 		desc  string
 	}{
 		// Basic queries
-		{"status = open", "All open issues"},
+		{"status = backlog", "All backlog issues"},
 		{"type = bug", "All bugs"},
 		{"priority <= P1", "High priority (P0 or P1)"},
 		{"points >= 5", "Large issues (5+ points)"},
@@ -227,27 +227,27 @@ func printQueryExamples() {
 		{`"authentication"`, "Text search in title/description/id"},
 
 		// Boolean logic
-		{"type = bug AND status = open", "Open bugs"},
-		{"status = open OR status = blocked", "Open or blocked issues"},
-		{"NOT status = closed", "Not closed"},
-		{"-status = closed", "Same as NOT status = closed"},
+		{"type = bug AND status = backlog", "Backlog bugs"},
+		{"status = backlog OR status = canceled", "Backlog or canceled issues"},
+		{"NOT status = shipped", "Not shipped"},
+		{"-status = shipped", "Same as NOT status = shipped"},
 		{"(type = bug OR type = feature) AND priority = P0", "Critical bugs or features"},
 
 		// Date queries
 		{"created >= -7d", "Created in last 7 days"},
 		{"updated >= today", "Updated today"},
 		{"created >= this_week", "Created this week"},
-		{"updated < -30d AND status = open", "Stale open issues"},
+		{"updated < -30d AND status = backlog", "Stale backlog issues"},
 
 		// Session queries
 		{"implementer = @me", "Issues I'm implementing"},
-		{"implementer = @me AND is(in_progress)", "My current work"},
-		{"status = in_review AND implementer != @me", "Issues I can review"},
+		{"implementer = @me AND is(in_flight)", "My current work"},
+		{"status = review AND implementer != @me", "Issues I can review"},
 
 		// Functions
 		{"has(labels)", "Issues with any labels"},
-		{"is(open)", "Shorthand for status = open"},
-		{"is(blocked)", "Blocked issues"},
+		{"is(backlog)", "Shorthand for status = backlog"},
+		{"is(canceled)", "Canceled issues"},
 		{"any(type, bug, feature)", "Bugs or features"},
 		{"descendant_of(td-epic1)", "All tasks in epic"},
 		{"rework()", "Issues rejected and awaiting rework"},
@@ -261,7 +261,7 @@ func printQueryExamples() {
 
 		// Complex queries
 		{"type = bug AND priority <= P1 AND created >= -7d", "Recent high-priority bugs"},
-		{"is(open) AND has(labels) AND labels ~ urgent", "Urgent labeled issues"},
+		{"is(backlog) AND has(labels) AND labels ~ urgent", "Urgent labeled issues"},
 	}
 
 	fmt.Println("TDQ Query Examples:")
@@ -285,7 +285,7 @@ func printQueryFields() {
 		{"id", "string", "td-* format"},
 		{"title", "string", "any text"},
 		{"description", "string", "any text"},
-		{"status", "enum", "open, in_progress, blocked, in_review, closed"},
+		{"status", "enum", "triage, backlog, prioritized, in_flight, review, shipped, canceled, duplicate"},
 		{"type", "enum", "bug, feature, task, epic, chore"},
 		{"priority", "ordinal", "P0, P1, P2, P3, P4"},
 		{"points", "number", "1, 2, 3, 5, 8, 13, 21"},

@@ -90,7 +90,7 @@ var usageCmd = &cobra.Command{
 			ReviewableBy: sess.ID,
 		})
 
-		// Get ready issues (open, not blocked by dependencies)
+		// Get ready issues (backlog, not blocked by dependencies)
 		openIssues, _ := database.ListIssues(db.ListIssuesOptions{
 			Status: []models.Status{models.StatusBacklog},
 			SortBy: "priority",
@@ -225,7 +225,7 @@ var usageCmd = &cobra.Command{
 			fmt.Println("  td current              What you're working on")
 			fmt.Println("  td ws current           Current work session state")
 			fmt.Println("  td context <id>         Full context for resuming")
-			fmt.Println("  td next                 Highest priority open issue")
+			fmt.Println("  td next                 Highest priority backlog issue")
 			fmt.Println("  td critical-path        What unblocks the most work")
 			fmt.Println("  td reviewable           Issues you can review")
 			fmt.Println("  td approve/reject <id>  Complete review")

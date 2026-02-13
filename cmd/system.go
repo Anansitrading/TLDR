@@ -655,7 +655,7 @@ func importJSON(database *db.DB, data []byte, dryRun, force bool, sessionID stri
 // Supports formats like:
 //
 //	## Title
-//	- Status: open
+//	- Status: backlog
 //	- Type: feature
 //	- Priority: P1
 //	- Points: 3

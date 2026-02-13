@@ -110,7 +110,7 @@ var listCmd = &cobra.Command{
 		// Also accepts old status names via NormalizeStatus for backwards compat, and "all" to show all statuses
 		if statusStr, _ := cmd.Flags().GetStringArray("status"); len(statusStr) > 0 {
 			for _, s := range statusStr {
-				// Split on comma to support --status in_progress,in_review
+				// Split on comma to support --status in_flight,review
 				for _, part := range strings.Split(s, ",") {
 					part = strings.TrimSpace(part)
 					if part != "" {
@@ -130,7 +130,7 @@ var listCmd = &cobra.Command{
 			}
 		}
 		if !showAll && len(opts.Status) == 0 {
-			// Default: exclude closed issues unless --all is specified
+			// Default: exclude terminal statuses unless --all is specified
 			opts.Status = []models.Status{
 				models.StatusBacklog,
 				models.StatusInFlight,
@@ -401,7 +401,7 @@ var inReviewCmd = &cobra.Command{
 
 var readyCmd = &cobra.Command{
 	Use:     "ready",
-	Short:   "List open issues sorted by priority",
+	Short:   "List backlog issues sorted by priority",
 	GroupID: "shortcuts",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		result, err := runListShortcut(db.ListIssuesOptions{
@@ -417,7 +417,7 @@ var readyCmd = &cobra.Command{
 		}
 
 		if len(result.issues) == 0 {
-			fmt.Println("No open issues")
+			fmt.Println("No backlog issues")
 		}
 		return nil
 	},
@@ -425,7 +425,7 @@ var readyCmd = &cobra.Command{
 
 var nextCmd = &cobra.Command{
 	Use:     "next",
-	Short:   "Show highest-priority open issue",
+	Short:   "Show highest-priority backlog issue",
 	GroupID: "shortcuts",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		result, err := runListShortcut(db.ListIssuesOptions{
@@ -438,7 +438,7 @@ var nextCmd = &cobra.Command{
 		}
 
 		if len(result.issues) == 0 {
-			fmt.Println("No open issues")
+			fmt.Println("No backlog issues")
 			return nil
 		}
 
@@ -602,5 +602,5 @@ func init() {
 
 	listCmd.Flags().String("format", "", "Output format (short, long, json)")
 	listCmd.Flags().Bool("no-pager", false, "Disable paging (no-op, td list does not page)")
-	listCmd.Flags().StringP("filter", "f", "", "TDQ query expression (e.g., 'status=open AND type=bug')")
+	listCmd.Flags().StringP("filter", "f", "", "TDQ query expression (e.g., 'status=backlog AND type=bug')")
 }

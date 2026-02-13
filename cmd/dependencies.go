@@ -223,7 +223,7 @@ var criticalPathCmd = &cobra.Command{
 		}
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 
-		// Get all open/in_progress issues (excluding epics - they're containers, not blocking work)
+		// Get all backlog/in_flight issues (excluding epics - they're containers, not blocking work)
 		allIssues, err := database.ListIssues(db.ListIssuesOptions{
 			Status: []models.Status{models.StatusBacklog, models.StatusInFlight, models.StatusCanceled},
 		})

@@ -21,9 +21,9 @@ Supported actions:
   - create: Deletes the created issue
   - delete: Restores the deleted issue
   - update: Reverts issue to previous state
-  - start: Reverts issue to open status
-  - review: Reverts issue to in_progress status
-  - approve/reject: Reverts issue to in_review status
+  - start: Reverts issue to backlog status
+  - review: Reverts issue to in_flight status
+  - approve/reject: Reverts issue to review status
 
 Use 'td undo --list' to see recent undoable actions.`,
 	GroupID: "system",

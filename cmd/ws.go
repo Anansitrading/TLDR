@@ -89,8 +89,8 @@ var wsStartCmd = &cobra.Command{
 
 var wsTagCmd = &cobra.Command{
 	Use:   "tag [issue-ids...]",
-	Short: "Associate issues with the current work session (auto-starts open issues)",
-	Long:  `Associate issues with the current work session. By default, open issues are automatically started (status changed to in_progress). Use --no-start to tag without changing status.`,
+	Short: "Associate issues with the current work session (auto-starts backlog issues)",
+	Long:  `Associate issues with the current work session. By default, backlog issues are automatically started (status changed to in_flight). Use --no-start to tag without changing status.`,
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		baseDir := getBaseDir()
@@ -595,7 +595,7 @@ var wsEndCmd = &cobra.Command{
 
 		output.Warning("No handoff recorded for %s", wsID)
 		if len(issueIDs) > 0 {
-			fmt.Printf("Tagged issues remain in_progress: %s\n", strings.Join(issueIDs, ", "))
+			fmt.Printf("Tagged issues remain in_flight: %s\n", strings.Join(issueIDs, ", "))
 		}
 		fmt.Println("WORK SESSION ENDED")
 
@@ -868,7 +868,7 @@ func init() {
 
 	wsCurrentCmd.Flags().Bool("json", false, "JSON output")
 
-	wsTagCmd.Flags().Bool("no-start", false, "Tag without starting (don't change status to in_progress)")
+	wsTagCmd.Flags().Bool("no-start", false, "Tag without starting (don't change status to in_flight)")
 
 	wsHandoffCmd.Flags().StringArray("done", nil, "Completed item (repeatable)")
 	wsHandoffCmd.Flags().StringArray("remaining", nil, "Remaining item (repeatable)")

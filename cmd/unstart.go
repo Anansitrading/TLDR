@@ -14,8 +14,8 @@ import (
 var unstartCmd = &cobra.Command{
 	Use:     "unstart [issue-id...]",
 	Aliases: []string{"stop"},
-	Short:   "Revert issue(s) from in_progress to open",
-	Long: `Reverts issue(s) back to open status. Clears implementer session.
+	Short:   "Revert issue(s) from in_flight to backlog",
+	Long: `Reverts issue(s) back to backlog status. Clears implementer session.
 Useful for undoing accidental starts or when you need to release an issue.
 
 Examples:
@@ -60,9 +60,9 @@ Examples:
 				continue
 			}
 
-			// Only unstart in_progress issues (preserving existing behavior)
+			// Only unstart in_flight issues (preserving existing behavior)
 			if issue.Status != models.StatusInFlight {
-				output.Warning("issue not in_progress: %s (status: %s)", issueID, issue.Status)
+				output.Warning("issue not in_flight: %s (status: %s)", issueID, issue.Status)
 				skipped++
 				continue
 			}
@@ -84,7 +84,7 @@ Examples:
 			}
 
 			// Log the unstart
-			logMsg := "Reverted to open"
+			logMsg := "Reverted to backlog"
 			if reason != "" {
 				logMsg = reason
 			}
@@ -99,7 +99,7 @@ Examples:
 			// Clear focus if this was the focused issue
 			clearFocusIfNeeded(baseDir, issueID)
 
-			fmt.Printf("UNSTARTED %s → open\n", issueID)
+			fmt.Printf("UNSTARTED %s → backlog\n", issueID)
 			unstarted++
 		}
 
