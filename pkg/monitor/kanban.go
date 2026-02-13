@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -70,6 +71,22 @@ func (m *Model) rebuildKanbanState() {
 			continue
 		}
 		ks.ColumnIssues[status] = append(ks.ColumnIssues[status], biv.Issue)
+	}
+
+	// Sort issues within each column by project_tag (projects first, then no-project)
+	for status, issues := range ks.ColumnIssues {
+		sort.SliceStable(issues, func(i, j int) bool {
+			pi := issues[i].ProjectTag
+			pj := issues[j].ProjectTag
+			if pi == "" && pj != "" {
+				return false
+			}
+			if pi != "" && pj == "" {
+				return true
+			}
+			return pi < pj
+		})
+		ks.ColumnIssues[status] = issues
 	}
 
 	// Build visible statuses: core lanes always show, others only if they have issues
@@ -335,6 +352,21 @@ func (m Model) renderKanbanColumn(status models.Status, issues []models.Issue, c
 		linesUsed := 0
 		contentWidth := width - 2 // Subtract column border
 
+		// Determine if we need project headers (2+ distinct project_tags)
+		showProjectHeaders := false
+		if len(issues) > 0 {
+			projects := make(map[string]bool)
+			for _, issue := range issues {
+				projects[issue.ProjectTag] = true
+			}
+			showProjectHeaders = len(projects) > 1
+		}
+
+		projectHeaderStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("75")). // Light blue
+			Width(contentWidth)
+
 		// Show scroll-up indicator
 		if scroll > 0 {
 			upText := fmt.Sprintf("  ↑ %d more", scroll)
@@ -343,9 +375,30 @@ func (m Model) renderKanbanColumn(status models.Status, issues []models.Issue, c
 			linesUsed++
 		}
 
+		lastProject := ""
 		for idx := scroll; idx < len(issues) && linesUsed < maxCardHeight; idx++ {
 			issue := issues[idx]
 			isSelected := isActive && idx == cursor
+
+			// Project group header (only when multiple projects exist)
+			if showProjectHeaders {
+				currentProject := issue.ProjectTag
+				if currentProject == "" {
+					currentProject = "(No Project)"
+				}
+				if currentProject != lastProject {
+					if linesUsed < maxCardHeight {
+						headerText := "▸ " + currentProject
+						if lipgloss.Width(headerText) > contentWidth {
+							headerText = ansi.Truncate(headerText, contentWidth-1, "…")
+						}
+						sb.WriteString(projectHeaderStyle.Render(headerText))
+						sb.WriteString("\n")
+						linesUsed++
+					}
+					lastProject = currentProject
+				}
+			}
 
 			// Card line 1: TypeIcon ID Priority
 			typeIcon := formatTypeIcon(issue.Type)
@@ -394,10 +447,16 @@ func (m Model) renderKanbanColumn(status models.Status, issues []models.Issue, c
 
 			// Add separator between cards (not after last card)
 			if linesUsed < maxCardHeight && idx < len(issues)-1 {
-				sep := subtleStyle.Render(strings.Repeat(kanbanCardSeparator, contentWidth/len(kanbanCardSeparator)))
-				sb.WriteString(sep)
-				sb.WriteString("\n")
-				linesUsed++
+				// Use thicker separator between projects, thin within project
+				nextProject := issues[idx+1].ProjectTag
+				if showProjectHeaders && nextProject != issue.ProjectTag {
+					// No card separator before next project header (the header acts as separator)
+				} else {
+					sep := subtleStyle.Render(strings.Repeat(kanbanCardSeparator, contentWidth/len(kanbanCardSeparator)))
+					sb.WriteString(sep)
+					sb.WriteString("\n")
+					linesUsed++
+				}
 			}
 		}
 
