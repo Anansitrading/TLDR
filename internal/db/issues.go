@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marcus/td/internal/models"
+	"github.com/Anansitrading/TLDR/internal/models"
 )
 
 // ListIssuesOptions contains filter options for listing issues
@@ -25,6 +25,7 @@ type ListIssuesOptions struct {
 	ProjectTag     string // Filter by project tag
 	ParentID       string
 	EpicID         string // Filter by epic (parent_id matches epic, recursively)
+	LinearID       string // Filter by linear_id (exact match)
 	PointsMin      int
 	PointsMax      int
 	CreatedAfter   time.Time
@@ -413,6 +414,12 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 		args = append(args, opts.ProjectTag)
 	}
 
+	// LinearID filter (exact match for dedup key)
+	if opts.LinearID != "" {
+		query += " AND linear_id = ?"
+		args = append(args, opts.LinearID)
+	}
+
 	// Reviewable by (issues that can be reviewed by this session)
 	// Must be in review status with implementer, and either:
 	// - Minor task (always self-reviewable), OR
@@ -568,4 +575,17 @@ func (db *DB) ListIssues(opts ListIssuesOptions) ([]models.Issue, error) {
 	}
 
 	return issues, nil
+}
+
+// GetIssueByLinearID returns an issue by its linear_id (dedup key).
+// Returns nil, error if not found.
+func (db *DB) GetIssueByLinearID(linearID string) (*models.Issue, error) {
+	issues, err := db.ListIssues(ListIssuesOptions{LinearID: linearID, IncludeDeleted: true})
+	if err != nil {
+		return nil, err
+	}
+	if len(issues) == 0 {
+		return nil, fmt.Errorf("issue not found with linear_id: %s", linearID)
+	}
+	return &issues[0], nil
 }
