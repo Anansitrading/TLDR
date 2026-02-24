@@ -1,12 +1,16 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/Anansitrading/TLDR/internal/claudewatch"
 	"github.com/Anansitrading/TLDR/internal/config"
 	"github.com/Anansitrading/TLDR/internal/db"
 	"github.com/Anansitrading/TLDR/internal/models"
@@ -160,6 +164,10 @@ type Model struct {
 	TaskListMode         TaskListMode       // Whether Task List shows categorized or board view
 	BoardMode            BoardMode          // Active board mode state
 	BoardStatusPreset    StatusFilterPreset // Current status filter preset for cycling
+
+	// Claude Code task watcher (real-time import)
+	ClaudeWatcher     *claudewatch.Watcher
+	ClaudeWatchCancel context.CancelFunc
 
 	// Auto-sync callback (set by caller for periodic background sync)
 	AutoSyncFunc     func() // Called periodically to push/pull in background
@@ -367,6 +375,17 @@ func (m *Model) clampHelpScroll() {
 	}
 }
 
+// startClaudeWatcher returns a command that checks for ~/.claude and signals watcher readiness.
+func (m Model) startClaudeWatcher() tea.Cmd {
+	return func() tea.Msg {
+		claudeDir := filepath.Join(os.Getenv("HOME"), ".claude")
+		if _, err := os.Stat(claudeDir); os.IsNotExist(err) {
+			return nil
+		}
+		return claudewatch.ClaudeWatcherReadyMsg{ClaudeDir: claudeDir}
+	}
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
@@ -375,6 +394,7 @@ func (m Model) Init() tea.Cmd {
 		m.restoreLastViewedBoard(),
 		m.restoreFilterState(),
 		m.checkFirstRun(),
+		m.startClaudeWatcher(),
 	}
 
 	// Start async version check (non-blocking)
@@ -505,6 +525,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleMouse(msg)
 
 	case TickMsg:
+		// Import any new Claude Code tasks before refreshing display
+		if m.ClaudeWatcher != nil {
+			m.ClaudeWatcher.ScanAndImport()
+		}
 		cmds := []tea.Cmd{m.fetchData(), m.scheduleTick()}
 		// Also refresh board issues if in board mode
 		if m.TaskListMode == TaskListModeBoard && m.BoardMode.Board != nil {
@@ -858,6 +882,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.pushModal(msg.IssueID, m.ActivePanel)
 		}
 		return m, nil
+
+	case claudewatch.ClaudeWatcherReadyMsg:
+		w := claudewatch.NewWatcher(msg.ClaudeDir, m.DB)
+		m.ClaudeWatcher = w
+
+		// Start fsnotify watcher with context for cancellation
+		ctx, cancel := context.WithCancel(context.Background())
+		m.ClaudeWatchCancel = cancel
+
+		w.StartWatch(ctx)
+
+		// Initial import happened in StartWatch, refresh display
+		return m, m.fetchData()
 	}
 
 	return m, nil

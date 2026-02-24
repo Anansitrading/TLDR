@@ -8,16 +8,16 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/marcus/td/internal/agent"
-	"github.com/marcus/td/internal/config"
-	"github.com/marcus/td/internal/db"
-	"github.com/marcus/td/internal/features"
-	"github.com/marcus/td/internal/models"
-	"github.com/marcus/td/internal/query"
-	"github.com/marcus/td/internal/syncclient"
-	"github.com/marcus/td/internal/syncconfig"
-	"github.com/marcus/td/pkg/monitor/keymap"
-	"github.com/marcus/td/pkg/monitor/mouse"
+	"github.com/Anansitrading/TLDR/internal/agent"
+	"github.com/Anansitrading/TLDR/internal/config"
+	"github.com/Anansitrading/TLDR/internal/db"
+	"github.com/Anansitrading/TLDR/internal/features"
+	"github.com/Anansitrading/TLDR/internal/models"
+	"github.com/Anansitrading/TLDR/internal/query"
+	"github.com/Anansitrading/TLDR/internal/syncclient"
+	"github.com/Anansitrading/TLDR/internal/syncconfig"
+	"github.com/Anansitrading/TLDR/pkg/monitor/keymap"
+	"github.com/Anansitrading/TLDR/pkg/monitor/mouse"
 )
 
 // currentContext returns the keymap context based on current UI state
@@ -438,6 +438,9 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 	switch cmd {
 	// Global commands
 	case keymap.CmdQuit:
+		if m.ClaudeWatchCancel != nil {
+			m.ClaudeWatchCancel()
+		}
 		return m, tea.Quit
 
 	case keymap.CmdToggleHelp:
@@ -957,6 +960,16 @@ func (m Model) executeCommand(cmd keymap.Command) (tea.Model, tea.Cmd) {
 	case keymap.CmdOpenDetails:
 		if m.HandoffsOpen {
 			return m.openIssueFromHandoffs()
+		}
+		// Navigator panel: Enter selects team/project filter
+		if m.ActivePanel == PanelCurrentWork {
+			m.navSelect()
+			// Refresh board data with new filter
+			cmds := []tea.Cmd{m.fetchData()}
+			if m.TaskListMode == TaskListModeBoard && m.BoardMode.Board != nil {
+				cmds = append(cmds, m.fetchBoardIssues(m.BoardMode.Board.ID))
+			}
+			return m, tea.Batch(cmds...)
 		}
 		if m.TaskListMode == TaskListModeBoard && m.ActivePanel == PanelTaskList {
 			return m.openIssueFromBoard()
