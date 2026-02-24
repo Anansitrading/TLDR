@@ -16,6 +16,7 @@ const (
 	commentIDPrefix  = "cm-"
 	snapshotIDPrefix = "gs-"
 	noteIDPrefix     = "nt-"
+	projectIDPrefix  = "pj-"
 	actionIDPrefix = "al-"
 
 	// Deterministic ID prefixes for composite-key tables
@@ -116,6 +117,15 @@ func generateNoteID() (string, error) {
 		return "", err
 	}
 	return noteIDPrefix + hex.EncodeToString(bytes), nil
+}
+
+// generateProjectID generates a unique project ID
+func generateProjectID() (string, error) {
+	bytes := make([]byte, 4) // 8 hex characters
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return projectIDPrefix + hex.EncodeToString(bytes), nil
 }
 
 // generateActionID generates a unique action log ID

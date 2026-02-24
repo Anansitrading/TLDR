@@ -1,11 +1,12 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 )
+
+// Note: Projects do not use action_log (undo support) — they are administrative entities.
 
 // Project represents a first-class project in the system.
 type Project struct {
@@ -19,13 +20,21 @@ type Project struct {
 
 // CreateProject creates a new project. Returns the ID.
 func (db *DB) CreateProject(name, description, claudeTeamName string) (string, error) {
-	id := uuid.New().String()[:8]
-	now := time.Now()
-	_, err := db.conn.Exec(
-		`INSERT INTO projects (id, name, description, claude_team_name, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		id, name, description, claudeTeamName, now, now,
-	)
+	var id string
+	err := db.withWriteLock(func() error {
+		var genErr error
+		id, genErr = generateProjectID()
+		if genErr != nil {
+			return genErr
+		}
+		now := time.Now()
+		_, execErr := db.conn.Exec(
+			`INSERT INTO projects (id, name, description, claude_team_name, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			id, name, description, claudeTeamName, now, now,
+		)
+		return execErr
+	})
 	if err != nil {
 		return "", fmt.Errorf("create project: %w", err)
 	}
@@ -60,6 +69,9 @@ func (db *DB) GetProjectByName(name string) (*Project, error) {
 		`SELECT id, name, description, claude_team_name, created_at, updated_at
 		 FROM projects WHERE name = ? AND deleted_at IS NULL`, name,
 	).Scan(&p.ID, &p.Name, &p.Description, &p.ClaudeTeamName, &p.CreatedAt, &p.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("project not found: %s", name)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get project by name: %w", err)
 	}
@@ -73,6 +85,9 @@ func (db *DB) GetProjectByClaudeTeam(teamName string) (*Project, error) {
 		`SELECT id, name, description, claude_team_name, created_at, updated_at
 		 FROM projects WHERE claude_team_name = ? AND deleted_at IS NULL`, teamName,
 	).Scan(&p.ID, &p.Name, &p.Description, &p.ClaudeTeamName, &p.CreatedAt, &p.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("project not found for claude team: %s", teamName)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get project by claude team: %w", err)
 	}
@@ -81,33 +96,37 @@ func (db *DB) GetProjectByClaudeTeam(teamName string) (*Project, error) {
 
 // LinkProjectToClaudeTeam sets the claude_team_name for a project.
 func (db *DB) LinkProjectToClaudeTeam(projectName, claudeTeamName string) error {
-	result, err := db.conn.Exec(
-		`UPDATE projects SET claude_team_name = ?, updated_at = ?
-		 WHERE name = ? AND deleted_at IS NULL`,
-		claudeTeamName, time.Now(), projectName,
-	)
-	if err != nil {
-		return fmt.Errorf("link project to claude team: %w", err)
-	}
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		return fmt.Errorf("project '%s' not found", projectName)
-	}
-	return nil
+	return db.withWriteLock(func() error {
+		result, err := db.conn.Exec(
+			`UPDATE projects SET claude_team_name = ?, updated_at = ?
+			 WHERE name = ? AND deleted_at IS NULL`,
+			claudeTeamName, time.Now(), projectName,
+		)
+		if err != nil {
+			return fmt.Errorf("link project to claude team: %w", err)
+		}
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			return fmt.Errorf("project '%s' not found", projectName)
+		}
+		return nil
+	})
 }
 
 // DeleteProject soft-deletes a project by name.
 func (db *DB) DeleteProject(name string) error {
-	result, err := db.conn.Exec(
-		`UPDATE projects SET deleted_at = ? WHERE name = ? AND deleted_at IS NULL`,
-		time.Now(), name,
-	)
-	if err != nil {
-		return fmt.Errorf("delete project: %w", err)
-	}
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		return fmt.Errorf("project '%s' not found", name)
-	}
-	return nil
+	return db.withWriteLock(func() error {
+		result, err := db.conn.Exec(
+			`UPDATE projects SET deleted_at = ? WHERE name = ? AND deleted_at IS NULL`,
+			time.Now(), name,
+		)
+		if err != nil {
+			return fmt.Errorf("delete project: %w", err)
+		}
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			return fmt.Errorf("project '%s' not found", name)
+		}
+		return nil
+	})
 }
