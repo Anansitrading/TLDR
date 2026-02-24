@@ -7,15 +7,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/marcus/td/internal/config"
-	"github.com/marcus/td/internal/db"
-	"github.com/marcus/td/internal/models"
-	"github.com/marcus/td/internal/session"
-	"github.com/marcus/td/internal/syncclient"
-	"github.com/marcus/td/internal/version"
-	"github.com/marcus/td/pkg/monitor/keymap"
-	"github.com/marcus/td/pkg/monitor/modal"
-	"github.com/marcus/td/pkg/monitor/mouse"
+	"github.com/Anansitrading/TLDR/internal/config"
+	"github.com/Anansitrading/TLDR/internal/db"
+	"github.com/Anansitrading/TLDR/internal/models"
+	"github.com/Anansitrading/TLDR/internal/session"
+	"github.com/Anansitrading/TLDR/internal/syncclient"
+	"github.com/Anansitrading/TLDR/internal/version"
+	"github.com/Anansitrading/TLDR/pkg/monitor/keymap"
+	"github.com/Anansitrading/TLDR/pkg/monitor/modal"
+	"github.com/Anansitrading/TLDR/pkg/monitor/mouse"
 )
 
 // Model is the main Bubble Tea model for the monitor TUI
@@ -151,6 +151,11 @@ type Model struct {
 	BoardEditorPreview      *boardEditorPreviewData // Shared pointer: survives stale closure captures
 	BoardEditorDeleteConfirm bool                   // Whether delete confirmation is active
 
+	// Team/Project Navigator (replaces Current Work panel)
+	Nav             TeamProjectNav    // Navigator state
+	IssueTeamMap    map[string]string // issueID → team key (for filtering)
+	IssueProjectMap map[string]string // issueID → project tag (for filtering)
+
 	// Board mode state
 	TaskListMode         TaskListMode       // Whether Task List shows categorized or board view
 	BoardMode            BoardMode          // Active board mode state
@@ -242,6 +247,11 @@ func NewModel(database *db.DB, sessionID string, interval time.Duration, ver str
 		DraggingDivider: -1,
 		DividerHover:    -1,
 		BaseDir:         baseDir,
+		Nav: TeamProjectNav{
+			Expanded:     make(map[string]bool),
+		},
+		IssueTeamMap:    make(map[string]string),
+		IssueProjectMap: make(map[string]string),
 	}
 }
 
@@ -518,11 +528,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case RefreshDataMsg:
 		m.FocusedIssue = msg.FocusedIssue
 		m.InProgress = msg.InProgress
-		m.Activity = msg.Activity
-		m.TaskList = msg.TaskList
+		m.TaskList = m.filterTaskListByTeamProject(msg.TaskList)
 		m.RecentHandoffs = msg.RecentHandoffs
 		m.ActiveSessions = msg.ActiveSessions
 		m.LastRefresh = msg.Timestamp
+
+		// Update navigator data (always unfiltered)
+		m.Nav.Teams = msg.NavTeams
+		m.IssueTeamMap = msg.IssueTeamMap
+		m.IssueProjectMap = msg.IssueProjectMap
+		m.rebuildNavFlatItems()
+
+		// Apply team/project filter to activity
+		m.Activity = m.filterActivityByTeamProject(msg.Activity)
 
 		// Build flattened rows for selection
 		m.buildCurrentWorkRows()
@@ -739,8 +757,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.StatusMessage = "Error loading board issues: " + msg.Error.Error()
 				m.StatusIsError = true
 			}
-			// Apply search filter to board issues (for both backlog and swimlanes)
-			filteredIssues := filterBoardIssuesByQuery(msg.Issues, m.SearchQuery)
+			// Apply team/project filter, then search filter
+			teamFiltered := m.filterBoardIssuesByTeamProject(msg.Issues)
+			filteredIssues := filterBoardIssuesByQuery(teamFiltered, m.SearchQuery)
 			m.BoardMode.Issues = filteredIssues
 			// Build swimlane data using filtered issues
 			m.BoardMode.SwimlaneData = CategorizeBoardIssues(m.DB, filteredIssues, m.SessionID, m.SortMode, msg.RejectedIDs)
