@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marcus/td/internal/models"
+	"github.com/Anansitrading/TLDR/internal/models"
 )
 
 // marshalIssue returns a JSON representation of an issue for action_log storage.
@@ -99,9 +99,9 @@ func (db *DB) CreateIssueLogged(issue *models.Issue, sessionID string) error {
 			issue.ID = id
 
 			_, err = db.conn.Exec(`
-				INSERT INTO issues (id, title, description, status, type, priority, points, labels, parent_id, acceptance, created_at, updated_at, minor, created_branch, creator_session)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, issue.ID, issue.Title, issue.Description, issue.Status, issue.Type, issue.Priority, issue.Points, labels, issue.ParentID, issue.Acceptance, issue.CreatedAt, issue.UpdatedAt, issue.Minor, issue.CreatedBranch, issue.CreatorSession)
+				INSERT INTO issues (id, title, description, status, type, priority, points, labels, parent_id, acceptance, project_tag, created_at, updated_at, minor, created_branch, creator_session)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, issue.ID, issue.Title, issue.Description, issue.Status, issue.Type, issue.Priority, issue.Points, labels, issue.ParentID, issue.Acceptance, issue.ProjectTag, issue.CreatedAt, issue.UpdatedAt, issue.Minor, issue.CreatedBranch, issue.CreatorSession)
 
 			if err == nil {
 				break

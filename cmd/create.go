@@ -5,12 +5,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/marcus/td/internal/config"
-	"github.com/marcus/td/internal/db"
-	"github.com/marcus/td/internal/git"
-	"github.com/marcus/td/internal/models"
-	"github.com/marcus/td/internal/output"
-	"github.com/marcus/td/internal/session"
+	"github.com/Anansitrading/TLDR/internal/config"
+	"github.com/Anansitrading/TLDR/internal/db"
+	"github.com/Anansitrading/TLDR/internal/git"
+	"github.com/Anansitrading/TLDR/internal/models"
+	"github.com/Anansitrading/TLDR/internal/output"
+	"github.com/Anansitrading/TLDR/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -162,6 +162,11 @@ var createCmd = &cobra.Command{
 		// Minor (allows self-review)
 		issue.Minor, _ = cmd.Flags().GetBool("minor")
 
+		// Project
+		if proj, _ := cmd.Flags().GetString("project"); proj != "" {
+			issue.ProjectTag = proj
+		}
+
 		// Get session BEFORE creating issue (needed for CreatorSession)
 		sess, err := session.GetOrCreate(database)
 		if err != nil {
@@ -232,6 +237,7 @@ func init() {
 	createCmd.Flags().String("depends-on", "", "Issues this depends on")
 	createCmd.Flags().String("blocks", "", "Issues this blocks")
 	createCmd.Flags().Bool("minor", false, "Mark as minor task (allows self-review)")
+	createCmd.Flags().String("project", "", "Assign to project")
 }
 
 // parseTypeFromTitle extracts type prefix from title (e.g., "epic: Title" → "epic", "Title")
