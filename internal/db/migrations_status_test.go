@@ -45,22 +45,22 @@ func TestMigrationV30StatusMapping(t *testing.T) {
 		}
 	}
 
-	// Run migrations (should apply v30)
+	// Run migrations (should apply v30 and v31)
 	n, err := database.RunMigrations()
 	if err != nil {
 		t.Fatalf("RunMigrations failed: %v", err)
 	}
-	if n != 1 {
-		t.Fatalf("expected 1 migration, got %d", n)
+	if n != 2 {
+		t.Fatalf("expected 2 migrations, got %d", n)
 	}
 
-	// Verify schema version is now 30
+	// Verify schema version is now current
 	ver, err := database.GetSchemaVersion()
 	if err != nil {
 		t.Fatalf("GetSchemaVersion: %v", err)
 	}
-	if ver != 30 {
-		t.Fatalf("expected schema version 30, got %d", ver)
+	if ver != SchemaVersion {
+		t.Fatalf("expected schema version %d, got %d", SchemaVersion, ver)
 	}
 
 	// Verify old statuses were mapped correctly
@@ -115,8 +115,8 @@ func TestMigrationV30Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunMigrations failed: %v", err)
 	}
-	if n != 1 {
-		t.Fatalf("expected 1 migration, got %d", n)
+	if n != 2 {
+		t.Fatalf("expected 2 migrations, got %d", n)
 	}
 
 	// Status should remain backlog

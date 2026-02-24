@@ -1,7 +1,7 @@
 package db
 
 // SchemaVersion is the current database schema version
-const SchemaVersion = 30
+const SchemaVersion = 31
 
 const schema = `
 -- Issues table
@@ -508,6 +508,23 @@ UPDATE issues SET status = 'in_flight' WHERE status = 'in_progress';
 UPDATE issues SET status = 'review' WHERE status = 'in_review';
 UPDATE issues SET status = 'shipped' WHERE status = 'closed';
 UPDATE issues SET status = 'backlog' WHERE status = 'blocked';
+`,
+	},
+	{
+		Version:     31,
+		Description: "Add projects table for first-class project management",
+		SQL: `
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT DEFAULT '',
+    claude_team_name TEXT DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME
+);
+CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
+CREATE INDEX IF NOT EXISTS idx_projects_claude_team ON projects(claude_team_name);
 `,
 	},
 }
